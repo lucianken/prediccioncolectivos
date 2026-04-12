@@ -1,0 +1,12 @@
+services:
+  grabador:
+    build: ./grabador
+    restart: always
+    env_file: .env
+    volumes:
+      - /mnt/buffer/grabaciones:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
