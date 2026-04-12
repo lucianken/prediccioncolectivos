@@ -3,8 +3,15 @@
 *.env
 
 # Datos grabados (muy grandes, solo en NUC)
-data/
 grabador/data/
+
+# Datos ML grandes (en NUC, no se versionan)
+prediccion/data/ml/
+prediccion/data/models/
+prediccion/data/registry/
+
+# Pero SÍ versionar el archivo de shapes estático
+!prediccion/data/line_shapes.json
 
 # Python
 __pycache__/
