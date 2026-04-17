@@ -26,8 +26,15 @@ import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+from typing import Any
+
 import requests
 from google.transit import gtfs_realtime_pb2
+
+# VehicleDict: vehicle field dict (str keys → mixed primitive values from protobuf).
+# Defined as a TypedDict in delta.py; here we keep the runtime-compatible alias
+# so annotations in this file stay valid without importing from delta at module load.
+VehicleDict = dict[str, Any]
 
 # ---------------------------------------------------------------------------
 # Configuración
@@ -86,7 +93,7 @@ def fetch_protobuf(client_id: str, client_secret: str) -> bytes:
     return resp.content
 
 
-def parse_vehicles(data: bytes) -> list[dict]:
+def parse_vehicles(data: bytes) -> list[VehicleDict]:
     """
     Parsea el protobuf GTFS-RT y devuelve lista de dicts con los campos relevantes.
     Filtra por bounds geográficos CABA/GBA.
@@ -131,14 +138,14 @@ def ndjson_path() -> Path:
     return DATA_DIR / f"{date_str}.ndjson.gz"
 
 
-def append_frame(frame: dict) -> None:
+def append_frame(frame: dict[str, Any]) -> None:
     """Escribe una línea JSON al archivo gzip del día."""
     path = ndjson_path()
     with gzip.open(path, "at", encoding="utf-8") as f:
         f.write(json.dumps(frame, ensure_ascii=False) + "\n")
 
 
-def save_state(curr_map: dict) -> None:
+def save_state(curr_map: dict[str, VehicleDict]) -> None:
     """Persiste prev_state en disco para recuperar tras reinicio."""
     tmp = STATE_FILE.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
@@ -146,7 +153,7 @@ def save_state(curr_map: dict) -> None:
     tmp.replace(STATE_FILE)  # reemplazo atómico
 
 
-def load_state() -> tuple[dict, float]:
+def load_state() -> tuple[dict[str, VehicleDict], float]:
     """
     Carga prev_state desde disco.
     Devuelve (vehicles_dict, saved_at_unix_ts).
@@ -247,10 +254,7 @@ def run(max_cycles: int | None = None) -> None:
                     "reason": "restart",
                 }
                 if disk_ok:
-                    try:
-                        append_frame(gap_record)
-                    except Exception as e:
-                        log.error(f"Error escribiendo gap record: {e}")
+                    append_frame(gap_record)
             force_keyframe = False
             prev_state = {v["id"]: v for v in vehicles}
         else:
@@ -258,32 +262,18 @@ def run(max_cycles: int | None = None) -> None:
 
         # --- 5. Escribir al archivo del día ---
         if disk_ok:
-            try:
-                append_frame(frame)
-            except Exception as e:
-                log.error(f"Error escribiendo frame: {e}")
-                # Reintentar una vez
-                try:
-                    append_frame(frame)
-                except Exception as e2:
-                    log.critical(f"Segundo intento fallido al escribir frame: {e2}")
+            append_frame(frame)
 
         # --- 6. Persistir state ---
-        try:
-            save_state(prev_state)
-        except Exception as e:
-            log.error(f"Error guardando state.json: {e}")
+        save_state(prev_state)
 
         # --- 7. Health ---
-        try:
-            touch_health()
-        except Exception as e:
-            log.warning(f"Error tocando health file: {e}")
+        touch_health()
 
         # --- 8. Log del ciclo ---
-        n_new = len(frame.get("new", []))
-        n_del = len(frame.get("del", []))
-        n_upd = len(frame.get("upd", []))
+        n_new = len(frame["new"])
+        n_del = len(frame["del"])
+        n_upd = len(frame["upd"])
         kf_tag = " [KF]" if is_keyframe else ""
         log.info(
             f"ciclo={cycle_count} veh={len(vehicles)} "

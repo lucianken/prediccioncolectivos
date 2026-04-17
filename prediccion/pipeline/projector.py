@@ -23,6 +23,14 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * c
 
 
+def polyline_length_m(points: list[tuple[float, float]]) -> float:
+    """Longitud total de una polilínea en metros (suma de segmentos haversine)."""
+    return sum(
+        haversine_m(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1])
+        for i in range(len(points) - 1)
+    )
+
+
 def project_to_shape(
     lat: float,
     lon: float,

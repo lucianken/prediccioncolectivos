@@ -29,7 +29,7 @@ MIN_POINTS = 5          # trips con menos puntos se descartan
 
 def segment_vehicle_history(
     vehicle_id: str,
-    observations: list[dict],   # lista de fields_dict cronológica
+    observations: list[dict[str, object]],
     gap_threshold_s: int = GAP_THRESHOLD_S,
     min_points: int = MIN_POINTS,
 ) -> list[Trip]:
@@ -72,7 +72,6 @@ def segment_vehicle_history(
         )
 
         if current_trip is None:
-            # Start first trip
             current_trip = Trip(
                 vehicle_id=vehicle_id,
                 route_id=route_id,
@@ -80,7 +79,6 @@ def segment_vehicle_history(
                 start_time=ts,
             )
             current_trip.points.append(point)
-            # Store metadata for comparison
             current_trip._start_time_str = start_time_str  # type: ignore[attr-defined]
             current_trip._start_date = start_date  # type: ignore[attr-defined]
         else:
@@ -112,7 +110,6 @@ def segment_vehicle_history(
             else:
                 current_trip.points.append(point)
 
-    # Don't forget last trip
     if current_trip is not None and len(current_trip.points) >= min_points:
         trips.append(current_trip)
 
@@ -121,34 +118,25 @@ def segment_vehicle_history(
 
 def extract_trips_from_snapshots(
     snapshots: Iterable[tuple[int, dict[str, dict]]],
-    label_line_map: dict[str, str],    # {route_id: line_number}
+    label_line_map: dict[str, str],
 ) -> list[Trip]:
-    """
-    Pipeline completo: snapshots → trips.
-
-    Recolecta observaciones por vehículo en orden, luego llama segment_vehicle_history().
-    Asigna line_number desde label_line_map si route_id está en el mapa.
-    """
-    # Collect observations per vehicle, maintaining chronological order
+    """Recolecta observaciones por vehículo, segmenta en trips y resuelve line_number."""
     vehicle_obs: dict[str, list[dict]] = {}
 
     for ts, state in snapshots:
         for vid, fields in state.items():
             obs = dict(fields)
-            obs["ts"] = obs.get("ts", ts)  # prefer vehicle's own ts, fallback to snapshot ts
+            obs["ts"] = obs.get("ts", ts)
             if vid not in vehicle_obs:
                 vehicle_obs[vid] = []
             vehicle_obs[vid].append(obs)
 
     all_trips: list[Trip] = []
     for vehicle_id, observations in vehicle_obs.items():
-        # Sort by ts just in case
         observations.sort(key=lambda o: o["ts"])
         trips = segment_vehicle_history(vehicle_id, observations)
         for trip in trips:
-            # Assign line_number from route_id
-            route_id = trip.route_id
-            trip.line_number = label_line_map.get(route_id)
+            trip.line_number = label_line_map.get(trip.route_id)
             all_trips.append(trip)
 
     return all_trips

@@ -3,6 +3,12 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from prediccion.pipeline.projector import haversine_m, polyline_length_m, project_to_shape
+
+if TYPE_CHECKING:
+    from prediccion.inference.fleet_cache import LiveVehicle
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +36,6 @@ class ShapeLoader:
 
     async def load(self) -> None:
         """Carga el JSON desde URL o archivo."""
-        from prediccion.pipeline.projector import haversine_m
-
         if self._source.startswith("http"):
             import httpx
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -47,11 +51,7 @@ class ShapeLoader:
             ramales = []
             for r in data.get("ramales", []):
                 pts = [tuple(p) for p in r["points"]]
-                # Calcular length_m
-                length_m = sum(
-                    haversine_m(pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1])
-                    for i in range(len(pts) - 1)
-                )
+                length_m = polyline_length_m(pts)
                 ramal_id = f"{line}-{r['direction']}"
                 ramales.append(Ramal(
                     line=line,
@@ -80,7 +80,6 @@ class ShapeLoader:
         Returns (ramal, dist_along_m, perp_error_m) del mejor (menor perp_error).
         None si perp_error > 150m para TODOS.
         """
-        from prediccion.pipeline.projector import project_to_shape
         ramales = self.get_ramales(line)
         if not ramales:
             return None
@@ -103,12 +102,11 @@ class ShapeLoader:
 
     def project_vehicles_to_ramal(
         self,
-        vehicles,  # list[LiveVehicle]
+        vehicles: list["LiveVehicle"],
         ramal: Ramal,
         max_perp_error_m: float = 150.0,
-    ) -> list[tuple]:  # [(vehicle, dist_along_m), ...]
+    ) -> list[tuple["LiveVehicle", float]]:
         """Proyecta lista de vehículos al ramal. Filtra los que están muy lejos."""
-        from prediccion.pipeline.projector import project_to_shape
         result = []
         for v in vehicles:
             dist, perp = project_to_shape(v.lat, v.lon, ramal.points)

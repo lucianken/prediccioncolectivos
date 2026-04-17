@@ -2,10 +2,17 @@ import gzip
 import json
 import re
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
+
+# VehicleFields: one vehicle's field dict as stored in the NDJSON state.
+# Values are primitives (str, int, float) read back from JSON.
+VehicleFields = dict[str, Any]
+
+# SnapshotState: {vehicle_id: VehicleFields} — the reconstructed fleet state at a moment.
+SnapshotState = dict[str, VehicleFields]
 
 
-def iter_frames(filepath: Path) -> Iterator[dict]:
+def iter_frames(filepath: Path) -> Iterator[dict[str, Any]]:
     """
     Itera frames del NDJSON.gz, uno por línea.
     Incluye todos los tipos: keyframe, delta, gap record.
@@ -26,7 +33,7 @@ def iter_frames(filepath: Path) -> Iterator[dict]:
 def reconstruct_snapshots(
     filepath: Path,
     interval_s: int = 300,
-) -> Iterator[tuple[int, dict[str, dict]]]:
+) -> Iterator[tuple[int, SnapshotState]]:
     """
     Reconstruye el estado de la flota aplicando keyframes y deltas.
     Yields (timestamp, state_dict) donde state_dict = {vehicle_id: fields_dict}.
@@ -40,7 +47,7 @@ def reconstruct_snapshots(
     Nota: en keyframe, los vehículos en frame["new"] son dicts con campo "id".
     State: {vehicle_id: {todos los campos del vehículo}}
     """
-    state: dict[str, dict] = {}
+    state: SnapshotState = {}
     last_yield_t: int = 0
 
     for frame in iter_frames(filepath):
@@ -75,11 +82,7 @@ def reconstruct_snapshots(
 
 
 def iter_daily_files(data_dir: Path) -> Iterator[Path]:
-    """
-    Itera *.ndjson.gz en data_dir, ordenados por nombre (cronológico).
-    Solo archivos con nombre YYYY-MM-DD.ndjson.gz (ignora otros).
-    Patron: re.match(YYYY-MM-DD.ndjson.gz pattern, filename)
-    """
+    """Itera *.ndjson.gz en data_dir, ordenados por nombre (cronológico). Solo YYYY-MM-DD.ndjson.gz."""
     pattern = re.compile(r"^\d{4}-\d{2}-\d{2}\.ndjson\.gz$")
     files = [
         p for p in data_dir.iterdir()

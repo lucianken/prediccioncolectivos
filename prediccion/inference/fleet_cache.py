@@ -3,6 +3,7 @@ import logging
 import time
 import httpx
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -105,38 +106,34 @@ class FleetCache:
                 logger.warning(f"FleetCache: error de refresh: {e}")
 
     async def _refresh_loop(self) -> None:
-        """Loop infinito de refresh."""
         while True:
             await asyncio.sleep(self._refresh_interval)
             await self._do_refresh()
 
-    def _parse_vehicle_positions(self, raw_data: list[dict]) -> dict[str, LiveVehicle]:
+    def _parse_vehicle_positions(self, raw_data: list[dict[str, Any]]) -> dict[str, LiveVehicle]:
         """Convierte respuesta de /api/vehiclePositions a dict de LiveVehicle."""
         result = {}
         for item in raw_data:
-            try:
-                # Intentar varios nombres de campo posibles
-                vid = str(item.get("VP_vehicle_id") or item.get("id") or "")
-                if not vid:
-                    continue
-                lat = float(item.get("VP_latitude") or item.get("lat") or 0)
-                lon = float(item.get("VP_longitude") or item.get("lon") or 0)
-                # Filtrar fuera de bounding box
-                if not (LAT_MIN <= lat <= LAT_MAX and LON_MIN <= lon <= LON_MAX):
-                    continue
-                route_id = str(item.get("VP_route_id") or item.get("route_id") or "")
-                direction_id = int(item.get("VP_direction_id") or item.get("direction_id") or 0)
-                speed = float(item.get("VPS_speed") or item.get("speed") or 0.0)
-                ts = int(item.get("VP_timestamp") or item.get("ts") or time.time())
-                label = str(item.get("LD_label") or item.get("VP_label") or item.get("label") or "")
-                line_number = item.get("LD_linea") or item.get("line_number")
-                if line_number is not None:
-                    line_number = str(line_number)
-                result[vid] = LiveVehicle(
-                    id=vid, route_id=route_id, direction_id=direction_id,
-                    lat=lat, lon=lon, speed=speed, ts=ts,
-                    label=label, line_number=line_number,
-                )
-            except (ValueError, TypeError, KeyError):
+            # Intentar varios nombres de campo posibles
+            vid = str(item.get("VP_vehicle_id") or item.get("id") or "")
+            if not vid:
                 continue
+            lat = float(item.get("VP_latitude") or item.get("lat") or 0)
+            lon = float(item.get("VP_longitude") or item.get("lon") or 0)
+            # Filtrar fuera de bounding box
+            if not (LAT_MIN <= lat <= LAT_MAX and LON_MIN <= lon <= LON_MAX):
+                continue
+            route_id = str(item.get("VP_route_id") or item.get("route_id") or "")
+            direction_id = int(item.get("VP_direction_id") or item.get("direction_id") or 0)
+            speed = float(item.get("VPS_speed") or item.get("speed") or 0.0)
+            ts = int(item.get("VP_timestamp") or item.get("ts") or time.time())
+            label = str(item.get("LD_label") or item.get("VP_label") or item.get("label") or "")
+            line_number = item.get("LD_linea") or item.get("line_number")
+            if line_number is not None:
+                line_number = str(line_number)
+            result[vid] = LiveVehicle(
+                id=vid, route_id=route_id, direction_id=direction_id,
+                lat=lat, lon=lon, speed=speed, ts=ts,
+                label=label, line_number=line_number,
+            )
         return result

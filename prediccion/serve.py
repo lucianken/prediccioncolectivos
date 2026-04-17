@@ -13,12 +13,13 @@ import argparse
 import sys
 from pathlib import Path
 
+from prediccion.pipeline.shapes_io import DEFAULT_SHAPES_PATH as _DEFAULT_SHAPES
+
 
 def main():
     parser = argparse.ArgumentParser(description="Servidor de predicción ETA")
     parser.add_argument("--model", required=True, type=Path)
-    parser.add_argument("--a3-model", type=Path, default=None)
-    parser.add_argument("--shapes-url", required=True)
+    parser.add_argument("--shapes-url", default=str(_DEFAULT_SHAPES))
     parser.add_argument("--fleet-url", required=True)
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", default="0.0.0.0")
@@ -34,14 +35,12 @@ def main():
 
     app.state.config = {
         "model_path": args.model,
-        "a3_model_path": str(args.a3_model) if args.a3_model else None,
         "shapes_url": args.shapes_url,
         "fleet_url": args.fleet_url,
     }
 
     print(f"Arrancando servidor en http://{args.host}:{args.port}")
     print(f"  Modelo: {args.model}")
-    print(f"  A3: {args.a3_model or 'no disponible (usando A1)'}")
     print(f"  Shapes: {args.shapes_url}")
     print(f"  Docs: http://localhost:{args.port}/docs")
 

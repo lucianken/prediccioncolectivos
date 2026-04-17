@@ -1,13 +1,17 @@
 from pathlib import Path
+from typing import TYPE_CHECKING
 import json
 import time
+
+if TYPE_CHECKING:
+    from prediccion.models.a1_baseline import A1Baseline
 
 
 def train_phase1(
     ml_dir: Path,
     output_dir: Path,
     val_fraction: float = 0.2,
-) -> dict:
+) -> dict[str, object]:
     """
     Entrena A1Baseline y evalúa sobre val.parquet.
     Returns métricas dict.
@@ -18,24 +22,21 @@ def train_phase1(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    train_parquet = ml_dir / "training" / "model2_eta" / "train.parquet"
-    val_parquet = ml_dir / "training" / "model2_eta" / "val.parquet"
+    train_parquet = ml_dir / "training" / "eta_train.parquet"
+    val_parquet = ml_dir / "training" / "eta_val.parquet"
 
     start = time.time()
 
     model = A1Baseline()
     model.fit(train_parquet)
 
-    metrics = {"n_train": 0, "n_val": 0, "mae_s": None, "mae_min": None}
+    metrics: dict[str, object] = {"n_train": 0, "n_val": 0, "mae_s": None, "mae_min": None}
 
-    try:
-        import duckdb
-        con = duckdb.connect()
-        n_train = con.execute(f"SELECT COUNT(*) FROM read_parquet('{train_parquet}')").fetchone()[0]
-        metrics["n_train"] = n_train
-        con.close()
-    except Exception:
-        pass
+    import duckdb
+    con = duckdb.connect()
+    n_train = con.execute(f"SELECT COUNT(*) FROM read_parquet('{train_parquet}')").fetchone()[0]
+    metrics["n_train"] = n_train
+    con.close()
 
     if val_parquet.exists():
         eval_metrics = evaluate_a1(model, val_parquet)
@@ -57,10 +58,9 @@ def train_phase1(
     return metrics
 
 
-def evaluate_a1(model, val_parquet) -> dict:
+def evaluate_a1(model: "A1Baseline", val_parquet: Path) -> dict[str, object]:
     """Evalúa A1Baseline sobre val.parquet."""
     import duckdb
-    import time as t
 
     path = str(val_parquet)
     con = duckdb.connect()
@@ -77,9 +77,9 @@ def evaluate_a1(model, val_parquet) -> dict:
         return {"mae_s": None, "mae_min": None, "n_val": 0}
 
     errors = []
-    bucket_errors = {"0_500m": [], "500m_2km": [], "2km_plus": []}
+    bucket_errors: dict[str, list[float]] = {"0_500m": [], "500m_2km": [], "2km_plus": []}
     n_negative = 0
-    now = int(t.time())
+    now = int(time.time())
 
     for ramal_id, seg_idx, dist_remaining_m, hour_sin, hour_cos, dow, observed_eta_s in rows:
         eta, conf = model.predict(ramal_id, 0.0, dist_remaining_m, now)
@@ -120,8 +120,8 @@ def evaluate_a1(model, val_parquet) -> dict:
 
 
 def train_phase2(
-    ml_dir,
-    output_dir,
+    ml_dir: Path,
+    output_dir: Path,
     line: str,
     n_ramales: int,
     epochs: int = 100,
@@ -129,7 +129,7 @@ def train_phase2(
     lr: float = 1e-3,
     device: str = "cuda",
     patience: int = 10,
-) -> dict:
+) -> dict[str, object]:
     """
     Entrena RamalIdModel para una línea específica.
     - Loss: CrossEntropyLoss
@@ -138,10 +138,7 @@ def train_phase2(
     - Guarda best checkpoint + ONNX
     """
     import torch
-    import torch.nn as nn
-    import time as time_mod
     from prediccion.models.ramal_id import RamalIdModel
-    from prediccion.models import check_data_sufficiency, DataInsufficientError
 
     ml_dir = Path(ml_dir)
     output_dir = Path(output_dir)
@@ -163,14 +160,14 @@ def train_phase2(
 
 
 def train_phase3(
-    ml_dir,
-    output_dir,
+    ml_dir: Path,
+    output_dir: Path,
     epochs: int = 50,
     batch_size: int = 256,
     lr: float = 1e-3,
     device: str = "cuda",
     patience: int = 8,
-) -> dict:
+) -> dict[str, object]:
     """
     Entrena A3ETAModel.
     - Loss: L1Loss
@@ -179,7 +176,6 @@ def train_phase3(
     - Early stopping
     """
     import torch
-    import time as time_mod
     from prediccion.models.a3_eta import A3ETAModel
 
     ml_dir = Path(ml_dir)
@@ -204,10 +200,10 @@ def train_phase3(
 
 def save_onnx(
     model,
-    path,
+    path: Path,
     example_inputs: tuple,
-    input_names: list,
-    output_names: list = None,
+    input_names: list[str],
+    output_names: list[str] | None = None,
     opset_version: int = 17,
 ) -> None:
     """Exporta modelo PyTorch a ONNX y verifica con onnxruntime."""

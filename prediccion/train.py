@@ -21,13 +21,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from prediccion.pipeline.shapes_io import DEFAULT_SHAPES_PATH as _DEFAULT_SHAPES
+
 
 def main():
     parser = argparse.ArgumentParser(description="Entrenamiento ML para predicción ETA")
     parser.add_argument("--phase", type=int, choices=[1, 2, 3], default=1)
     parser.add_argument("--data-dir", type=Path, default=None)
     parser.add_argument("--ml-dir", type=Path, required=True)
-    parser.add_argument("--shapes-url", default=None)
+    parser.add_argument("--shapes-url", default=str(_DEFAULT_SHAPES))
     parser.add_argument("--lines", default=None)
     parser.add_argument("--line", default=None, help="Línea específica para Phase 2")
     parser.add_argument("--validate-projection", action="store_true")

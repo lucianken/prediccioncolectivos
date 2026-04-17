@@ -1,16 +1,12 @@
 import pickle
 import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
+from prediccion.pipeline.features import get_segment_index, SEGMENT_SIZE_M
 
-def _hour_sin_cos_to_hour(hour_sin: float, hour_cos: float) -> int:
-    """Convierte encoding cíclico de vuelta a hora entera 0-23."""
-    import math
-    angle = math.atan2(hour_sin, hour_cos)
-    hour = angle * 24 / (2 * math.pi)
-    if hour < 0:
-        hour += 24
-    return int(round(hour)) % 24
+_TZ_BA = ZoneInfo("America/Argentina/Buenos_Aires")
 
 
 class A1Baseline:
@@ -24,10 +20,10 @@ class A1Baseline:
     """
 
     def __init__(self):
-        self._table: dict = {}           # {(ramal_id, seg_idx, hour, dow): avg_speed}
-        self._fallback_l2: dict = {}     # {(ramal_id, hour, dow): avg_speed}
-        self._fallback_l3: dict = {}     # {(ramal_id, hour): avg_speed}
-        self._fallback_global: dict = {} # {ramal_id: avg_speed}
+        self._table: dict[tuple[str, int, int, int], float] = {}
+        self._fallback_l2: dict[tuple[str, int, int], float] = {}
+        self._fallback_l3: dict[tuple[str, int], float] = {}
+        self._fallback_global: dict[str, float] = {}
         self._model_version: str = ""
 
     def fit(self, train_parquet) -> "A1Baseline":
@@ -43,20 +39,30 @@ class A1Baseline:
         path = str(train_parquet)
         con = duckdb.connect()
 
+        # Decodifica el encoding cíclico hour_sin/hour_cos a hora entera 0-23.
+        # hour_sin/hour_cos = sin/cos(2π·h/24), así que h = atan2(sin,cos)·24/(2π).
+        _HOUR_EXPR = (
+            "CAST(ROUND("
+            "  CASE"
+            "    WHEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) < 0"
+            "    THEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) + 24"
+            "    ELSE ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265)"
+            "  END"
+            ") AS INTEGER) % 24"
+        )
+
+        _WHERE = "WHERE observed_eta_s > 0 AND dist_remaining_m > 0"
+        _AVG   = "AVG(dist_remaining_m / observed_eta_s) AS avg_speed"
+        _FROM  = f"FROM read_parquet('{path}')"
+
         # Nivel 1: exacto
         rows = con.execute(f"""
             SELECT ramal_id, seg_idx,
-                   CAST(ROUND(
-                       CASE
-                           WHEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) < 0
-                           THEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) + 24
-                           ELSE ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265)
-                       END
-                   ) AS INTEGER) % 24 AS hour,
+                   {_HOUR_EXPR} AS hour,
                    dow,
-                   AVG(dist_remaining_m / observed_eta_s) AS avg_speed
-            FROM read_parquet('{path}')
-            WHERE observed_eta_s > 0 AND dist_remaining_m > 0
+                   {_AVG}
+            {_FROM}
+            {_WHERE}
             GROUP BY ramal_id, seg_idx, hour, dow
         """).fetchall()
 
@@ -67,17 +73,11 @@ class A1Baseline:
         # Nivel 2: (ramal_id, hour, dow)
         rows2 = con.execute(f"""
             SELECT ramal_id,
-                   CAST(ROUND(
-                       CASE
-                           WHEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) < 0
-                           THEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) + 24
-                           ELSE ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265)
-                       END
-                   ) AS INTEGER) % 24 AS hour,
+                   {_HOUR_EXPR} AS hour,
                    dow,
-                   AVG(dist_remaining_m / observed_eta_s) AS avg_speed
-            FROM read_parquet('{path}')
-            WHERE observed_eta_s > 0 AND dist_remaining_m > 0
+                   {_AVG}
+            {_FROM}
+            {_WHERE}
             GROUP BY ramal_id, hour, dow
         """).fetchall()
 
@@ -88,16 +88,10 @@ class A1Baseline:
         # Nivel 3: (ramal_id, hour)
         rows3 = con.execute(f"""
             SELECT ramal_id,
-                   CAST(ROUND(
-                       CASE
-                           WHEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) < 0
-                           THEN ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265) + 24
-                           ELSE ATAN2(hour_sin, hour_cos) * 24 / (2 * 3.14159265)
-                       END
-                   ) AS INTEGER) % 24 AS hour,
-                   AVG(dist_remaining_m / observed_eta_s) AS avg_speed
-            FROM read_parquet('{path}')
-            WHERE observed_eta_s > 0 AND dist_remaining_m > 0
+                   {_HOUR_EXPR} AS hour,
+                   {_AVG}
+            {_FROM}
+            {_WHERE}
             GROUP BY ramal_id, hour
         """).fetchall()
 
@@ -158,14 +152,12 @@ class A1Baseline:
         Predice ETA en segundos desde dist_vehicle_m hasta dist_target_m.
         Returns (eta_seconds, confidence).
         """
-        from prediccion.pipeline.features import get_segment_index, encode_time
-
         if dist_target_m <= dist_vehicle_m:
             return 0.0, "high"
 
-        time_enc = encode_time(timestamp_unix)
-        hour = _hour_sin_cos_to_hour(time_enc["hour_sin"], time_enc["hour_cos"])
-        dow = time_enc["dow"]
+        dt = datetime.fromtimestamp(timestamp_unix, tz=_TZ_BA)
+        hour = dt.hour
+        dow = dt.weekday()
 
         MIN_SPEED = 0.5
         MAX_ETA = 7200.0
@@ -175,7 +167,6 @@ class A1Baseline:
         CONFIDENCE_RANK = {"high": 0, "medium": 1, "low": 2}
 
         # Iterar por segmentos de 500m
-        from prediccion.pipeline.features import SEGMENT_SIZE_M
         current = dist_vehicle_m
         while current < dist_target_m:
             seg_end = min(current + SEGMENT_SIZE_M, dist_target_m)
@@ -201,11 +192,7 @@ class A1Baseline:
         dist_m: float,
         timestamp_unix: int,
     ) -> tuple[float, str]:
-        """
-        Estima headway histórico cuando no hay bus visible.
-        Implementación simplificada: 10 min default con confidence low.
-        """
-        # Estimación simple: headway de 10 minutos
+        """Estima headway histórico cuando no hay bus visible. Fallback fijo de 10 min."""
         return 600.0, "low"
 
     def save(self, path) -> None:

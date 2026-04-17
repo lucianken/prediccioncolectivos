@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .segmenter import Trip
+    from prediccion.types import ETATrainingRow, TimeFeatures
 
 TZ_BA = ZoneInfo("America/Argentina/Buenos_Aires")
 SEGMENT_SIZE_M = 500.0   # granulado para A1 lookup table
 
 
-def encode_time(timestamp_unix: int) -> dict:
+def encode_time(timestamp_unix: int) -> "TimeFeatures":
     """
     Convierte unix timestamp a features temporales cíclicas.
     Returns: {
@@ -42,7 +43,7 @@ def make_training_rows_eta(
     trip: "Trip",
     ramal_id: str,
     shape_length_m: float,
-) -> list[dict]:
+) -> "list[ETATrainingRow]":
     """
     Genera filas de entrenamiento para el modelo de ETA.
 
@@ -94,99 +95,3 @@ def make_training_rows_eta(
 
     return rows
 
-
-def make_training_rows_ramal(
-    trips_by_vehicle: dict[str, list["Trip"]],
-    snapshot_ts: int,
-    ramal_labels: dict[str, str],   # {vehicle_id: ramal_id} — de RamalEngine
-    route_id_ranks: dict[str, int], # {route_id: rank} — del RouteIdRegistry
-) -> dict | None:
-    """
-    Genera un ejemplo de entrenamiento para el modelo de ramal ID.
-
-    Input: snapshot de todos los vehículos de una línea en snapshot_ts.
-    Para cada vehículo: toma los últimos 40 puntos de su trip activo.
-
-    Returns dict (o None si < 3 vehículos etiquetados):
-      {
-        "fleet": [[lat_norm, lon_norm, speed, route_id_rank, direction_id], ...],
-        "histories": [[[dist_norm, speed, dt], ...], ...],  # (n_vehicles, ≤40, 3)
-        "labels": [ramal_idx, ...]  # entero, índice de ramal
-      }
-
-    lat_norm = lat - lat_mean_linea (centrar elimina drift geográfico)
-    dist_norm = dist_along_shape_m / shape_length_m (normalizar 0-1)
-    Si no hay shape_length_m disponible, usar 1.0 como fallback.
-    """
-    # Collect labeled vehicles
-    labeled_vehicles = []
-    for vehicle_id, trips in trips_by_vehicle.items():
-        if vehicle_id not in ramal_labels:
-            continue
-        # Find the active trip at snapshot_ts
-        active_trip = None
-        for trip in trips:
-            if not trip.points:
-                continue
-            if trip.points[0].ts <= snapshot_ts <= trip.points[-1].ts:
-                active_trip = trip
-                break
-        if active_trip is None:
-            # Use the most recent trip before snapshot_ts
-            for trip in reversed(trips):
-                if trip.points and trip.points[-1].ts <= snapshot_ts:
-                    active_trip = trip
-                    break
-        if active_trip is None:
-            continue
-        labeled_vehicles.append((vehicle_id, active_trip, ramal_labels[vehicle_id]))
-
-    if len(labeled_vehicles) < 3:
-        return None
-
-    # Compute lat mean for normalization
-    all_lats = []
-    for _, trip, _ in labeled_vehicles:
-        for pt in trip.points[-40:]:
-            all_lats.append(pt.lat)
-    lat_mean = sum(all_lats) / len(all_lats) if all_lats else 0.0
-
-    # Collect unique ramal ids and create index
-    ramal_ids_seen = sorted(set(ramal_id for _, _, ramal_id in labeled_vehicles))
-    ramal_idx_map = {rid: i for i, rid in enumerate(ramal_ids_seen)}
-
-    fleet = []
-    histories = []
-    labels = []
-
-    for vehicle_id, trip, ramal_id in labeled_vehicles:
-        last_points = trip.points[-40:]
-        if not last_points:
-            continue
-
-        # Fleet feature: use last point
-        last_pt = last_points[-1]
-        route_rank = route_id_ranks.get(trip.route_id, 0)
-        lat_norm = last_pt.lat - lat_mean
-        # Use last point's lon as-is (could also center, but spec says lat_norm)
-        fleet.append([lat_norm, last_pt.lon, last_pt.speed, route_rank, trip.direction_id])
-
-        # History features
-        hist = []
-        shape_length = 1.0  # fallback
-        for pt in last_points:
-            dist_norm = pt.dist_along_shape_m / shape_length if pt.dist_along_shape_m >= 0 else 0.0
-            dt = snapshot_ts - pt.ts
-            hist.append([dist_norm, pt.speed, dt])
-        histories.append(hist)
-
-        labels.append(ramal_idx_map[ramal_id])
-
-    if len(labels) < 3:
-        return None
-
-    return {
-        "fleet": fleet,
-        "histories": histories,
-        "labels": labels,
-    }

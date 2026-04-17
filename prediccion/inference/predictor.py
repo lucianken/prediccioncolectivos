@@ -85,7 +85,6 @@ class ETAPredictor:
             if headway_pred:
                 all_predictions.append(headway_pred)
 
-        # Ordenar por eta ASC
         all_predictions.sort(key=lambda p: p.eta_seconds)
         return all_predictions[:max_results]
 
@@ -106,7 +105,7 @@ class ETAPredictor:
             model_used = "a3_onnx"
         else:
             eta, conf = self._a1.predict(ramal.ramal_id, dist_vehicle_m, dist_user_m, now)
-            model_used = self._a1.model_version if hasattr(self._a1, "model_version") else "a1"
+            model_used = self.model_version
 
         # Distancia del vehículo al usuario sobre el shape
         dist_to_user = dist_user_m - dist_vehicle_m
@@ -136,10 +135,7 @@ class ETAPredictor:
             return None
 
         now = int(time.time())
-        try:
-            headway, conf = self._a1.get_historical_headway(ramal.ramal_id, dist_user_m, now)
-        except Exception:
-            return None
+        headway, conf = self._a1.get_historical_headway(ramal.ramal_id, dist_user_m, now)
 
         return ArrivalPrediction(
             vehicle_id=None,
