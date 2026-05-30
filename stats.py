@@ -34,12 +34,49 @@ def human_delta(seconds):
     return f"{seconds/3600:.1f}h"
 
 
-def analyze_file(path, full=False):
+_cache = None
+_cache_path = None
+_cache_dirty = False
+
+def _load_cache(data_dir):
+    global _cache, _cache_path
+    _cache_path = Path(data_dir) / "stats_cache.json"
+    if _cache_path.exists():
+        try:
+            with open(_cache_path) as f:
+                _cache = json.load(f)
+        except Exception:
+            _cache = {}
+    else:
+        _cache = {}
+
+def _save_cache():
+    global _cache_dirty
+    if _cache_dirty and _cache_path is not None:
+        try:
+            with open(_cache_path, "w") as f:
+                json.dump(_cache, f)
+            _cache_dirty = False
+        except Exception:
+            pass
+
+def analyze_file(path, full=False, today=False):
     """
     Lee un .ndjson.gz y retorna estadísticas.
     full=False: solo cuenta KF/deltas/gaps con búsqueda de substring (rápido).
     full=True:  parsea JSON completo para vehículos, bytes, timestamps (lento).
+    Usa cache para archivos históricos (today=False).
     """
+    global _cache_dirty
+
+    key = Path(path).name
+    mtime = int(os.path.getmtime(path))
+
+    if not today and _cache is not None:
+        cached = _cache.get(key)
+        if cached and cached.get("_mtime") == mtime and (full == cached.get("_full", False) or not full):
+            return {k: v for k, v in cached.items() if not k.startswith("_")}
+
     keyframes = 0
     deltas = 0
     gaps = 0
@@ -53,7 +90,7 @@ def analyze_file(path, full=False):
                     keyframes += 1
                 elif line.strip():
                     deltas += 1
-        return {
+        result = {
             "keyframes": keyframes,
             "deltas": deltas,
             "gaps": gaps,
@@ -62,6 +99,10 @@ def analyze_file(path, full=False):
             "avg_kf_veh": 0, "avg_delta_upd": 0,
             "duration_s": 0, "first_ts": None, "last_ts": None,
         }
+        if not today and _cache is not None:
+            _cache[key] = {**result, "_mtime": mtime, "_full": False}
+            _cache_dirty = True
+        return result
 
     kf_bytes = 0
     delta_bytes = 0
@@ -96,7 +137,7 @@ def analyze_file(path, full=False):
     avg_kf_veh = int(sum(vehicles_per_kf) / len(vehicles_per_kf)) if vehicles_per_kf else 0
     avg_delta_upd = int(sum(vehicles_per_delta) / len(vehicles_per_delta)) if vehicles_per_delta else 0
 
-    return {
+    result = {
         "keyframes": keyframes,
         "deltas": deltas,
         "gaps": gaps,
@@ -109,6 +150,10 @@ def analyze_file(path, full=False):
         "first_ts": first_ts,
         "last_ts": last_ts,
     }
+    if not today and _cache is not None:
+        _cache[key] = {**result, "_mtime": mtime, "_full": True}
+        _cache_dirty = True
+    return result
 
 
 def check_container():
@@ -141,6 +186,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--detail", action="store_true", help="Desglose por día")
     args = parser.parse_args()
+
+    _load_cache(DATA_DIR)
 
     files = sorted(glob.glob(os.path.join(DATA_DIR, "*.ndjson.gz")))
     if not files:
@@ -199,7 +246,7 @@ def main():
     today_file = next((f for f, d in zip(files, dates) if d == today_str), None)
     if today_file:
         print(f"\n[HOY — {today_str}]")
-        st = analyze_file(today_file, full=True)
+        st = analyze_file(today_file, full=True, today=True)
         file_mb = os.path.getsize(today_file) / 1e6
         raw_mb = (st["kf_bytes"] + st["delta_bytes"]) / 1e6
         ratio = raw_mb / file_mb if file_mb else 0
@@ -221,13 +268,15 @@ def main():
         print(f"  {'Fecha':<14} {'Tamaño':>10} {'Ciclos':>8} {'KF':>6} {'Deltas':>8} {'Gaps':>6}")
         print(f"  {'-'*14} {'-'*10} {'-'*8} {'-'*6} {'-'*8} {'-'*6}")
         for fpath, fsize, fdate in zip(files, sizes, dates):
+            is_today = fdate == today_str
             try:
-                st = analyze_file(fpath, full=False)
+                st = analyze_file(fpath, full=False, today=is_today)
                 gap_str = str(st["gaps"]) if st["gaps"] else "-"
                 print(f"  {fdate:<14} {fmt_mb(fsize):>10} {st['total_cycles']:>8} {st['keyframes']:>6} {st['deltas']:>8} {gap_str:>6}")
             except Exception as e:
                 print(f"  {fdate:<14} {fmt_mb(fsize):>10}   (error: {e})")
 
+    _save_cache()
     print()
 
 
