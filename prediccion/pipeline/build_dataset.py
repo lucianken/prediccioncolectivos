@@ -47,7 +47,7 @@ def _compute_shape_lengths(shapes: dict) -> dict[str, float]:
         for ramal in line_data.get("ramales", []):
             pts = [tuple(p) for p in ramal["points"]]
             if len(pts) >= 2:
-                ramal_id = f"{line_num}-{ramal.get('direction', 0)}"
+                ramal_id = f"{line_num}-{ramal.get('direction', 0)}-{ramal.get('name', '')}"
                 lengths[ramal_id] = polyline_length_m(pts)
     return lengths
 
@@ -72,14 +72,16 @@ def _process_daily_file(
     from prediccion.pipeline.projector import project_trip, ShapeIndex
     from prediccion.pipeline.features import make_training_rows_eta
 
-    # Precomputar ShapeIndex por (línea, dirección) — se reutiliza para todos los trips
-    shape_indices: dict[tuple[str, int], ShapeIndex] = {}
+    # Precomputar lista de ShapeIndex por (línea, dirección).
+    # Hay múltiples ramales por dirección → intentamos todos y elegimos el mejor.
+    shape_indices: dict[tuple[str, int], list[tuple[str, ShapeIndex]]] = {}
     for line_num, line_data in shapes.items():
         for ramal in line_data.get("ramales", []):
             pts = [tuple(p) for p in ramal["points"]]
             if len(pts) >= 2:
                 key = (line_num, ramal.get("direction", 0))
-                shape_indices[key] = ShapeIndex(pts)
+                ramal_id = f"{line_num}-{ramal.get('direction', 0)}-{ramal.get('name', '')}"
+                shape_indices.setdefault(key, []).append((ramal_id, ShapeIndex(pts)))
 
     day_vehicle_obs: dict[str, list[dict]] = {
         vid: list(obs) for vid, obs in vehicle_obs_carry.items()
@@ -116,23 +118,42 @@ def _process_daily_file(
         line_num = trip.line_number
         if line_num not in shapes:
             continue
-        idx = shape_indices.get((line_num, trip.direction_id))
-        if idx is None:
+        candidates = shape_indices.get((line_num, trip.direction_id))
+        if not candidates:
             continue
-        pt = project_trip(trip, [], shape_index=idx)
-        if not pt.points:
+
+        # Proyectar sobre todos los ramales de esa dirección, elegir el de menor perp mediana
+        best_trip = None
+        best_ramal_id = None
+        best_median_perp = float("inf")
+        for ramal_id, idx in candidates:
+            import copy
+            candidate_trip = copy.copy(trip)
+            candidate_trip.points = list(trip.points)
+            projected = project_trip(candidate_trip, [], shape_index=idx)
+            if not projected.points:
+                continue
+            perps = [p.perp_error_m for p in projected.points]
+            median_perp = sorted(perps)[len(perps) // 2]
+            if median_perp < best_median_perp:
+                best_median_perp = median_perp
+                best_trip = projected
+                best_ramal_id = ramal_id
+
+        if best_trip is None:
             continue
 
         trips_by_line.setdefault(line_num, []).append({
-            "vehicle_id": pt.vehicle_id,
-            "route_id": pt.route_id,
-            "direction_id": pt.direction_id,
-            "start_time": pt.start_time,
-            "line_number": pt.line_number or "",
-            "n_points": len(pt.points),
+            "vehicle_id": best_trip.vehicle_id,
+            "route_id": best_trip.route_id,
+            "direction_id": best_trip.direction_id,
+            "start_time": best_trip.start_time,
+            "line_number": best_trip.line_number or "",
+            "ramal_id": best_ramal_id,
+            "n_points": len(best_trip.points),
         })
-        ramal_id = f"{line_num}-{pt.direction_id}"
-        rows = make_training_rows_eta(pt, ramal_id, shape_lengths.get(ramal_id, 1.0))
+        shape_len = shape_lengths.get(best_ramal_id, shape_lengths.get(f"{line_num}-{trip.direction_id}", 1.0))
+        rows = make_training_rows_eta(best_trip, best_ramal_id, shape_len)
         if rows:
             eta_by_line.setdefault(line_num, []).extend(rows)
 
