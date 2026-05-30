@@ -153,9 +153,7 @@ Para línea 39 específicamente (~40-60 vehículos activos en hora pico):
 | Tarea | Mínimo | Bueno | Óptimo |
 |-------|--------|-------|--------|
 | Ramal ID (Model 1) | 1 mes | 3 meses | 6 meses |
-| ETA baseline estadístico | 1 mes | 2 meses | 3 meses |
 | ETA con tráfico (Model 2) | 3 meses | 6 meses | 12 meses |
-| ETA estacional (verano/invierno) | 6 meses | 12 meses | 18 meses |
 
 **Por qué 3 meses para ramal ID:** el algoritmo geográfico ya resuelve los vehículos que pasaron la zona de divergencia. Con 3 meses tenés ~3 rotaciones de route_id y miles de viajes etiquetados automáticamente. El modelo necesita ver variación, no solo volumen.
 
@@ -380,8 +378,8 @@ Dado un snapshot de todos los vehículos de la línea 39, ¿qué ramal es cada v
 │    → PerVehicleEncoder (Transformer pequeño)         │
 │    → vehicle_embedding (dim=128)                     │
 │    +                                                 │
-│    (route_id_rank, direction_id)                     │
-│    → embedding lookup (dim=32)                       │
+│    route_id_rank → Embedding(max_ranks=32, dim=24)   │
+│    direction_id  → Embedding(2, dim=8)               │
 │    → concat → vehicle_token (dim=160)                │
 │                                                      │
 │  Sobre toda la flota:                                │
@@ -391,8 +389,7 @@ Dado un snapshot de todos los vehículos de la línea 39, ¿qué ramal es cada v
 │                                                      │
 │  Por vehículo:                                       │
 │    → Linear(160, n_ramales)                          │
-│    → softmax                                         │
-│    → probabilidad de cada ramal                      │
+│    → logits (softmax en inferencia, fuera del modelo)│
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -647,11 +644,9 @@ Output: segundos hasta el target
 
 **En avenidas en rush hour:** la diferencia entre "martes 18:00 histórico" y "este martes 18:00 con embotellamiento real" puede ser 5-10 min. A3 lo ve, A2 no.
 
-**Es un modelo unificado para todas las líneas.** El input es posición normalizada sobre el shape + fleet_state de la agencia — no line-specific. Entrena con datos de todas las líneas simultáneamente → 21M ejemplos en 3 meses.
-
 ### El modelo correcto: predictor de "cuándo pasa el próximo bus"
 
-**Corrección de diseño:** el Modelo 2 no es un "predictor de ETA de un bus corriendo". Es un **predictor de cuándo pasa el próximo bus del ramal por el target del usuario**. Un bus visible es una feature de alta calidad, no un prerequisito.
+El Modelo 2 no es un "predictor de ETA de un bus corriendo". Es un **predictor de cuándo pasa el próximo bus del ramal por el target del usuario**. Un bus visible es una feature de alta calidad, no un prerequisito.
 
 El dataset contiene, para cada punto de cada shape, todos los timestamps en que pasó un bus. Eso es la distribución empírica de inter-arrivals. El modelo puede aprender "martes 8am, 39-1 en este punto → bus cada 8-12 min" puramente desde features temporales, sin necesitar un bus activo.
 
@@ -803,9 +798,7 @@ df.groupby(['ramal', 'hour_of_day', 'day_of_week']).sample(n=1000, random_state=
   models/
     ramal_id_v1.onnx        # 2026-06-15
     ramal_id_v2.onnx        # 2026-07-08 (post primera rotación)
-    eta_39_v1.onnx
-    eta_42_v1.onnx
-    ...
+    eta_a3_v1.onnx          # modelo unificado, todas las líneas
   registry/
     route_id_registry.json  # route_ids activos por línea y período
 ```
@@ -910,12 +903,9 @@ Esta es la hoja de ruta ordenada por balance de esfuerzo vs reducción de error.
 - DuckDB: calcular headways históricos reales por (ramal, hora, día) — cuánto tarda en pasar el próximo colectivo
 - Calcular tiempos de viaje históricos por (ramal, segmento_500m, hora, día) — base para A1 y prior de A3
 
-**Aclaración sobre OBA:** cuando OBA tiene un bus activo con GPS, ya proyecta posición sobre el shape y estima ETA con ~1-2 min de error en condiciones normales. A1 estadístico solo no es una mejora significativa sobre eso — ambos hacen básicamente lo mismo con distintos datos de velocidad.
-
-**Dónde A1 sí agrega valor real:**
-1. **"Próximo colectivo" sin bus visible:** OBA usa frecuencias del schedule (incorrectas en CABA). A1 usa headways reales históricos observados. Acá la diferencia puede ser grande.
-2. **Baseline de medición:** referencia para cuantificar cuánto mejora A3.
-3. **Baseline de medición:** necesario para saber cuánto mejora A3.
+**Dónde A1 agrega valor real** (ver sección 7b para comparación completa con OBA):
+1. **"Próximo colectivo" sin bus visible:** OBA usa frecuencias del schedule (incorrectas en CABA). A1 usa headways históricos reales. La diferencia puede ser grande.
+2. **Baseline de medición:** cuantifica cuánto mejora A3.
 
 **Por qué esta fase primero:** construir el pipeline de datos (reconstrucción, segmentación, proyección) es prerequisito para Fase 2 y 3. El valor inmediato es el pipeline, no A1 en sí.
 
@@ -1027,9 +1017,9 @@ Model 1 output:  ramal_id = "39-1"   (o override manual, o RamalEngine)
                      ↓
 Shape lookup:    polilínea del ramal "39-1"
                      ↓
-Proyección GPS → distance_along_route, traffic_cells_ahead
+Proyección GPS → distance_along_route
                      ↓
-Model 2 input:   [distance_remaining, speed_history, traffic_cells, time_of_day]
+Model 2 input:   [distance_remaining, speed_history, fleet_state, time_of_day]
                  ← NO recibe el string "39-1", solo sus consecuencias geométricas
 ```
 
@@ -1056,11 +1046,7 @@ Model 2 input:   [distance_remaining, speed_history, traffic_cells, time_of_day]
 - **A1 estadístico:** inmune. DuckDB agrega sobre todos los datos disponibles; los gaps solo reducen el n muestral de algunos segmentos/horas sin introducir sesgo (salvo que los cortes ocurran siempre en el mismo horario, lo cual es improbable).
 - **Impacto cuantitativo con 5% downtime (2-3 cortes cortos/mes):** ~1.3 días perdidos/mes. Sin sesgo sistemático. El equivalente de 3 meses de datos se acumula en ~3.1 meses reales.
 
-**Resolución temporal de 30 segundos:** la API actualiza cada 30s. Esto define el granulado mínimo del sistema:
-- A 30 km/h → 250m por ciclo → es el granulado mínimo observable en posición y velocidad
-- La `speed` reportada es el promedio de los últimos 30s, no la velocidad instantánea
-- No se puede detectar comportamiento sub-30s: si el colectivo esperó 20s en una parada o arrancó lento, solo se ve el desplazamiento neto del ciclo
-- El modelo predice ETA a un punto target continuo (distancia en metros sobre el shape), nunca a waypoints fijos
+**Resolución temporal de 30 segundos:** ver Revisión 2 (inicio del documento) y sección 7. Granulado mínimo ~250m/ciclo a 30 km/h; `speed` es promedio del período; no se modela comportamiento sub-30s.
 
 **LABEL_LINE_MAP.json y VP_label:** el mapeo sufijo del label → línea es robusto y ya está resuelto. El ramal ID usa esto como base: primero identificar la línea (resuelto), luego identificar el ramal dentro de esa línea (Modelo 1).
 
