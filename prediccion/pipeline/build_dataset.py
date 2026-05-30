@@ -5,19 +5,20 @@ Uso:
   python -m prediccion.pipeline.build_dataset \\
     --data-dir "\\\\192.168.0.18\\buffer\\grabaciones" \\
     --ml-dir data\\ml \\
-    --lines 39,42,151
+    --lines 39
 
 Pasos que corre:
-  [1/4] Cargar shapes desde --shapes-url (URL o path local)
+  [1/4] Cargar shapes para las líneas solicitadas
   [2/4] (Opcional) validate_projection — aborta si P90 perp_error > 150m
-  [3/4] NDJSON → trips → features ETA por día (streaming, cacheado en days/)
-  [4/4] Merge de días cacheados → eta_train.parquet / eta_val.parquet
+  [3/4] NDJSON → trips → features ETA por día y por línea (streaming, cacheado)
+  [4/4] Merge de caché → eta_train.parquet / eta_val.parquet
 
-Caché: cada día completo se guarda en ml-dir/training/days/YYYY-MM-DD.parquet
-con TODAS las líneas. El filtro --lines se aplica solo al merge final.
-Si el parquet del día ya existe, se saltea el procesamiento del NDJSON.
-
-El archivo del día de hoy siempre se excluye (está incompleto).
+Caché: training/days/{linea}/YYYY-MM-DD.parquet
+  - El NDJSON de cada día se lee UNA sola vez y genera los parquets de todas
+    las líneas solicitadas en ese run.
+  - Si el parquet de una línea/día ya existe, se saltea.
+  - Agregar una línea nueva solo procesa los días faltantes de esa línea.
+  - El archivo del día de hoy siempre se excluye (está incompleto).
 
 Split temporal: primeros 80% de días → eta_train.parquet, resto → eta_val.parquet.
 """
@@ -58,8 +59,14 @@ def _process_daily_file(
     shape_lengths: dict[str, float],
     interval_s: int,
     vehicle_obs_carry: dict,
-) -> tuple[list[dict], list[dict], dict]:
-    """Procesa un archivo NDJSON.gz y retorna (eta_rows, trip_rows, nuevo_carry)."""
+) -> tuple[dict[str, list], dict[str, list], dict]:
+    """
+    Procesa un archivo NDJSON.gz en un solo pase.
+    Retorna:
+      eta_by_line:   {line_num: [eta_row, ...]}
+      trips_by_line: {line_num: [trip_row, ...]}
+      nuevo_carry:   {vehicle_id: [obs, ...]}
+    """
     from prediccion.pipeline.reader import reconstruct_snapshots
     from prediccion.pipeline.segmenter import segment_vehicle_history
     from prediccion.pipeline.projector import project_trip
@@ -86,16 +93,21 @@ def _process_daily_file(
             cutoff = observations[-1]["ts"] - _CARRY_WINDOW_S
             new_carry[vid] = [o for o in observations if o["ts"] >= cutoff]
 
-    eta_rows = []
-    trip_rows = []
+    eta_by_line: dict[str, list] = {}
+    trips_by_line: dict[str, list] = {}
+
     for trip in day_trips:
-        shape_pts = _get_shape_points(shapes, trip.line_number or trip.route_id, trip.direction_id)
+        line_num = trip.line_number
+        if line_num not in shapes:
+            continue
+        shape_pts = _get_shape_points(shapes, line_num, trip.direction_id)
         if not shape_pts:
             continue
         pt = project_trip(trip, shape_pts)
         if not pt.points:
             continue
-        trip_rows.append({
+
+        trips_by_line.setdefault(line_num, []).append({
             "vehicle_id": pt.vehicle_id,
             "route_id": pt.route_id,
             "direction_id": pt.direction_id,
@@ -103,11 +115,12 @@ def _process_daily_file(
             "line_number": pt.line_number or "",
             "n_points": len(pt.points),
         })
-        ramal_id = f"{pt.line_number or pt.route_id}-{pt.direction_id}"
+        ramal_id = f"{line_num}-{pt.direction_id}"
         rows = make_training_rows_eta(pt, ramal_id, shape_lengths.get(ramal_id, 1.0))
-        eta_rows.extend(rows)
+        if rows:
+            eta_by_line.setdefault(line_num, []).extend(rows)
 
-    return eta_rows, trip_rows, new_carry
+    return eta_by_line, trips_by_line, new_carry
 
 
 def run_build_dataset(
@@ -122,17 +135,18 @@ def run_build_dataset(
     try:
         import pyarrow as pa
         import pyarrow.parquet as pq
-        import pyarrow.compute as pc
     except ImportError:
         logger.error("pyarrow not installed. Run: pip install -r requirements-train.txt")
         sys.exit(1)
 
     from prediccion.pipeline.reader import iter_daily_files
 
-    # [1/4] Load shapes — SIN filtrar por --lines (el caché guarda todas las líneas)
+    # [1/4] Cargar shapes solo para las líneas solicitadas
     print("[1/4] Cargando shapes desde:", shapes_url)
-    shapes = _load_shapes(shapes_url)
-    print(f"      {len(shapes)} líneas disponibles")
+    all_shapes = _load_shapes(shapes_url)
+    shapes = {k: v for k, v in all_shapes.items() if lines is None or k in lines}
+    lines_to_process = list(shapes.keys())
+    print(f"      Procesando {len(lines_to_process)} línea(s): {', '.join(lines_to_process)}")
 
     label_line_map = _build_label_line_map(shapes)
 
@@ -156,115 +170,126 @@ def run_build_dataset(
     else:
         print("[2/4] Saltando validación (usar --validate-projection para activar)")
 
-    # Create output dirs
+    # Crear directorios de caché por línea
     trips_dir = ml_dir / "trips"
     training_dir = ml_dir / "training"
-    day_cache_dir = training_dir / "days"
-    trip_cache_dir = trips_dir / "days"
-    for d in [trips_dir, training_dir, day_cache_dir, trip_cache_dir]:
-        d.mkdir(parents=True, exist_ok=True)
+    for line_num in lines_to_process:
+        (training_dir / "days" / line_num).mkdir(parents=True, exist_ok=True)
+        (trips_dir / "days" / line_num).mkdir(parents=True, exist_ok=True)
 
     shape_lengths = _compute_shape_lengths(shapes)
 
-    # Filtrar hoy (archivo parcial) y ordenar
+    # Filtrar hoy (archivo parcial)
     today_name = f"{date.today().isoformat()}.ndjson.gz"
     all_daily_files = list(iter_daily_files(data_dir))
     daily_files = [f for f in all_daily_files if f.name != today_name]
     if len(all_daily_files) != len(daily_files):
         print(f"      Excluido {today_name} (día parcial)")
-
     if not daily_files:
         print("ERROR: No se encontraron archivos NDJSON.gz", file=sys.stderr)
         sys.exit(1)
 
-    # [3/4] Caché por día: si ya existe el Parquet del día, se saltea el NDJSON
-    print(f"[3/4] Procesando días (caché en {day_cache_dir})...")
+    # [3/4] Caché por día × línea
+    print(f"[3/4] Procesando {len(daily_files)} días...")
     vehicle_obs_carry: dict[str, list[dict]] = {}
-    total_trips = 0
-    total_eta_rows = 0
+    total_new_days = 0
 
     for fp in daily_files:
         day_key = fp.stem  # "2026-03-28"
-        day_cache = day_cache_dir / f"{day_key}.parquet"
-        trip_cache = trip_cache_dir / f"{day_key}.parquet"
 
-        if day_cache.exists():
+        missing = [
+            ln for ln in lines_to_process
+            if not (training_dir / "days" / ln / f"{day_key}.parquet").exists()
+        ]
+
+        if not missing:
             print(f"      {fp.name}: [cached]")
-            # El carry-forward se pierde al saltear días, pero es aceptable:
-            # el segmenter maneja trips que cruzan días vía el carry en runs frescos.
             vehicle_obs_carry = {}
             continue
 
-        eta_rows, trip_rows_day, vehicle_obs_carry = _process_daily_file(
+        eta_by_line, trips_by_line, vehicle_obs_carry = _process_daily_file(
             fp, shapes, label_line_map, shape_lengths, interval_s, vehicle_obs_carry
         )
-        total_trips += len(trip_rows_day)
-        total_eta_rows += len(eta_rows)
 
-        # Escribir atómicamente: .tmp → rename
-        if eta_rows:
-            tmp = day_cache.with_suffix(".tmp.parquet")
-            pq.write_table(pa.Table.from_pylist(eta_rows), tmp)
-            tmp.rename(day_cache)
+        for line_num in missing:
+            eta_rows = eta_by_line.get(line_num, [])
+            trip_rows = trips_by_line.get(line_num, [])
 
-        if trip_rows_day:
-            tmp = trip_cache.with_suffix(".tmp.parquet")
-            pq.write_table(pa.Table.from_pylist(trip_rows_day), tmp)
-            tmp.rename(trip_cache)
+            eta_path = training_dir / "days" / line_num / f"{day_key}.parquet"
+            trip_path = trips_dir / "days" / line_num / f"{day_key}.parquet"
 
-        print(f"      {fp.name}: {len(trip_rows_day)} trips, {len(eta_rows)} filas ETA")
+            if eta_rows:
+                tmp = eta_path.with_suffix(".tmp.parquet")
+                pq.write_table(pa.Table.from_pylist(eta_rows), tmp)
+                tmp.rename(eta_path)
+            else:
+                # Escribir parquet vacío para marcar el día como procesado
+                eta_path.touch()
 
-    print(f"      Total nuevos: {total_trips} trips, {total_eta_rows} filas ETA")
+            if trip_rows:
+                tmp = trip_path.with_suffix(".tmp.parquet")
+                pq.write_table(pa.Table.from_pylist(trip_rows), tmp)
+                tmp.rename(trip_path)
 
-    # [4/4] Merge de días cacheados → eta_train.parquet / eta_val.parquet
-    print("[4/4] Merge de días → train/val...")
-    all_day_caches = sorted(day_cache_dir.glob("*.parquet"))
-    if not all_day_caches:
-        print("WARN: No hay días cacheados para hacer merge", file=sys.stderr)
+        summary = ", ".join(
+            f"L{ln}:{len(eta_by_line.get(ln, []))} filas"
+            for ln in missing
+        )
+        print(f"      {fp.name}: {summary}")
+        total_new_days += 1
+
+    print(f"      {total_new_days} días nuevos procesados")
+
+    # [4/4] Merge → eta_train.parquet / eta_val.parquet
+    print("[4/4] Merge de caché → train/val...")
+
+    # Tomar el conjunto de días disponibles para todas las líneas (unión)
+    all_day_keys: set[str] = set()
+    for line_num in lines_to_process:
+        for p in (training_dir / "days" / line_num).glob("*.parquet"):
+            all_day_keys.add(p.stem)
+    sorted_days = sorted(all_day_keys)
+
+    if not sorted_days:
+        print("WARN: No hay días cacheados", file=sys.stderr)
         return
 
-    split_idx = max(1, int(len(all_day_caches) * 0.8))
-    train_days = all_day_caches[:split_idx]
-    val_days = all_day_caches[split_idx:]
-    print(f"      {len(all_day_caches)} días: {len(train_days)} train / {len(val_days)} val")
-    if lines:
-        print(f"      Filtrando líneas: {', '.join(lines)}")
+    split_idx = max(1, int(len(sorted_days) * 0.8))
+    train_days = sorted_days[:split_idx]
+    val_days = sorted_days[split_idx:]
+    print(f"      {len(sorted_days)} días: {len(train_days)} train / {len(val_days)} val")
 
-    for subset, out_name in [(train_days, "eta_train.parquet"), (val_days, "eta_val.parquet")]:
+    for day_subset, out_name in [(train_days, "eta_train.parquet"), (val_days, "eta_val.parquet")]:
         out_path = training_dir / out_name
         writer = None
         row_count = 0
-        for dp in subset:
-            tbl = pq.read_table(dp)
-            if lines:
-                mask = pc.is_in(tbl.column("line_number"), value_set=pa.array(lines))
-                tbl = tbl.filter(mask)
-            if len(tbl) == 0:
-                continue
-            if writer is None:
-                writer = pq.ParquetWriter(out_path, tbl.schema)
-            writer.write_table(tbl)
-            row_count += len(tbl)
+        for day_key in day_subset:
+            for line_num in lines_to_process:
+                day_path = training_dir / "days" / line_num / f"{day_key}.parquet"
+                if not day_path.exists() or day_path.stat().st_size == 0:
+                    continue
+                tbl = pq.read_table(day_path)
+                if len(tbl) == 0:
+                    continue
+                if writer is None:
+                    writer = pq.ParquetWriter(out_path, tbl.schema)
+                writer.write_table(tbl)
+                row_count += len(tbl)
         if writer:
             writer.close()
         print(f"      {out_name}: {row_count} filas")
 
-    # Trips summary merge
-    all_trip_caches = sorted(trip_cache_dir.glob("*.parquet"))
-    if all_trip_caches:
-        tables = []
-        for dp in all_trip_caches:
-            tbl = pq.read_table(dp)
-            if lines:
-                mask = pc.is_in(tbl.column("line_number"), value_set=pa.array(lines))
-                tbl = tbl.filter(mask)
-            if len(tbl) > 0:
-                tables.append(tbl)
-        if tables:
-            import pyarrow as pa
-            merged = pa.concat_tables(tables)
-            pq.write_table(merged, trips_dir / "trips_summary.parquet")
-            print(f"      trips_summary.parquet: {len(merged)} filas")
+    # Trips summary
+    all_trip_tables = []
+    for line_num in lines_to_process:
+        for p in sorted((trips_dir / "days" / line_num).glob("*.parquet")):
+            if p.stat().st_size > 0:
+                all_trip_tables.append(pq.read_table(p))
+    if all_trip_tables:
+        import pyarrow as pa
+        merged = pa.concat_tables(all_trip_tables)
+        pq.write_table(merged, trips_dir / "trips_summary.parquet")
+        print(f"      trips_summary.parquet: {len(merged)} trips")
 
     print("Done.")
 
