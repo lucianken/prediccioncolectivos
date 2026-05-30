@@ -10,8 +10,14 @@ Uso:
 Pasos que corre:
   [1/4] Cargar shapes desde --shapes-url (URL o path local)
   [2/4] (Opcional) validate_projection — aborta si P90 perp_error > 150m
-  [3/4] NDJSON → trips → features ETA (streaming día a día, sin acumular en RAM)
-  [4/4] Trips summary → Parquet en ml-dir/trips/
+  [3/4] NDJSON → trips → features ETA por día (streaming, cacheado en days/)
+  [4/4] Merge de días cacheados → eta_train.parquet / eta_val.parquet
+
+Caché: cada día completo se guarda en ml-dir/training/days/YYYY-MM-DD.parquet
+con TODAS las líneas. El filtro --lines se aplica solo al merge final.
+Si el parquet del día ya existe, se saltea el procesamiento del NDJSON.
+
+El archivo del día de hoy siempre se excluye (está incompleto).
 
 Split temporal: primeros 80% de días → eta_train.parquet, resto → eta_val.parquet.
 """
@@ -19,6 +25,7 @@ Split temporal: primeros 80% de días → eta_train.parquet, resto → eta_val.p
 import argparse
 import logging
 import sys
+from datetime import date
 from pathlib import Path
 
 from prediccion.pipeline.shapes_io import (
@@ -44,6 +51,65 @@ def _compute_shape_lengths(shapes: dict) -> dict[str, float]:
     return lengths
 
 
+def _process_daily_file(
+    fp: Path,
+    shapes: dict,
+    label_line_map: dict,
+    shape_lengths: dict[str, float],
+    interval_s: int,
+    vehicle_obs_carry: dict,
+) -> tuple[list[dict], list[dict], dict]:
+    """Procesa un archivo NDJSON.gz y retorna (eta_rows, trip_rows, nuevo_carry)."""
+    from prediccion.pipeline.reader import reconstruct_snapshots
+    from prediccion.pipeline.segmenter import segment_vehicle_history
+    from prediccion.pipeline.projector import project_trip
+    from prediccion.pipeline.features import make_training_rows_eta
+
+    day_vehicle_obs: dict[str, list[dict]] = {
+        vid: list(obs) for vid, obs in vehicle_obs_carry.items()
+    }
+    for ts, state in reconstruct_snapshots(fp, interval_s=interval_s):
+        for vid, fields in state.items():
+            obs = dict(fields)
+            obs["ts"] = obs.get("ts", ts)
+            day_vehicle_obs.setdefault(vid, []).append(obs)
+
+    day_trips = []
+    new_carry: dict[str, list[dict]] = {}
+    for vid, observations in day_vehicle_obs.items():
+        observations.sort(key=lambda o: o["ts"])
+        trips = segment_vehicle_history(vid, observations)
+        for trip in trips:
+            trip.line_number = label_line_map.get(trip.route_id)
+        day_trips.extend(trips)
+        if observations:
+            cutoff = observations[-1]["ts"] - _CARRY_WINDOW_S
+            new_carry[vid] = [o for o in observations if o["ts"] >= cutoff]
+
+    eta_rows = []
+    trip_rows = []
+    for trip in day_trips:
+        shape_pts = _get_shape_points(shapes, trip.line_number or trip.route_id, trip.direction_id)
+        if not shape_pts:
+            continue
+        pt = project_trip(trip, shape_pts)
+        if not pt.points:
+            continue
+        trip_rows.append({
+            "vehicle_id": pt.vehicle_id,
+            "route_id": pt.route_id,
+            "direction_id": pt.direction_id,
+            "start_time": pt.start_time,
+            "line_number": pt.line_number or "",
+            "n_points": len(pt.points),
+        })
+        ramal_id = f"{pt.line_number or pt.route_id}-{pt.direction_id}"
+        rows = make_training_rows_eta(pt, ramal_id, shape_lengths.get(ramal_id, 1.0))
+        eta_rows.extend(rows)
+
+    return eta_rows, trip_rows, new_carry
+
+
 def run_build_dataset(
     data_dir: Path,
     ml_dir: Path,
@@ -56,23 +122,17 @@ def run_build_dataset(
     try:
         import pyarrow as pa
         import pyarrow.parquet as pq
+        import pyarrow.compute as pc
     except ImportError:
         logger.error("pyarrow not installed. Run: pip install -r requirements-train.txt")
         sys.exit(1)
 
-    from prediccion.pipeline.reader import iter_daily_files, reconstruct_snapshots
-    from prediccion.pipeline.segmenter import segment_vehicle_history
-    from prediccion.pipeline.projector import project_trip
-    from prediccion.pipeline.features import make_training_rows_eta
+    from prediccion.pipeline.reader import iter_daily_files
 
-    # [1/4] Load shapes
+    # [1/4] Load shapes — SIN filtrar por --lines (el caché guarda todas las líneas)
     print("[1/4] Cargando shapes desde:", shapes_url)
     shapes = _load_shapes(shapes_url)
     print(f"      {len(shapes)} líneas disponibles")
-
-    if lines:
-        shapes = {k: v for k, v in shapes.items() if k in lines}
-        print(f"      Filtrando a {len(shapes)} líneas: {', '.join(shapes.keys())}")
 
     label_line_map = _build_label_line_map(shapes)
 
@@ -99,109 +159,112 @@ def run_build_dataset(
     # Create output dirs
     trips_dir = ml_dir / "trips"
     training_dir = ml_dir / "training"
-    for d in [trips_dir, training_dir]:
+    day_cache_dir = training_dir / "days"
+    trip_cache_dir = trips_dir / "days"
+    for d in [trips_dir, training_dir, day_cache_dir, trip_cache_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
     shape_lengths = _compute_shape_lengths(shapes)
 
-    # [3/4] Streaming día a día: NDJSON → trips → features → Parquet
-    print("[3/4] Procesando NDJSON → Parquet (streaming día a día)...")
-    daily_files = list(iter_daily_files(data_dir))
+    # Filtrar hoy (archivo parcial) y ordenar
+    today_name = f"{date.today().isoformat()}.ndjson.gz"
+    all_daily_files = list(iter_daily_files(data_dir))
+    daily_files = [f for f in all_daily_files if f.name != today_name]
+    if len(all_daily_files) != len(daily_files):
+        print(f"      Excluido {today_name} (día parcial)")
+
     if not daily_files:
         print("ERROR: No se encontraron archivos NDJSON.gz", file=sys.stderr)
         sys.exit(1)
 
-    split_file_idx = max(1, int(len(daily_files) * 0.8))
-    print(f"      {len(daily_files)} archivos: {split_file_idx} train / {len(daily_files) - split_file_idx} val")
-
-    train_writer = None
-    val_writer = None
-    trip_rows = []
+    # [3/4] Caché por día: si ya existe el Parquet del día, se saltea el NDJSON
+    print(f"[3/4] Procesando días (caché en {day_cache_dir})...")
+    vehicle_obs_carry: dict[str, list[dict]] = {}
     total_trips = 0
     total_eta_rows = 0
-    vehicle_obs_carry: dict[str, list[dict]] = {}
 
-    for file_idx, fp in enumerate(daily_files):
-        is_train = file_idx < split_file_idx
+    for fp in daily_files:
+        day_key = fp.stem  # "2026-03-28"
+        day_cache = day_cache_dir / f"{day_key}.parquet"
+        trip_cache = trip_cache_dir / f"{day_key}.parquet"
 
-        # Carry-forward del día anterior + observaciones del día actual
-        day_vehicle_obs: dict[str, list[dict]] = {
-            vid: list(obs) for vid, obs in vehicle_obs_carry.items()
-        }
-        for ts, state in reconstruct_snapshots(fp, interval_s=interval_s):
-            for vid, fields in state.items():
-                obs = dict(fields)
-                obs["ts"] = obs.get("ts", ts)
-                day_vehicle_obs.setdefault(vid, []).append(obs)
+        if day_cache.exists():
+            print(f"      {fp.name}: [cached]")
+            # El carry-forward se pierde al saltear días, pero es aceptable:
+            # el segmenter maneja trips que cruzan días vía el carry en runs frescos.
+            vehicle_obs_carry = {}
+            continue
 
-        # Segmentar y preparar carry-forward para el día siguiente
-        day_trips = []
-        new_carry: dict[str, list[dict]] = {}
-        for vid, observations in day_vehicle_obs.items():
-            observations.sort(key=lambda o: o["ts"])
-            trips = segment_vehicle_history(vid, observations)
-            for trip in trips:
-                trip.line_number = label_line_map.get(trip.route_id)
-            day_trips.extend(trips)
-            if observations:
-                cutoff = observations[-1]["ts"] - _CARRY_WINDOW_S
-                new_carry[vid] = [o for o in observations if o["ts"] >= cutoff]
-        vehicle_obs_carry = new_carry
-
-        # Proyectar sobre shapes y generar features ETA
-        eta_rows = []
-        for trip in day_trips:
-            shape_pts = _get_shape_points(shapes, trip.line_number or trip.route_id, trip.direction_id)
-            if not shape_pts:
-                continue
-            pt = project_trip(trip, shape_pts)
-            if not pt.points:
-                continue
-            trip_rows.append({
-                "vehicle_id": pt.vehicle_id,
-                "route_id": pt.route_id,
-                "direction_id": pt.direction_id,
-                "start_time": pt.start_time,
-                "line_number": pt.line_number or "",
-                "n_points": len(pt.points),
-            })
-            ramal_id = f"{pt.line_number or pt.route_id}-{pt.direction_id}"
-            rows = make_training_rows_eta(pt, ramal_id, shape_lengths.get(ramal_id, 1.0))
-            eta_rows.extend(rows)
-
-        total_trips += len(day_trips)
+        eta_rows, trip_rows_day, vehicle_obs_carry = _process_daily_file(
+            fp, shapes, label_line_map, shape_lengths, interval_s, vehicle_obs_carry
+        )
+        total_trips += len(trip_rows_day)
         total_eta_rows += len(eta_rows)
 
-        # Escribir batch al Parquet correspondiente
+        # Escribir atómicamente: .tmp → rename
         if eta_rows:
-            batch = pa.RecordBatch.from_pylist(eta_rows)
-            if is_train:
-                if train_writer is None:
-                    train_writer = pq.ParquetWriter(training_dir / "eta_train.parquet", batch.schema)
-                train_writer.write_batch(batch)
-            else:
-                if val_writer is None:
-                    val_writer = pq.ParquetWriter(training_dir / "eta_val.parquet", batch.schema)
-                val_writer.write_batch(batch)
+            tmp = day_cache.with_suffix(".tmp.parquet")
+            pq.write_table(pa.Table.from_pylist(eta_rows), tmp)
+            tmp.rename(day_cache)
 
-        split_label = "train" if is_train else "val"
-        print(f"      {fp.name}: {len(day_trips)} trips, {len(eta_rows)} filas [{split_label}]")
+        if trip_rows_day:
+            tmp = trip_cache.with_suffix(".tmp.parquet")
+            pq.write_table(pa.Table.from_pylist(trip_rows_day), tmp)
+            tmp.rename(trip_cache)
 
-    if train_writer:
-        train_writer.close()
-    if val_writer:
-        val_writer.close()
+        print(f"      {fp.name}: {len(trip_rows_day)} trips, {len(eta_rows)} filas ETA")
 
-    print(f"      Total: {total_trips} trips, {total_eta_rows} filas ETA")
+    print(f"      Total nuevos: {total_trips} trips, {total_eta_rows} filas ETA")
 
-    # [4/4] Trips summary
-    print("[4/4] Guardando trips summary...")
-    if trip_rows:
-        trips_table = pa.Table.from_pylist(trip_rows)
-        pq.write_table(trips_table, trips_dir / "trips_summary.parquet")
-        print(f"      {len(trip_rows)} trips → {trips_dir}/trips_summary.parquet")
-    else:
-        print("WARN: No se generaron trips")
+    # [4/4] Merge de días cacheados → eta_train.parquet / eta_val.parquet
+    print("[4/4] Merge de días → train/val...")
+    all_day_caches = sorted(day_cache_dir.glob("*.parquet"))
+    if not all_day_caches:
+        print("WARN: No hay días cacheados para hacer merge", file=sys.stderr)
+        return
+
+    split_idx = max(1, int(len(all_day_caches) * 0.8))
+    train_days = all_day_caches[:split_idx]
+    val_days = all_day_caches[split_idx:]
+    print(f"      {len(all_day_caches)} días: {len(train_days)} train / {len(val_days)} val")
+    if lines:
+        print(f"      Filtrando líneas: {', '.join(lines)}")
+
+    for subset, out_name in [(train_days, "eta_train.parquet"), (val_days, "eta_val.parquet")]:
+        out_path = training_dir / out_name
+        writer = None
+        row_count = 0
+        for dp in subset:
+            tbl = pq.read_table(dp)
+            if lines:
+                mask = pc.is_in(tbl.column("line_number"), value_set=pa.array(lines))
+                tbl = tbl.filter(mask)
+            if len(tbl) == 0:
+                continue
+            if writer is None:
+                writer = pq.ParquetWriter(out_path, tbl.schema)
+            writer.write_table(tbl)
+            row_count += len(tbl)
+        if writer:
+            writer.close()
+        print(f"      {out_name}: {row_count} filas")
+
+    # Trips summary merge
+    all_trip_caches = sorted(trip_cache_dir.glob("*.parquet"))
+    if all_trip_caches:
+        tables = []
+        for dp in all_trip_caches:
+            tbl = pq.read_table(dp)
+            if lines:
+                mask = pc.is_in(tbl.column("line_number"), value_set=pa.array(lines))
+                tbl = tbl.filter(mask)
+            if len(tbl) > 0:
+                tables.append(tbl)
+        if tables:
+            import pyarrow as pa
+            merged = pa.concat_tables(tables)
+            pq.write_table(merged, trips_dir / "trips_summary.parquet")
+            print(f"      trips_summary.parquet: {len(merged)} filas")
 
     print("Done.")
 
