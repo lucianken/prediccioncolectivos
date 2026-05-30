@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=None)
     parser.add_argument("--ml-dir", type=Path, required=True)
     parser.add_argument("--shapes-url", default=str(_DEFAULT_SHAPES))
+    parser.add_argument("--label-map", type=Path, default=Path("LABEL_LINE_MAP.json"))
     parser.add_argument("--lines", default=None)
     parser.add_argument("--line", default=None, help="Línea específica para Phase 2")
     parser.add_argument("--validate-projection", action="store_true")
@@ -71,6 +72,7 @@ def _run_phase1(args):
         shapes_url=args.shapes_url,
         lines=args.lines.split(",") if args.lines else None,
         validate_projection=False,
+        label_map_path=args.label_map,
     )
 
     print("[2/4] Entrenar A1Baseline...")

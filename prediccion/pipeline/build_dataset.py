@@ -32,7 +32,7 @@ from pathlib import Path
 from prediccion.pipeline.shapes_io import (
     load_shapes as _load_shapes,
     get_shape_points as _get_shape_points,
-    build_label_line_map as _build_label_line_map,
+    load_label_line_map as _load_label_line_map,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,8 +69,17 @@ def _process_daily_file(
     """
     from prediccion.pipeline.reader import reconstruct_snapshots
     from prediccion.pipeline.segmenter import segment_vehicle_history
-    from prediccion.pipeline.projector import project_trip
+    from prediccion.pipeline.projector import project_trip, ShapeIndex
     from prediccion.pipeline.features import make_training_rows_eta
+
+    # Precomputar ShapeIndex por (línea, dirección) — se reutiliza para todos los trips
+    shape_indices: dict[tuple[str, int], ShapeIndex] = {}
+    for line_num, line_data in shapes.items():
+        for ramal in line_data.get("ramales", []):
+            pts = [tuple(p) for p in ramal["points"]]
+            if len(pts) >= 2:
+                key = (line_num, ramal.get("direction", 0))
+                shape_indices[key] = ShapeIndex(pts)
 
     day_vehicle_obs: dict[str, list[dict]] = {
         vid: list(obs) for vid, obs in vehicle_obs_carry.items()
@@ -85,9 +94,16 @@ def _process_daily_file(
     new_carry: dict[str, list[dict]] = {}
     for vid, observations in day_vehicle_obs.items():
         observations.sort(key=lambda o: o["ts"])
+
+        # Resolver línea por sufijo del VP_label (ej: "5-1350" → "1350" → "39")
+        # El label es estable dentro de un vehículo; tomamos el primero disponible.
+        raw_label = next((o.get("label", "") for o in observations if o.get("label")), "")
+        suffix = raw_label.split("-")[-1] if raw_label else ""
+        line_number = label_line_map.get(suffix)
+
         trips = segment_vehicle_history(vid, observations)
         for trip in trips:
-            trip.line_number = label_line_map.get(trip.route_id)
+            trip.line_number = line_number
         day_trips.extend(trips)
         if observations:
             cutoff = observations[-1]["ts"] - _CARRY_WINDOW_S
@@ -100,10 +116,10 @@ def _process_daily_file(
         line_num = trip.line_number
         if line_num not in shapes:
             continue
-        shape_pts = _get_shape_points(shapes, line_num, trip.direction_id)
-        if not shape_pts:
+        idx = shape_indices.get((line_num, trip.direction_id))
+        if idx is None:
             continue
-        pt = project_trip(trip, shape_pts)
+        pt = project_trip(trip, [], shape_index=idx)
         if not pt.points:
             continue
 
@@ -130,6 +146,7 @@ def run_build_dataset(
     lines: list[str] | None = None,
     interval_s: int = 30,
     validate_projection: bool = False,
+    label_map_path: Path | None = None,
 ):
     """Lógica principal — importable desde train.py"""
     try:
@@ -141,14 +158,22 @@ def run_build_dataset(
 
     from prediccion.pipeline.reader import iter_daily_files
 
-    # [1/4] Cargar shapes solo para las líneas solicitadas
+    # [1/4] Cargar shapes y mapa de labels
     print("[1/4] Cargando shapes desde:", shapes_url)
     all_shapes = _load_shapes(shapes_url)
     shapes = {k: v for k, v in all_shapes.items() if lines is None or k in lines}
     lines_to_process = list(shapes.keys())
     print(f"      Procesando {len(lines_to_process)} línea(s): {', '.join(lines_to_process)}")
 
-    label_line_map = _build_label_line_map(shapes)
+    # Mapa de sufijo VP_label → line_number (fuente autoritativa)
+    if label_map_path and label_map_path.exists():
+        label_line_map = _load_label_line_map(label_map_path)
+        print(f"      LABEL_LINE_MAP: {len(label_line_map)} sufijos cargados")
+    else:
+        if label_map_path:
+            print(f"WARN: {label_map_path} no encontrado, usando fallback desde shapes", file=sys.stderr)
+        from prediccion.pipeline.shapes_io import build_label_line_map as _build_fallback
+        label_line_map = _build_fallback(shapes)
 
     # [2/4] Optional validation
     if validate_projection:
@@ -297,11 +322,15 @@ def run_build_dataset(
 from prediccion.pipeline.shapes_io import DEFAULT_SHAPES_PATH as _DEFAULT_SHAPES
 
 
+_DEFAULT_LABEL_MAP = Path("LABEL_LINE_MAP.json")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build ML dataset from NDJSON.gz")
     parser.add_argument("--data-dir", required=True, type=Path)
     parser.add_argument("--ml-dir", required=True, type=Path)
     parser.add_argument("--shapes-url", default=str(_DEFAULT_SHAPES))
+    parser.add_argument("--label-map", type=Path, default=_DEFAULT_LABEL_MAP)
     parser.add_argument("--lines", default=None)
     parser.add_argument("--validate-projection", action="store_true")
     parser.add_argument("--interval-s", type=int, default=30)
@@ -314,6 +343,7 @@ def main():
         lines=args.lines.split(",") if args.lines else None,
         interval_s=args.interval_s,
         validate_projection=args.validate_projection,
+        label_map_path=args.label_map,
     )
 
 
