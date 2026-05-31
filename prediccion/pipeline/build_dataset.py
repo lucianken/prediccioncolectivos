@@ -47,8 +47,12 @@ def _compute_shape_lengths(shapes: dict) -> dict[str, float]:
         for ramal in line_data.get("ramales", []):
             pts = [tuple(p) for p in ramal["points"]]
             if len(pts) >= 2:
-                ramal_id = f"{line_num}-{ramal.get('direction', 0)}"
-                lengths[ramal_id] = polyline_length_m(pts)
+                # Naive fallback key
+                lengths[f"{line_num}-{ramal.get('direction', 0)}"] = polyline_length_m(pts)
+                # Exact shape_key (e.g. "39A-d0")
+                short_name = ramal.get("shortName", line_num)
+                direction = ramal.get("direction", 0)
+                lengths[f"{short_name}-d{direction}"] = polyline_length_m(pts)
     return lengths
 
 
@@ -59,6 +63,8 @@ def _process_daily_file(
     shape_lengths: dict[str, float],
     interval_s: int,
     vehicle_obs_carry: dict,
+    ramal_id_map: dict[tuple[str, int], str] | None = None,
+    ramal_key_map: dict[tuple[str, int], str] | None = None,
 ) -> tuple[dict[str, list], dict[str, list], dict]:
     """
     Procesa un archivo NDJSON.gz en un solo pase.
@@ -71,14 +77,18 @@ def _process_daily_file(
     from prediccion.pipeline.projector import project_trip, ShapeIndex
     from prediccion.pipeline.features import make_training_rows_eta
 
-    # Precomputar ShapeIndex por (línea, dirección) — se reutiliza para todos los trips
-    shape_indices: dict[tuple[str, int], ShapeIndex] = {}
+    # Precomputar ShapeIndex por shape_id (exacto) y por (línea, dirección) (naive)
+    shape_indices: dict[str, ShapeIndex] = {}
+    naive_shape_indices: dict[tuple[str, int], ShapeIndex] = {}
     for line_num, line_data in shapes.items():
         for ramal in line_data.get("ramales", []):
             pts = [tuple(p) for p in ramal["points"]]
             if len(pts) >= 2:
-                key = (line_num, ramal.get("direction", 0))
-                shape_indices[key] = ShapeIndex(pts)
+                sh_id = ramal.get("shapeId")
+                if sh_id:
+                    shape_indices[sh_id] = ShapeIndex(pts)
+                naive_key = (line_num, ramal.get("direction", 0))
+                naive_shape_indices[naive_key] = ShapeIndex(pts)
 
     target_lines = set(shapes.keys()) if shapes else set()
     if target_lines:
@@ -139,9 +149,23 @@ def _process_daily_file(
         line_num = trip.line_number
         if line_num not in shapes:
             continue
-        idx = shape_indices.get((line_num, trip.direction_id))
+
+        sh_id = None
+        sh_key = None
+        if ramal_id_map and ramal_key_map:
+            key = (str(trip.route_id), int(trip.direction_id))
+            sh_id = ramal_id_map.get(key)
+            sh_key = ramal_key_map.get(key)
+
+        idx = None
+        if sh_id:
+            idx = shape_indices.get(sh_id)
+        if idx is None:
+            idx = naive_shape_indices.get((line_num, trip.direction_id))
+
         if idx is None:
             continue
+
         pt = project_trip(trip, [], shape_index=idx)
         if not pt.points:
             continue
@@ -154,7 +178,12 @@ def _process_daily_file(
             "line_number": pt.line_number or "",
             "n_points": len(pt.points),
         })
-        ramal_id = f"{line_num}-{pt.direction_id}"
+
+        if sh_key:
+            ramal_id = sh_key
+        else:
+            ramal_id = f"{line_num}-{pt.direction_id}"
+
         rows = make_training_rows_eta(
             pt,
             ramal_id,
@@ -165,6 +194,35 @@ def _process_daily_file(
             eta_by_line.setdefault(line_num, []).extend(rows)
 
     return eta_by_line, trips_by_line, new_carry
+
+
+def load_ramal_map() -> tuple[dict[tuple[str, int], str], dict[tuple[str, int], str]]:
+    """
+    Carga ramal_lookup/ramal_map.json y retorna dos mapeos:
+    1. (route_id, direction_id) -> shape_id
+    2. (route_id, direction_id) -> shape_key (ej: "39A-d0")
+    """
+    import json
+    map_path = Path("ramal_lookup/ramal_map.json")
+    if not map_path.exists():
+        return {}, {}
+    with open(map_path, encoding="utf-8") as f:
+        data = json.load(f)
+    
+    id_map = {}
+    key_map = {}
+    for line_num, line_info in data.get("lines", {}).items():
+        for entry in line_info.get("entries", []):
+            r_id = entry.get("route_id")
+            d_id = entry.get("direction_id")
+            sh_id = entry.get("shape_id")
+            sh_key = entry.get("shape_key")
+            if r_id is not None and d_id is not None:
+                if sh_id:
+                    id_map[(str(r_id), int(d_id))] = sh_id
+                if sh_key:
+                    key_map[(str(r_id), int(d_id))] = sh_key
+    return id_map, key_map
 
 
 def run_build_dataset(
@@ -202,6 +260,11 @@ def run_build_dataset(
             print(f"WARN: {label_map_path} no encontrado, usando fallback desde shapes", file=sys.stderr)
         from prediccion.pipeline.shapes_io import build_label_line_map as _build_fallback
         label_line_map = _build_fallback(shapes)
+
+    # Cargar mapeo exacto de ramales (route_id, direction_id) -> shape_id/shape_key
+    ramal_id_map, ramal_key_map = load_ramal_map()
+    if ramal_id_map:
+        print(f"      Cargado mapeo de ramales exactos: {len(ramal_id_map)} entradas")
 
     # [2/4] Optional validation
     if validate_projection:
@@ -261,7 +324,8 @@ def run_build_dataset(
             continue
 
         eta_by_line, trips_by_line, vehicle_obs_carry = _process_daily_file(
-            fp, shapes, label_line_map, shape_lengths, interval_s, vehicle_obs_carry
+            fp, shapes, label_line_map, shape_lengths, interval_s, vehicle_obs_carry,
+            ramal_id_map=ramal_id_map, ramal_key_map=ramal_key_map,
         )
 
         for line_num in missing:
