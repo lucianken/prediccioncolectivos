@@ -97,6 +97,102 @@
       "method": "q95+cov",
       "assignment_type": "completo",
       "resolved_on": "2026-05-29"
+    },
+    "1978": {
+      "shape_key": "39C-d1",
+      "short_name": "39C",
+      "confidence": 0.984,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "backfill_period2"
+    },
+    "1975": {
+      "shape_key": "39B-d0",
+      "short_name": "39B",
+      "confidence": 0.94,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "backfill_period2"
+    },
+    "1977": {
+      "shape_key": "39C-d0",
+      "short_name": "39C",
+      "confidence": 0.978,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "backfill_period2"
+    },
+    "1973": {
+      "shape_key": "39A-d0",
+      "short_name": "39A",
+      "confidence": 0.918,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "backfill_period2"
+    },
+    "1976": {
+      "shape_key": "39B-d1",
+      "short_name": "39B",
+      "confidence": 0.964,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "backfill_period2"
+    },
+    "1974": {
+      "shape_key": "39A-d1",
+      "short_name": "39A",
+      "confidence": 0.946,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "backfill_period2"
+    },
+    "1980": {
+      "shape_key": "39D-d1",
+      "short_name": "39D",
+      "confidence": 0.23,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "backfill_period2"
+    },
+    "1979": {
+      "shape_key": "39D-d0",
+      "short_name": "39D",
+      "confidence": 0.227,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "backfill_period2"
+    },
+    "1981": {
+      "shape_key": "39E-d0",
+      "short_name": "39E",
+      "confidence": 0.221,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "backfill_period2"
+    },
+    "1983": {
+      "shape_key": "39F-d0",
+      "short_name": "39F",
+      "confidence": 0.219,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "backfill_period2"
+    },
+    "1984": {
+      "shape_key": "39F-d1",
+      "short_name": "39F",
+      "confidence": 0.221,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "backfill_period2"
+    },
+    "1982": {
+      "shape_key": "39E-d1",
+      "short_name": "39E",
+      "confidence": 0.222,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "backfill_period2"
     }
   },
   "pending": {}

@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 import time
+sys.stdout.reconfigure(encoding="utf-8")
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
