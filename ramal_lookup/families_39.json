@@ -1,0 +1,9 @@
+{
+  "line": "39",
+  "description": "Mapa fijo de familias de fraccionados para la línea 39. Fuente: conocimiento del dominio.",
+  "families": {
+    "39A": ["39D"],
+    "39B": ["39E"],
+    "39C": ["39F"]
+  }
+}
