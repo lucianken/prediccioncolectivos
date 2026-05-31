@@ -138,23 +138,27 @@ class ETADataset(Dataset):
         self._fleet_masks = torch.ones(len(valid), 20, dtype=torch.bool)
 
         for idx, i in enumerate(valid):
-            # Llenar trayectoria
+            # Llenar trayectoria de forma robusta
             td = traj_dist_list[i]
             ts = traj_speed_list[i]
             tdt = traj_dt_list[i]
-            sl = min(len(td), 10)
-            self._trajectories[idx, :sl, 0] = torch.tensor(td[:sl], dtype=torch.float32)
-            self._trajectories[idx, :sl, 1] = torch.tensor(ts[:sl], dtype=torch.float32)
-            self._trajectories[idx, :sl, 2] = torch.tensor(tdt[:sl], dtype=torch.float32)
-            self._trajectory_masks[idx, :sl] = False
+            sl = min(len(td), len(ts), len(tdt), 10)
+            if sl > 0:
+                self._trajectories[idx, :sl, 0] = torch.tensor(td[:sl], dtype=torch.float32)
+                self._trajectories[idx, :sl, 1] = torch.tensor(ts[:sl], dtype=torch.float32)
+                self._trajectories[idx, :sl, 2] = torch.tensor(tdt[:sl], dtype=torch.float32)
+                self._trajectory_masks[idx, :sl] = False
 
-            # Llenar flota
+            # Llenar flota de forma robusta
             nf = n_fleet_list[i]
             if nf > 0:
                 flat_f = fleet_flat_list[i]
                 fl = min(nf, 20)
                 for f_idx in range(fl):
-                    self._fleets[idx, f_idx, :] = torch.tensor(flat_f[f_idx*5 : (f_idx+1)*5], dtype=torch.float32)
+                    chunk = flat_f[f_idx*5 : (f_idx+1)*5]
+                    if len(chunk) < 5:
+                        chunk = chunk + [0.0] * (5 - len(chunk))
+                    self._fleets[idx, f_idx, :] = torch.tensor(chunk, dtype=torch.float32)
                     self._fleet_masks[idx, f_idx] = False
 
     def __len__(self) -> int:
