@@ -274,7 +274,7 @@ def run_build_dataset(
             if eta_rows:
                 tmp = eta_path.with_suffix(".tmp.parquet")
                 pq.write_table(pa.Table.from_pylist(eta_rows), tmp)
-                tmp.rename(eta_path)
+                tmp.replace(eta_path)
             else:
                 # Escribir parquet vacío para marcar el día como procesado
                 eta_path.touch()
@@ -282,7 +282,7 @@ def run_build_dataset(
             if trip_rows:
                 tmp = trip_path.with_suffix(".tmp.parquet")
                 pq.write_table(pa.Table.from_pylist(trip_rows), tmp)
-                tmp.rename(trip_path)
+                tmp.replace(trip_path)
 
         summary = ", ".join(
             f"L{ln}:{len(eta_by_line.get(ln, []))} filas"
