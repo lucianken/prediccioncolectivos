@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-31T00:00:00",
+  "generated_at": "2026-05-31T13:07:11.596123",
   "note": "Bootstrap desde explorer + lookup existentes. Mantener con runner incremental.",
   "lines": {
     "124": {
@@ -2796,11 +2796,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 12451,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39C-d0",
+          "short_name": "39C",
+          "confidence": 0.9774197748748016,
+          "method": "q95+cov",
+          "assignment_status": "resolved",
+          "assignment_type": "completo"
         },
         {
           "route_id": "1949",
@@ -2813,11 +2814,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 11046,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39B-d0",
+          "short_name": "39B",
+          "confidence": 0.9161710784818288,
+          "method": "q95+cov",
+          "assignment_status": "resolved",
+          "assignment_type": "completo"
         },
         {
           "route_id": "1952",
@@ -2830,11 +2832,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 11705,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39C-d1",
+          "short_name": "39C",
+          "confidence": 0.9858402546786212,
+          "method": "q95+cov",
+          "assignment_status": "resolved",
+          "assignment_type": "completo"
         },
         {
           "route_id": "1950",
@@ -2847,11 +2850,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 10922,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39B-d1",
+          "short_name": "39B",
+          "confidence": 0.9658474451785576,
+          "method": "q95+cov",
+          "assignment_status": "resolved",
+          "assignment_type": "completo"
         },
         {
           "route_id": "1947",
@@ -2864,11 +2868,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 7920,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39A-d0",
+          "short_name": "39A",
+          "confidence": 0.8909008217324869,
+          "method": "q95+cov",
+          "assignment_status": "resolved",
+          "assignment_type": "completo"
         },
         {
           "route_id": "1948",
@@ -2881,11 +2886,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 5234,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39A-d1",
+          "short_name": "39A",
+          "confidence": 0.9566577844975717,
+          "method": "q95+cov",
+          "assignment_status": "resolved",
+          "assignment_type": "completo"
         },
         {
           "route_id": "1954",
@@ -2898,11 +2904,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 3736,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39D-d1",
+          "short_name": "39D",
+          "confidence": 0.2270303265213085,
+          "method": "coverage_gap",
+          "assignment_status": "resolved",
+          "assignment_type": "fraccionado"
         },
         {
           "route_id": "1956",
@@ -2915,11 +2922,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 260,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39E-d1",
+          "short_name": "39E",
+          "confidence": 0.22133985457681837,
+          "method": "coverage_gap",
+          "assignment_status": "resolved",
+          "assignment_type": "fraccionado"
         },
         {
           "route_id": "1957",
@@ -2932,11 +2940,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 1237,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39F-d0",
+          "short_name": "39F",
+          "confidence": 0.21914055468035598,
+          "method": "coverage_gap",
+          "assignment_status": "resolved",
+          "assignment_type": "fraccionado"
         },
         {
           "route_id": "1955",
@@ -2949,11 +2958,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 1571,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39E-d0",
+          "short_name": "39E",
+          "confidence": 0.21917927605759235,
+          "method": "coverage_gap",
+          "assignment_status": "resolved",
+          "assignment_type": "fraccionado"
         },
         {
           "route_id": "1953",
@@ -2966,11 +2976,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 761,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39D-d0",
+          "short_name": "39D",
+          "confidence": 0.22532928476791858,
+          "method": "coverage_gap",
+          "assignment_status": "resolved",
+          "assignment_type": "fraccionado"
         },
         {
           "route_id": "1958",
@@ -2983,11 +2994,12 @@
           "last_seen": "2026-05-29",
           "obs_count": 259,
           "status": "active",
-          "shape_key": null,
-          "short_name": null,
-          "confidence": null,
-          "method": null,
-          "assignment_status": "unresolved"
+          "shape_key": "39F-d1",
+          "short_name": "39F",
+          "confidence": 0.2142387122134175,
+          "method": "coverage_gap",
+          "assignment_status": "resolved",
+          "assignment_type": "fraccionado"
         }
       ],
       "rotation_events": [

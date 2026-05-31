@@ -1,0 +1,103 @@
+{
+  "line": "39",
+  "last_processed_day": "2026-05-29",
+  "resolved": {
+    "1953": {
+      "shape_key": "39D-d0",
+      "short_name": "39D",
+      "confidence": 0.22532928476791858,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "2026-05-29"
+    },
+    "1947": {
+      "shape_key": "39A-d0",
+      "short_name": "39A",
+      "confidence": 0.8909008217324869,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "2026-05-29"
+    },
+    "1956": {
+      "shape_key": "39E-d1",
+      "short_name": "39E",
+      "confidence": 0.22133985457681837,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "2026-05-29"
+    },
+    "1950": {
+      "shape_key": "39B-d1",
+      "short_name": "39B",
+      "confidence": 0.9658474451785576,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "2026-05-29"
+    },
+    "1954": {
+      "shape_key": "39D-d1",
+      "short_name": "39D",
+      "confidence": 0.2270303265213085,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "2026-05-29"
+    },
+    "1957": {
+      "shape_key": "39F-d0",
+      "short_name": "39F",
+      "confidence": 0.21914055468035598,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "2026-05-29"
+    },
+    "1949": {
+      "shape_key": "39B-d0",
+      "short_name": "39B",
+      "confidence": 0.9161710784818288,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "2026-05-29"
+    },
+    "1958": {
+      "shape_key": "39F-d1",
+      "short_name": "39F",
+      "confidence": 0.2142387122134175,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "2026-05-29"
+    },
+    "1951": {
+      "shape_key": "39C-d0",
+      "short_name": "39C",
+      "confidence": 0.9774197748748016,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "2026-05-29"
+    },
+    "1955": {
+      "shape_key": "39E-d0",
+      "short_name": "39E",
+      "confidence": 0.21917927605759235,
+      "method": "coverage_gap",
+      "assignment_type": "fraccionado",
+      "resolved_on": "2026-05-29"
+    },
+    "1948": {
+      "shape_key": "39A-d1",
+      "short_name": "39A",
+      "confidence": 0.9566577844975717,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "2026-05-29"
+    },
+    "1952": {
+      "shape_key": "39C-d1",
+      "short_name": "39C",
+      "confidence": 0.9858402546786212,
+      "method": "q95+cov",
+      "assignment_type": "completo",
+      "resolved_on": "2026-05-29"
+    }
+  },
+  "pending": {}
+}
