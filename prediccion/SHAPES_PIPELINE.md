@@ -2,156 +2,101 @@
 
 ## Qué es `data/line_shapes.json`
 
-Archivo estático (578 KB) con las trayectorias y paradas de las 7 líneas objetivo:
+Archivo estático con las trayectorias y paradas de las líneas objetivo:
 **26, 39, 42, 92, 124, 151, 168**
 
-Este archivo es la única dependencia geográfica del sistema. No requiere internet
-en runtime — se incluye directamente en el repo.
+Es la única dependencia geográfica del sistema. No requiere internet en runtime.
 
 ## Estructura del archivo
 
 ```json
 {
   "39": {
-    "color": "0000ff",
+    "color": "brown",
     "ramales": [
       {
-        "name": "Flores Sur - Retiro",
-        "shortName": "39",
-        "direction": 0,
-        "shapeId": "23555",
-        "points": [[-34.5873, -58.3682], [-34.5875, -58.3683], ...],
+        "name": "Línea 39 - Ramal 1: Barracas → x Córdoba → Chacarita",
+        "shortName": "39A",
+        "shapeId": "382202",
+        "points": [[-34.5873, -58.3682], ...],
         "stops": [
-          { "id": "n454516942", "name": "Av. Rivadavia", "lat": -34.619, "lng": -58.463 }
+          { "id": "n454516942", "name": "Terminal Barracas", "lat": -34.649, "lng": -58.367 }
         ]
-      },
-      {
-        "name": "Retiro - Flores Sur",
-        "shortName": "39",
-        "direction": 1,
-        "shapeId": "23556",
-        "points": [...],
-        "stops": [...]
       }
     ]
   }
 }
 ```
 
-- `points`: Array de `[lat, lon]` — trayectoria completa del ramal ordenada
-- `stops`: Paradas en secuencia GTFS, con nombre y coordenadas
-- `direction`: 0 = ida (outbound), 1 = vuelta (return)
-- `shapeId`: ID del shape en el GTFS de BabusNova (= OSM relation ID)
+- `points`: `[lat, lon]` — trayectoria completa del ramal en orden
+- `stops`: paradas en secuencia, con nombre y coordenadas (nodos OSM `stop_position`)
+- `shapeId`: OSM relation ID (o `frac_XXXX` para fraccionados derivados)
+- `shortName`: `official_ref` de OSM si existe, sino `ref`
 
-## Cómo se generó
+## Fuente de datos
 
-### Fuente de datos
+Todo viene directamente de **OpenStreetMap vía Overpass API**. Sin GTFS, sin BabusNova.
 
-1. **GTFS de BabusNova** — derivado de OpenStreetMap vía [Jungle-Bus/Prism](https://github.com/Jungle-Bus/prism)
-   - `shapes.txt` — trayectorias (~700k líneas para todo AMBA)
-   - `trips.txt` — viajes con headsign y direction_id
-   - `routes.txt` — líneas con nombre corto (ej: "39")
-   - `stops.txt` — paradas con nombre y coordenadas
-   - `stop_times.txt` — secuencia de paradas por viaje
-   - Ubicación local: `../BabusNova/amba-gtfs/output/AMBA_GTFS_filtered/`
+El archivo maestro `osm_lines/osm_lines.json` mapea cada línea a sus OSM relation IDs
+con todos los tags relevantes (ref, official_ref, name, from, to, operator, etc.).
 
-2. **Overpass API** — para obtener el tag `ref` de las OSM relations
-   - Endpoint: `https://overpass-api.de/api/interpreter`
-   - Query: `[out:json][timeout:60]; relation(SHAPE_ID); out tags;`
-   - Propósito: el `ref` de OSM da el nombre oficial del ramal (ej: "39-1", "39A")
-   - Se procesa en lotes de 50 relations para respetar rate limits
+## Scripts — en `osm_lines/`
 
-### Script de generación
-
-`scripts/shapes/build_line_shapes.js` — copia del script original de proyectoconsola.
-
-**Dependencias:** Node.js, `node-fetch` (o fetch nativo en Node 18+)
-
-**Para regenerar:**
-```bash
-# Requiere acceso al GTFS de BabusNova
-cd prediccion/scripts/shapes/
-
-# Editar GTFS_DIR en el script para apuntar al GTFS local:
-# const GTFS_DIR = '../../BabusNova/amba-gtfs/output/AMBA_GTFS_filtered'
-
-node build_line_shapes.js
-
-# Mueve el resultado a data/
-mv line_shapes.json ../../data/line_shapes.json
-```
-
-**Cuándo regenerar:**
-- Cuando OSM actualice los recorridos de las líneas (infrecuente)
-- Si se agregan nuevas líneas al sistema
-- Si el GTFS de BabusNova se regenera con datos corregidos
-
-### Pipeline interno del script
-
-```
-routes.txt ──┐
-trips.txt  ──┤──→ filtrar líneas objetivo (39, 42, etc.)
-              │         │
-              │         ↓
-shapes.txt ──┼──→ cargar solo shapes necesarios (lazy load)
-              │         │
-              │         ↓
-Overpass API ─┤──→ obtener tag ref por shape_id
-              │         │
-stop_times ──┤──→ secuencia de paradas por trip
-stops.txt  ──┘         │
-                        ↓
-                   line_shapes.json
-```
-
-## Cómo usa el sistema estas shapes
-
-### En serve.py (runtime)
-```bash
-# Opción A: archivo local (recomendada, sin dependencias externas)
-python prediccion/serve.py \
-  --model data/models/a1_v1.pkl \
-  --shapes-url prediccion/data/line_shapes.json \
-  --fleet-url http://localhost:3000/api/vehiclePositions
-
-# Opción B: desde proyectoconsola (requiere proyectoconsola corriendo)
-python prediccion/serve.py \
-  --shapes-url http://localhost:3000/api/line-shapes \
-  ...
-```
-
-### En build_dataset / train.py (entrenamiento)
-```bash
-python prediccion/train.py --phase 1 \
-  --shapes-url prediccion/data/line_shapes.json \
-  ...
-```
-
-### En ShapeLoader (código)
-`prediccion/inference/shape_loader.py` detecta automáticamente si `source`
-es una URL (`http://...`) o un path local.
-
-## Agregar nuevas líneas
-
-1. Editar `TARGET_LINES` en `scripts/shapes/build_line_shapes.js`
-2. Verificar que la línea exista en el GTFS de BabusNova (`routes.txt`)
-3. Regenerar `line_shapes.json`
-4. Copiar a `prediccion/data/line_shapes.json`
-5. Correr validación: `python prediccion/scripts/validate_projection.py --line NUEVA_LINEA ...`
-6. Si pasa la validación, re-entrenar el modelo con `train.py --phase 1`
-
-## Fuente del GTFS de BabusNova
-
-El GTFS de BabusNova se genera a partir de OpenStreetMap con Prism:
+### 1. Actualizar el maestro de relaciones OSM
 
 ```bash
-# En BabusNova/amba-gtfs/
-./scripts/01_download_osm.sh   # Descarga datos OSM para AMBA
-./scripts/02_clip_amba.sh       # Recorta al bounding box de AMBA
-./scripts/03_run_prism.sh       # Genera GTFS desde OSM con Prism
+cd "prediccion colectivos"
+python osm_lines/fetch_osm_lines.py             # genera desde cero
+python osm_lines/fetch_osm_lines.py --update    # refresca OSM, preserva campos manuales
 ```
 
-Prism: https://github.com/Jungle-Bus/prism
+Consulta Overpass por todas las `route=bus` en bbox AMBA y guarda en `osm_lines/osm_lines.json`.
 
-**Ventaja sobre GTFS oficial de CABA:** El GTFS oficial está desactualizado.
-BabusNova usa OSM que está mantenido por la comunidad y refleja los recorridos reales.
+### 2. Regenerar line_shapes.json
+
+```bash
+python osm_lines/build_shapes_from_osm.py --lines 26 39 42 92 124 151 168
+```
+
+Para líneas específicas:
+```bash
+python osm_lines/build_shapes_from_osm.py --lines 39
+python osm_lines/build_shapes_from_osm.py --lines all   # todas las del maestro
+```
+
+Output por defecto: `prediccion/data/line_shapes.json`
+
+### 3. Agregar fraccionados de la línea 39
+
+```bash
+python osm_lines/add_fraccionados_39.py
+```
+
+Deriva los ramales D/E/F (Chacarita ↔ Plaza Constitución) a partir de A/B/C
+truncando geometría y paradas en la parada `Plaza Constitución`.
+Es idempotente: limpia fraccionados previos antes de agregar.
+
+## Pipeline completo desde cero
+
+```bash
+# 1. Actualizar maestro OSM (solo si cambiaron los recorridos)
+python osm_lines/fetch_osm_lines.py
+
+# 2. Regenerar shapes para las 7 líneas
+python osm_lines/build_shapes_from_osm.py --lines 26 39 42 92 124 151 168
+
+# 3. Agregar fraccionados del 39
+python osm_lines/add_fraccionados_39.py
+```
+
+## Cuándo regenerar
+
+- Cuando OSM actualice los recorridos de alguna línea (infrecuente)
+- Si se agregan nuevas líneas al sistema (editar `TARGET_LINES` en `build_shapes_from_osm.py`)
+- Si se agregan nuevos fraccionados
+
+## Agregar una nueva línea
+
+1. Verificar que la línea esté en `osm_lines/osm_lines.json` (si no, correr `fetch_osm_lines.py`)
+2. `python osm_lines/build_shapes_from_osm.py --lines NUEVA`
+3. Correr validación: `python prediccion/scripts/validate_projection.py --line NUEVA ...`
