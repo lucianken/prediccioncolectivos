@@ -29,7 +29,11 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from prediccion.pipeline.reader import iter_daily_files, reconstruct_snapshots
+from prediccion.pipeline.reader import (
+    iter_daily_files,
+    reconstruct_line_snapshots,
+    reconstruct_snapshots,
+)
 from prediccion.pipeline.segmenter import segment_vehicle_history
 from prediccion.pipeline.shapes_io import load_label_line_map, load_shapes
 
@@ -40,24 +44,27 @@ from ramal_lookup.route_lookup import (
     load_families,
 )
 
-RETIRE_GAP_DAYS = 7
-INTERVAL_S = 30
+RETIRE_GAP_DAYS  = 7
+INTERVAL_S       = 30
+SKIP_FIRST_DAYS  = 1   # día parcial al inicio del dataset (grabador arranca a mitad del día)
 OUTPUT = Path(__file__).parent / "ramal_map.json"
 
 
 # ── Scan rápido: solo route_ids, sin acumular GPS ─────────────────────────────
 
 def scan_route_ids(fp: Path, line: str, label_line_map: dict) -> dict[str, int]:
-    """Retorna {route_id: direction_id} para la línea, sin procesar GPS."""
+    """Retorna {route_id: direction_id} para la línea, sin procesar GPS.
+
+    Usa reconstruct_line_snapshots para mantener en memoria solo los vehículos
+    de la línea (~50 vs ~4000), eliminando el overhead de filtrado en el loop.
+    """
     rids: dict[str, int] = {}
-    for ts, state in reconstruct_snapshots(fp, interval_s=INTERVAL_S):
+    for ts, state in reconstruct_line_snapshots(fp, label_line_map, line, interval_s=INTERVAL_S):
         for vid, fields in state.items():
             rid = fields.get("route_id", "")
             if not rid or rid in rids:
                 continue
-            suffix = fields.get("label", "").split("-")[-1]
-            if label_line_map.get(suffix) == line:
-                rids[rid] = fields.get("direction_id", 0)
+            rids[rid] = fields.get("direction_id", 0)
     return rids
 
 
@@ -74,15 +81,16 @@ def scan_with_gps(
       active: {route_id: direction_id}  — todos los route_ids vistos
       points: {route_id: [(lat, lon)]}  — GPS solo para pending_rids
       n_trips: {route_id: int}
+
+    Usa reconstruct_line_snapshots para iterar solo los ~50 vehículos de la
+    línea (vs ~4000 de la flota completa), eliminando el 11% de CPU de filtrado.
+    El filtrado de label ya fue aplicado en reader.py; no hace falta repetirlo aquí.
     """
     vehicle_obs: dict[str, list] = defaultdict(list)
-    for ts, state in reconstruct_snapshots(fp, interval_s=INTERVAL_S):
+    for ts, state in reconstruct_line_snapshots(fp, label_line_map, line, interval_s=INTERVAL_S):
         for vid, fields in state.items():
             rid = fields.get("route_id", "")
             if not rid:
-                continue
-            suffix = fields.get("label", "").split("-")[-1]
-            if label_line_map.get(suffix) != line:
                 continue
             obs = dict(fields)
             obs["ts"] = obs.get("ts", ts)
@@ -248,7 +256,7 @@ def build_line(
             "first_seen": data["first_seen"],
             "last_seen": data["last_seen"],
             "status": "active" if rid in last_active else "retired",
-            "assignment_status": f"pending",
+            "assignment_status": "pending",
             "shape_key": None,
             "short_name": None,
             "confidence": None,
@@ -276,6 +284,8 @@ def main() -> None:
         default=Path(__file__).parent.parent / "LABEL_LINE_MAP.json",
     )
     parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--skip-first", type=int, default=SKIP_FIRST_DAYS,
+                        help=f"Días parciales a saltear al inicio (default {SKIP_FIRST_DAYS})")
     args = parser.parse_args()
 
     label_line_map = load_label_line_map(str(args.label_map))
@@ -291,6 +301,7 @@ def main() -> None:
         f for f in iter_daily_files(args.data_dir)
         if f.name[:10] != date.today().isoformat()
     ]
+    daily_files = daily_files[args.skip_first:]
     if not daily_files:
         print("ERROR: no hay archivos NDJSON en", args.data_dir, file=sys.stderr)
         sys.exit(1)
@@ -322,11 +333,6 @@ def main() -> None:
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
     print(f"Escrito: {args.output}")
-
-
-def load_label_line_map(path: str) -> dict:
-    from prediccion.pipeline.shapes_io import load_label_line_map as _load
-    return _load(path)
 
 
 if __name__ == "__main__":

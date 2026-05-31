@@ -25,7 +25,11 @@ from pathlib import Path
 # Importar desde la raíz del proyecto
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from prediccion.pipeline.reader import iter_daily_files, reconstruct_snapshots
+from prediccion.pipeline.reader import (
+    iter_daily_files,
+    reconstruct_line_snapshots,
+    reconstruct_snapshots,
+)
 from prediccion.pipeline.segmenter import segment_vehicle_history
 from prediccion.pipeline.shapes_io import load_label_line_map, load_shapes
 
@@ -33,6 +37,7 @@ from ramal_lookup.route_lookup import (
     CONTAINED_PERP_M,
     CONTAINMENT_THRESHOLD,
     COVERAGE_GAP_THRESHOLD,
+    FRACCIONADO_MARGIN_THRESHOLD,
     MIN_TRIPS,
     QUANTILE_MARGIN,
     QUANTILE_P,
@@ -45,7 +50,7 @@ from ramal_lookup.route_lookup import (
 )
 
 INTERVAL_S = 30
-SKIP_FIRST_DAYS = 3   # días parciales al inicio del dataset que se descartan por defecto
+SKIP_FIRST_DAYS = 1   # día parcial al inicio del dataset que se descarta por defecto
 
 
 def main() -> None:
@@ -71,7 +76,9 @@ def main() -> None:
     parser.add_argument("--vote-margin", type=float, default=VOTE_MARGIN_THRESHOLD,
                         help=f"Margen mínimo de voto para resolver completo (default {VOTE_MARGIN_THRESHOLD})")
     parser.add_argument("--coverage-gap", type=float, default=COVERAGE_GAP_THRESHOLD,
-                        help=f"Gap mínimo de coverage para resolver fraccionado (default {COVERAGE_GAP_THRESHOLD})")
+                        help=f"Gap relativo mínimo (cov_frac - cov_padre)/cov_frac para resolver fraccionado (default {COVERAGE_GAP_THRESHOLD})")
+    parser.add_argument("--fraccionado-margin", type=float, default=FRACCIONADO_MARGIN_THRESHOLD,
+                        help=f"Margen relativo mínimo (score_best - score_2nd)/score_best entre fraccionados candidatos (default {FRACCIONADO_MARGIN_THRESHOLD})")
     parser.add_argument("--containment-threshold", type=float, default=CONTAINMENT_THRESHOLD)
     parser.add_argument("--contained-perp-m", type=float, default=CONTAINED_PERP_M)
     parser.add_argument("--vote-tie-m", type=float, default=VOTE_TIE_TOLERANCE_M,
@@ -131,15 +138,15 @@ def main() -> None:
         vehicle_obs: dict[str, list] = defaultdict(list)
         snap_count = 0
 
-        for ts, state in reconstruct_snapshots(fp, interval_s=INTERVAL_S):
+        # reconstruct_line_snapshots filtra la flota a ~50 vehículos de la línea
+        # (evita copiar y filtrar los ~4000 de la flota completa en cada snapshot).
+        for ts, state in reconstruct_line_snapshots(
+            fp, label_line_map, args.line, interval_s=INTERVAL_S
+        ):
             snap_count += 1
             for vid, fields in state.items():
                 obs = dict(fields)
                 obs["ts"] = obs.get("ts", ts)
-                raw_label = obs.get("label", "")
-                suffix = raw_label.split("-")[-1] if raw_label else ""
-                if label_line_map.get(suffix) != args.line:
-                    continue
                 vehicle_obs[vid].append(obs)
 
         day_trips = 0
@@ -191,6 +198,7 @@ def main() -> None:
         containment_threshold=args.containment_threshold,
         vote_margin_threshold=args.vote_margin,
         coverage_gap_threshold=args.coverage_gap,
+        fraccionado_margin_threshold=args.fraccionado_margin,
         min_trips=args.min_trips,
         vote_tie_tolerance_m=args.vote_tie_m,
         quantile_p=args.quantile_p,
@@ -273,6 +281,7 @@ def main() -> None:
             "containment_threshold": args.containment_threshold,
             "vote_margin_threshold": args.vote_margin,
             "coverage_gap_threshold": args.coverage_gap,
+            "fraccionado_margin_threshold": args.fraccionado_margin,
             "vote_tie_tolerance_m": args.vote_tie_m,
             "quantile_p": args.quantile_p,
             "quantile_margin": args.quantile_margin,

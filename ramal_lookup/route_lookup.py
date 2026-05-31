@@ -22,8 +22,10 @@ Algoritmo:
   Flujo de decisión:
     a. Filtrar candidatos a direction_id == route_id.direction_id.
     b. Calcular containment, coverage, y vote_frac para cada candidato.
-    c. coverage_winner = argmax(coverage) sobre shapes con containment alto.
-    d. Si coverage_winner es fraccionado → resolución por coverage_gap vs padre.
+    c. coverage_winner = argmax(coverage × containment) sobre shapes con containment alto.
+    d. Si coverage_winner es fraccionado:
+       - Verificar margen entre fraccionados (FRACCIONADO_MARGIN_THRESHOLD).
+       - Verificar coverage_gap relativo vs padre (COVERAGE_GAP_THRESHOLD).
     e. Si coverage_winner es completo → resolución por vote_margin entre completos.
     f. Si el margen es insuficiente o hay pocos trips → status "pending".
 
@@ -51,7 +53,39 @@ VOTE_MARGIN_THRESHOLD  = 0.15   # margen mínimo de voto para resolver un comple
 VOTE_TIE_TOLERANCE_M   = 3.0    # shapes dentro de este margen de perp comparten el voto en partes iguales
 QUANTILE_P             = 0.95   # percentil alto del perp como discriminador alternativo al voto
 QUANTILE_MARGIN        = 0.40   # margen relativo mínimo: (q_second - q_best) / q_second
-COVERAGE_GAP_THRESHOLD = 0.20   # gap mínimo de coverage para resolver un fraccionado
+
+# gap relativo mínimo para resolver un fraccionado:
+#   gap_rel = (coverage_fraccionado - coverage_padre) / coverage_fraccionado
+#
+# Se usa gap RELATIVO (en lugar del absoluto coverage_frac - coverage_padre) por dos razones:
+#   1. Robusto a GPS noise: si cov_frac < 1.0 por outliers, el umbral escala
+#      en proporción al coverage observado del fraccionado (no asume cov_frac=1.0).
+#   2. Independiente de qué tan corto es el fraccionado: un fraccionado que cubre
+#      ~50% del padre tiene gap_rel=0.50 en vez de gap_abs=0.50 (igual aquí); pero
+#      uno que cubre ~90% del padre tiene gap_rel=0.10 igual que gap_abs=0.10 —
+#      en ese caso ambas métricas detectan el mismo límite duro. La diferencia se
+#      nota cuando cov_frac real < 1.0 por ruido: gap_abs/cov_frac normaliza.
+#
+# En la línea 39: cov_frac ≈ 1.0, cov_parent ≈ 0.77-0.78 → gap_rel ≈ 0.22-0.23,
+# umbral 0.15 → margen cómodo de ~0.07. El 36/36 no se rompe.
+#
+# Limitación conocida: si un fraccionado futuro cubre >85% del padre (gap_rel < 0.15),
+# quedaría "pending". En ese caso bajar el umbral a 0.08-0.10 con datos reales.
+COVERAGE_GAP_THRESHOLD = 0.15   # gap relativo mínimo: (cov_frac - cov_parent) / cov_frac
+
+# margen mínimo de score (coverage × containment) entre el fraccionado ganador y el
+# segundo mejor fraccionado con containment alto:
+#   margin_frac = (score_best_frac - score_second_frac) / score_best_frac
+#
+# Se usa margen RELATIVO para que el umbral sea independiente de la escala absoluta
+# del score (que varía según cuánto comparten geometría los shapes candidatos).
+# Si dos fraccionados de familias distintas (p.ej. 39D y 39E) encajan ambos con
+# containment alto (por geometría compartida), el margen relativo mide cuán
+# definitivamente uno supera al otro. Default 0.05 = 5%: bastante permisivo,
+# deja que el gap de coverage entre familias distintas sea el verdadero discriminador.
+# Subir a 0.15 si se observan falsas resoluciones entre fraccionados.
+FRACCIONADO_MARGIN_THRESHOLD = 0.05  # margen relativo mínimo entre fraccionados candidatos
+
 MIN_TRIPS              = 3      # cold-start gate: trips mínimos antes de declarar algo
 
 
@@ -100,6 +134,12 @@ class LookupEntry:
     q_best_m: float = 0.0             # p95 del shape ganador en metros
     coverage_winner_val: float = 0.0
     containment_winner_val: float = 0.0
+    # Para fraccionados: margen relativo entre el mejor y el segundo fraccionado con
+    # containment alto: (score_best - score_second) / score_best. 0.0 si no aplica.
+    fraccionado_score_margin: float = 0.0
+    # Para fraccionados: gap relativo de coverage respecto al padre:
+    # (cov_frac - cov_parent) / cov_frac. 0.0 si no aplica.
+    coverage_gap_relative: float = 0.0
     total_trips: int = 0
     total_points: int = 0
     top_candidates: list[dict] = field(default_factory=list)
@@ -121,6 +161,8 @@ class LookupEntry:
             "q_best_m": round(self.q_best_m, 1),
             "coverage_winner_val": round(self.coverage_winner_val, 3),
             "containment_winner_val": round(self.containment_winner_val, 3),
+            "fraccionado_score_margin": round(self.fraccionado_score_margin, 3),
+            "coverage_gap_relative": round(self.coverage_gap_relative, 3),
             "total_trips": self.total_trips,
             "total_points": self.total_points,
             "top_candidates": self.top_candidates,
@@ -172,6 +214,7 @@ def build_lookup(
     containment_threshold: float = CONTAINMENT_THRESHOLD,
     vote_margin_threshold: float = VOTE_MARGIN_THRESHOLD,
     coverage_gap_threshold: float = COVERAGE_GAP_THRESHOLD,
+    fraccionado_margin_threshold: float = FRACCIONADO_MARGIN_THRESHOLD,
     min_trips: int = MIN_TRIPS,
     vote_tie_tolerance_m: float = VOTE_TIE_TOLERANCE_M,
     quantile_p: float = QUANTILE_P,
@@ -182,6 +225,13 @@ def build_lookup(
 
     evidence: {route_id: RouteEvidence} — acumulado de todos los días disponibles.
     Retorna {route_id: LookupEntry} con status "resolved" o "pending".
+
+    Parámetros nuevos (backward-compatible, con defaults que reproducen el 36/36):
+      coverage_gap_threshold: gap relativo mínimo (cov_frac - cov_parent) / cov_frac
+        para resolver un fraccionado. Default 0.15.
+      fraccionado_margin_threshold: margen relativo mínimo entre el mejor y el segundo
+        fraccionado con containment alto: (score_best - score_second) / score_best.
+        Default 0.05. Para exposición CLI ver nota en build_lookup.py.
     """
     parent_map = {c: p for p, children in families.items() for c in children}
     entries_by_key = {e.key: e for e in shape_entries}
@@ -221,17 +271,17 @@ def build_lookup(
             continue
 
         # ── Proyección sobre todos los shapes candidatos ──────────────────────
+        # Usa project_many() para proyectar todos los puntos de una vez con numpy
+        # (evita el loop Python por punto: ~2.25M llamadas → un broadcast por shape).
+        # Los resultados son numéricamente idénticos a los del loop punto-a-punto.
         perps: dict[str, list[float]] = {}
         dist_alongs: dict[str, list[float]] = {}
+        lats_arr = np.array([p[0] for p in ev.points], dtype=np.float64)
+        lons_arr = np.array([p[1] for p in ev.points], dtype=np.float64)
         for e in candidates:
-            ps: list[float] = []
-            ds: list[float] = []
-            for lat, lon in ev.points:
-                d_along, p = e.index.project(lat, lon)
-                ds.append(d_along)
-                ps.append(p)
-            perps[e.key] = ps
-            dist_alongs[e.key] = ds
+            ds_arr, ps_arr = e.index.project_many(lats_arr, lons_arr)
+            dist_alongs[e.key] = ds_arr.tolist()
+            perps[e.key] = ps_arr.tolist()
 
         # ── Voto-por-punto: cada punto vota al argmin(perp) ─────────────────
         # Shapes dentro de vote_tie_tolerance_m del mínimo comparten el voto
@@ -304,14 +354,53 @@ def build_lookup(
 
         if cov_winner_entry.is_fraccionado:
             # El route_id llena mejor un shape fraccionado que su padre →
-            # probablemente es un fraccionado. Verificar con coverage_gap.
+            # probablemente es un fraccionado. Verificar tres condiciones.
+
+            # ── 1. Margen entre fraccionados candidatos ───────────────────────
+            # Comparar el score del ganador contra el segundo fraccionado con
+            # containment alto (de una familia distinta o la misma). Si el margen
+            # es insuficiente, dos familias de fraccionados compiten sin ganador
+            # claro → pending para evitar resolución incorrecta.
+            best_score = coverage[cov_winner_key] * containment[cov_winner_key]
+            # Todos los fraccionados con containment alto, excluyendo el ganador
+            other_fracs = [
+                k for k in high_cont
+                if entries_by_key[k].is_fraccionado and k != cov_winner_key
+            ]
+            if other_fracs:
+                second_score = max(coverage[k] * containment[k] for k in other_fracs)
+                # margen relativo: cuánto porcentualmente supera el ganador al segundo
+                frac_score_margin = (best_score - second_score) / best_score if best_score > 0 else 0.0
+            else:
+                second_score = 0.0
+                frac_score_margin = 1.0  # único fraccionado candidato → margen máximo
+
+            if frac_score_margin < fraccionado_margin_threshold:
+                lookup[rid] = LookupEntry(
+                    route_id=rid, direction_id=direction,
+                    status="pending", reason="ambiguous_fraccionado_family",
+                    fraccionado_score_margin=frac_score_margin,
+                    total_trips=n_trips, total_points=n_points,
+                    top_candidates=top_candidates,
+                )
+                continue
+
+            # ── 2. Coverage gap relativo vs padre ────────────────────────────
+            # gap_rel = (cov_frac - cov_parent) / cov_frac
+            #
+            # Se usa gap RELATIVO (no absoluto) para ser robusto cuando cov_frac < 1.0:
+            # normaliza por el coverage observado del fraccionado, no asume cov_frac=1.0.
+            # En la línea 39: cov_frac≈1.0 → gap_rel≈gap_abs≈0.22. Umbral 0.15 pasa
+            # con margen cómodo de ~0.07, compatible con el 36/36 groundtruth.
+            # Limitación conocida: fraccionados que cubren >85% del padre (gap_rel<0.15)
+            # quedan pending; ajustar umbral a 0.08 con datos reales si se necesita.
             parent_sn = cov_winner_entry.parent_short_name
             parent_key = f"{parent_sn}-d{direction}" if parent_sn else None
             cov_frac = coverage[cov_winner_key]
             cov_parent = coverage.get(parent_key, 0.0)
-            coverage_gap = cov_frac - cov_parent
+            gap_rel = (cov_frac - cov_parent) / cov_frac if cov_frac > 0 else 0.0
 
-            if coverage_gap >= coverage_gap_threshold:
+            if gap_rel >= coverage_gap_threshold:
                 lookup[rid] = LookupEntry(
                     route_id=rid, direction_id=direction,
                     status="resolved",
@@ -320,10 +409,12 @@ def build_lookup(
                     shape_direction=direction,
                     assignment_type="fraccionado",
                     method="coverage_gap",
-                    confidence=coverage_gap,
+                    confidence=gap_rel,
                     vote_margin=vote_fracs.get(cov_winner_key, 0.0),
                     coverage_winner_val=cov_frac,
                     containment_winner_val=containment[cov_winner_key],
+                    fraccionado_score_margin=frac_score_margin,
+                    coverage_gap_relative=gap_rel,
                     total_trips=n_trips, total_points=n_points,
                     top_candidates=top_candidates,
                 )
@@ -331,6 +422,8 @@ def build_lookup(
                 lookup[rid] = LookupEntry(
                     route_id=rid, direction_id=direction,
                     status="pending", reason="ambiguous_fraccionado",
+                    fraccionado_score_margin=frac_score_margin,
+                    coverage_gap_relative=gap_rel,
                     total_trips=n_trips, total_points=n_points,
                     top_candidates=top_candidates,
                 )

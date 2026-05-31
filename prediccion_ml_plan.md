@@ -28,7 +28,7 @@ Con shapes precisos, todo el espacio GPS 2D colapsa a un escalar: distancia rest
 
 **4. CABA tiene ~100 líneas**
 
-- **Ramal ID (Modelo 1):** es inherentemente por línea. La estructura de ramales es específica de cada línea (la línea 39 tiene sus ramales, la 42 los suyos). El Fleet-level Transformer se entrena una vez por línea. Aplicable solo a las líneas con shapes disponibles y múltiples ramales reales. El mapeo `VP_label → línea` ya está resuelto con LABEL_LINE_MAP.json y es robusto — es la base de este paso.
+- **Ramal ID (Modelo 1):** es inherentemente por línea. La estructura de ramales es específica de cada línea (la línea 39 tiene sus ramales, la 42 los suyos). Se resuelve con una lookup geométrica offline `route_id → shape` (módulo `ramal_lookup/`), no con ML. Aplicable solo a las líneas con shapes disponibles y múltiples ramales reales. El mapeo `VP_label → línea` ya está resuelto con LABEL_LINE_MAP.json y es robusto — es la base de este paso.
 
 - **ETA (Modelo 2):** sí puede ser un modelo unificado para todas las líneas. El tráfico en un segmento geográfico es el mismo para todas las líneas que pasan por ahí. Ver sección 7.
 
@@ -41,13 +41,13 @@ Con shapes precisos, todo el espacio GPS 2D colapsa a un escalar: distancia rest
 3. [Los datos que tenemos y cuándo son suficientes](#3-datos)
 4. [Tres flujos independientes](#4-tres-flujos)
 5. [Pipeline de datos: de NDJSON a entrenamiento](#5-pipeline)
-6. [Modelo 1 — Identificación de ramal (Fleet-level Transformer)](#6-modelo-ramal)
+6. [Modelo 1 — Identificación de ramal (lookup geométrica offline)](#6-modelo-ramal)
 7. [Modelo 2 — Predicción de ETA](#7-modelo-eta)
    - [7b. Comparación de approaches A0–A3](#7b-comparacion)
 8. [Reentrenamiento continuo y rotación de route_ids](#8-reentrenamiento)
 9. [Hardware: qué podemos hacer con la RTX 3080](#9-hardware)
 10. [Fases de implementación](#10-fases)
-    - [10.1 Scope de entrenamiento: 7 líneas es el punto de partida](#101-scope)
+    - [10.1 Scope: 7 líneas es el punto de partida](#101-scope)
     - [10.2 Dependencia entre Modelo 1 y Modelo 2](#102-dependencia)
 11. [Límites conocidos del sistema](#11-limites)
 
@@ -61,7 +61,7 @@ Estos términos aparecen en todo el documento. Referencia rápida para alguien s
 
 **Capa (layer):** bloque de operaciones matemáticas. Una red apila capas: cada una transforma el output de la anterior. Más capas = más capacidad de aprender patrones complejos = más datos necesarios.
 
-**Transformer:** arquitectura de red neuronal basada en "atención" (attention). En vez de procesar una secuencia paso por paso (como un LSTM), procesa todos los pasos a la vez y cada elemento puede "mirar" a cualquier otro elemento directamente. Esto es lo que permite al modelo fleet-level ver todos los vehículos simultáneamente.
+**Transformer:** arquitectura de red neuronal basada en "atención" (attention). En vez de procesar una secuencia paso por paso (como un LSTM), procesa todos los pasos a la vez y cada elemento puede "mirar" a cualquier otro elemento directamente. En este plan se usa solo en Modelo 2 (ETA): como encoder de la trayectoria y del estado de flota, y como opción de Fase 5 (Seq2Seq).
 
 **Self-attention:** mecanismo dentro del Transformer. Dado un conjunto de elementos (vehículos, puntos GPS), cada elemento aprende cuánto peso darle a cada otro elemento para producir su representación final. No está codificado cuáles son importantes — el modelo lo aprende.
 
@@ -108,7 +108,7 @@ CuandoSubo/OneBusAway usa:
 
 3. **Sin dependencia de schedules:** el modelo aprende del comportamiento real, no del teórico.
 
-4. **Identificación de ramal por ML:** OBA asume que conoce el ramal (viene en el GTFS). Nosotros lo inferimos de los datos. Cuando los datos del GTFS son incorrectos, nosotros seguimos funcionando.
+4. **Identificación de ramal por geometría:** OBA asume que conoce el ramal (viene en el GTFS). Nosotros lo inferimos de los datos (lookup `route_id → shape`, módulo `ramal_lookup/`). Cuando los datos del GTFS son incorrectos, nosotros seguimos funcionando.
 
 ---
 
@@ -152,10 +152,10 @@ Para línea 39 específicamente (~40-60 vehículos activos en hora pico):
 
 | Tarea | Mínimo | Bueno | Óptimo |
 |-------|--------|-------|--------|
-| Ramal ID (Model 1) | 1 mes | 3 meses | 6 meses |
+| Ramal ID (Model 1) | 1-2 días por rotación | — | — |
 | ETA con tráfico (Model 2) | 3 meses | 6 meses | 12 meses |
 
-**Por qué 3 meses para ramal ID:** el algoritmo geográfico ya resuelve los vehículos que pasaron la zona de divergencia. Con 3 meses tenés ~3 rotaciones de route_id y miles de viajes etiquetados automáticamente. El modelo necesita ver variación, no solo volumen.
+**Por qué 1-2 días para ramal ID:** la lookup `route_id → shape` no necesita meses de datos ni ver variación — solo acumular suficiente GPS por `route_id` dentro del período para que las métricas geométricas (containment/coverage/voto) converjan. Con 1-2 días post-rotación alcanza. No hay entrenamiento; se reconstruye en cada rotación.
 
 **Por qué 3 meses para ETA con tráfico:** necesitás cubrir todos los patrones de hora (rush AM, midday, rush PM, noche) × días de semana × variación de congestion. 3 meses da cobertura razonable. 6 meses agrega fines de semana feriados, lluvia, etc.
 
@@ -291,36 +291,19 @@ Este paso es computacionalmente intenso — ~500ms por viaje completo en Python 
 
 #### Para Modelo 1 (ramal ID)
 
-```python
-# Para cada snapshot de flota de la línea L:
-# - Agrupar todos los vehículos activos de L en ese snapshot
-# - FILTRAR: excluir vehículos con route_id=null (fuera de servicio, en terminal sin ruta asignada)
-#   Estos vehículos tienen label permanente (aparecen como "del 39") pero no tienen ramal
-#   asignable. Incluirlos confunde la inferencia por asociación del CrossFleetTransformer.
-#   Sí se incluyen en el fleet_state (su velocidad es información de tráfico válida para el modelo).
-# - Label: resultado del algoritmo geográfico (RamalEngine) para vehículos que
-#   ya pasaron la zona de divergencia
-# - Guardar solo snapshots donde hay al menos 1 vehículo con ramal confirmado
+Modelo 1 **no entrena**, así que no necesita un dataset de entrenamiento. El módulo `ramal_lookup/` consume directamente los trips segmentados y proyectados: acumula los puntos GPS por `route_id` dentro del período y construye `ramal_map.json`. La única estructura intermedia es la evidencia por `route_id`:
 
-# Estructura del ejemplo de entrenamiento:
+```python
+# ramal_lookup/route_lookup.py — RouteEvidence
 {
-    "snapshot_ts": 1773583200,
-    "vehicles": [
-        {
-            "vehicle_id": "1839",
-            "route_id_rank": 2,        # rank en el período actual (no el valor absoluto)
-            "direction_id": 0,
-            "trajectory": [            # últimos 40 puntos (20 min)
-                {"lat_norm": 0.23, "lon_norm": -0.11, "speed": 8.3, "dt": 30},
-                ...
-            ],
-            "label": "39-1",           # None si no está confirmado por RamalEngine
-            "is_labeled": True/False
-        },
-        ...
-    ]
+    "route_id": "1973",
+    "direction_id": 0,
+    "n_trips": 14,
+    "points": [(lat, lon), ...]   # GPS de todos los trips del route_id en el período
 }
 ```
+
+A partir de eso se calculan containment/coverage/voto y se asigna el shape (ver sección 6). No hay snapshots de flota, ni `route_id_rank`, ni labels — esos eran artefactos del transformer descartado.
 
 #### Para Modelo 2 (ETA)
 
@@ -342,7 +325,7 @@ Este paso es computacionalmente intenso — ~500ms por viaje completo en Python 
     "distance_to_target_m": 1850.0,
 
     # estado de la flota de la agencia en este momento (todos los vehículos activos)
-    "fleet_state": [{"lat": -34.61, "lon": -58.39, "speed": 8.3, "route_id_rank": 2, "direction_id": 0}, ...],
+    "fleet_state": [{"lat": -34.61, "lon": -58.39, "speed": 8.3, "ramal_id": "39-1", "direction_id": 0}, ...],
 
     # target: tiempo real observado hasta que el vehículo llegó al punto target
     "eta_seconds": 234  # un solo float
@@ -353,107 +336,45 @@ Este paso es computacionalmente intenso — ~500ms por viaje completo en Python 
 
 ## 6. Modelo 1 — Identificación de Ramal
 
-### El problema
+> **No es un modelo de ML.** Es una lookup geométrica offline. Ver el módulo `ramal_lookup/` y `research_ramal_id_approaches.md` para el detalle completo.
 
-Dado un snapshot de todos los vehículos de la línea 39, ¿qué ramal es cada vehículo?
+### El problema, bien planteado
 
-**Limitación del algoritmo geográfico actual (RamalEngine):**
-- Funciona solo cuando el vehículo ya pasó la zona de divergencia
-- Los primeros 10-20 minutos de un viaje: zona compartida → incertidumbre total
-- Fraccionados (39D/E/F): no tiene shapes en OSM → nunca resuelve
+El planteo original ("dado un snapshot de la flota, ¿qué ramal es cada vehículo?") trataba esto como una clasificación en tiempo real. Es el planteo equivocado. La observación clave (validada sobre 62 días, ver `research_direction_routeid.md`) es:
 
-**Lo que el ML agrega:**
-- Inferencia por asociación: el vehículo A tiene route_id_rank=2, ya está en la zona exclusiva del ramal 39-1 → todos los vehículos con route_id_rank=2 son 39-1, incluidos los que están en zona compartida
-- Inferencia por trayectoria: el modelo aprende que ciertos patrones de velocidad + posición en los primeros 5km predicen qué ramal viene
-- Inferencia por eliminación: si 5 ramales ya están identificados, el 6to es el restante
+- `route_id` mapea **1:1 a un shape físico dentro de un período** (~2-3 semanas), y a una única `direction_id`.
+- El `route_id` se resetea en cada rotación (~cada 2-3 semanas): los mismos ramales físicos reciben números nuevos.
 
-### Arquitectura
+Por lo tanto el problema **no es clasificar GPS en tiempo real, sino construir y mantener offline una lookup `route_id → shape`**. En tiempo real, identificar el ramal de un vehículo es un `lookup[route_id]` O(1), sin GPS ni inferencia.
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Fleet-level Transformer                             │
-│                                                      │
-│  Por vehículo:                                       │
-│    trajectory (40 pts × 4 features)                  │
-│    → PerVehicleEncoder (Transformer pequeño)         │
-│    → vehicle_embedding (dim=128)                     │
-│    +                                                 │
-│    route_id_rank → Embedding(max_ranks=32, dim=24)   │
-│    direction_id  → Embedding(2, dim=8)               │
-│    → concat → vehicle_token (dim=160)                │
-│                                                      │
-│  Sobre toda la flota:                                │
-│    [token_v1, token_v2, ..., token_vN]               │
-│    → CrossFleetTransformer (4 layers, dim=160)       │
-│    → [updated_v1, ..., updated_vN]                   │
-│                                                      │
-│  Por vehículo:                                       │
-│    → Linear(160, n_ramales)                          │
-│    → logits (softmax en inferencia, fuera del modelo)│
-└─────────────────────────────────────────────────────┘
-```
+### Por qué se descartó el Fleet-level Transformer
 
-**¿Por qué esto funciona?** El CrossFleetTransformer hace self-attention entre todos los vehículos. El vehículo B que está en zona ambigua puede "preguntar" al vehículo A (que ya cruzó la divergencia) cuál es su ramal, y si tienen el mismo route_id_rank, infiere que son el mismo ramal. El modelo aprende esto sin que lo programemos explícitamente.
+El plan original proponía un transformer cross-flota entrenado con labels generados por el algoritmo geométrico. Se descartó por tres razones: (1) **dependencia circular** — si el algoritmo geométrico funciona como oráculo de labels, no hace falta el transformer; si no funciona, no hay labels; (2) **overkill** — resolver una lookup 1:1 por período no requiere una red neuronal; (3) **costo operacional** — entrenar, fine-tunear por rotación, exportar ONNX y monitorear drift, todo para un problema que se resuelve con geometría determinística. La inferencia por asociación de flota que motivaba el transformer es innecesaria: el `route_id` ya identifica el ramal desde el primer snapshot.
 
-### Input features
+### El módulo `ramal_lookup/` (Enfoque C)
 
-| Feature | Tipo | Descripción | Por qué |
-|---------|------|-------------|---------|
-| lat_norm | float | lat − lat_media_línea | Centrar en la línea elimina drift geográfico |
-| lon_norm | float | lon − lon_media_línea | ídem |
-| speed | float | m/s | Velocidad alta = autopista, baja = zona congestionada |
-| dt | float | segundos desde punto anterior | Detecta paradas largas |
-| route_id_rank | int (embed) | posición relativa del route_id en el período actual | Captura estructura de pares ida/vuelta |
-| direction_id | int (embed) | 0 o 1 | Ida vs vuelta |
+Construye `ramal_map.json` (la lookup `route_id → shape`) acumulando offline los GPS de todos los viajes de cada `route_id` y asignándole un shape. Es puramente geométrico, determinístico y sin entrenamiento. Para cada `route_id`:
 
-**Qué NO incluir:**
-- route_id absoluto (rota cada 3 semanas → distribution shift)
-- stop_id, stop_sequence (datos obsoletos)
-- label / license_plate (identificadores que no tienen info sobre el ramal)
+1. **Filtrar candidatos por `direction_id`** — reduce los shapes de la línea a la mitad, gratis.
+2. **Proyectar** todos los puntos GPS acumulados sobre cada shape candidato (`prediccion/pipeline/projector.py`), obteniendo error perpendicular y distancia sobre el shape.
+3. **Calcular dos métricas ortogonales por shape:**
+   - `containment` = fracción de puntos con perp < 30m → ¿el bus encaja sin salirse del shape?
+   - `coverage` = rango p2/p98 de dist_along / largo del shape → ¿el bus llena el shape de punta a punta?
+4. **Discriminar entre completos** (A/B/C, que comparten ~80% del recorrido) por **voto-por-punto** (cada GPS vota al shape de menor perp; el margen del ganador resuelve) y/o **cuantil p95 del perp** (ignora el troncal compartido, mira la cola discriminante).
+5. **Discriminar completo vs fraccionado** (D⊆A, etc.) por `coverage`: un fraccionado llena su propio shape (~100%) pero solo cubre ~77% del padre. El `coverage_gap` contra el padre lo confirma. Las familias de fraccionados (qué shape es fracción de cuál) están en `families_{line}.json`.
+   - **El MVP las define por conocimiento de dominio explícito** (escritas a mano por línea). Es lo implementado hoy.
+   - **TBD:** podrían detectarse geométricamente offline desde las shapes solas (test de subset: shape S1 es fracción de S2 si todos sus puntos caen sobre S2 y `length(S1) < length(S2)`), eliminando el archivo manual. No implementado aún. Ver `research_ramal_id_approaches.md` §requisitos A/B.
+6. **Gate de cold-start**: con menos de N viajes acumulados → `pending` en vez de resolver mal.
 
-### Route ID Rank — cómo se calcula
+El detalle de por qué la media del perp no alcanza, y de las dos preguntas `containment`/`coverage`, está en `research_ramal_id_approaches.md`.
 
-El route_id_rank resuelve el problema de la rotación sin codificación manual:
+### Salida y mantenimiento
 
-```python
-# route_id_registry.py
-# Mantiene el mapping período → {route_id → rank} por línea
+`ramal_map.json` guarda por entrada: `route_id`, `shape_key`, `assignment_type` (completo/fraccionado), `confidence`, `method`, y `first_seen`/`last_seen` para distinguir reusos del mismo número entre períodos. En cada rotación **se reconstruye la lookup** (no se reentrena nada): converge en 1-2 días de GPS acumulado. `build_ramal_map.py` es idempotente y lee GPS solo en los días con `route_ids` pendientes.
 
-def update_registry(line_number, observed_route_ids, current_period_start):
-    """
-    Si aparecen route_ids nuevos que no estaban en el período actual:
-    → detectar inicio de nueva rotación
-    → asignar ranks ordenados (0, 1, 2, ...)
-    → registrar evento para trigger de reentrenamiento
+### Resultados (línea 39, 62 días, 3 períodos)
 
-    La estructura de pares (1993/1994 = mismo ramal, dir 0/1) se preserva
-    porque IDs consecutivos reciben ranks consecutivos.
-    route_id_rank=2 dir=0 + route_id_rank=3 dir=1 → el modelo aprende que son el mismo ramal.
-    """
-    sorted_ids = sorted(observed_route_ids)
-    return {rid: rank for rank, rid in enumerate(sorted_ids)}
-```
-
-El registry se guarda en `/data/route_id_registry.json` y se actualiza automáticamente al detectar IDs nuevos.
-
-### Cuántos parámetros y cuánta memoria
-
-- PerVehicleEncoder: ~200K parámetros
-- CrossFleetTransformer (4 layers, dim=160): ~500K parámetros
-- Total Model 1: **~1.2M parámetros** — extremadamente chico
-
-Memoria en VRAM durante entrenamiento (batch de 32 snapshots × 25 vehículos × 40 puntos):
-- ~200MB — entra cómodo en los 10GB de la 3080
-
-### Datos necesarios para entrenamiento
-
-| Cantidad | Calidad esperada |
-|----------|-----------------|
-| 3 meses (100K snapshots de flota, ~5K con al menos 1 vehículo etiquetado) | ~90-93% accuracy |
-| 6 meses | ~95% accuracy |
-| 1 año (incluye rotaciones estacionales completas) | ~97% accuracy |
-
-Línea base (solo algoritmo geográfico): ~65-70% de vehículos resueltos en cualquier momento (los que ya pasaron la divergencia). El modelo fleet-level debería llegar a ~90-95%.
+36/36 `route_ids` resueltos correctamente. Completos con confianza 0.89–0.98; fraccionados resueltos por su familia. Reemplaza al `RamalEngine` geométrico legacy (JS, en proyectoconsola), que no resolvía fraccionados ni la zona compartida de inicio de viaje.
 
 ---
 
@@ -510,7 +431,7 @@ Input A — Historia del viaje actual del vehículo V (línea-agnóstico):
 
 Input B — Estado de la flota de la agencia:
   Todos los vehículos activos de la agencia en este momento (40-200 vehículos):
-    lat_norm, lon_norm, speed, route_id_rank, direction_id
+    lat_norm, lon_norm, speed, ramal_id (resuelto por la lookup, embedding), direction_id
   → Transformer encoder → fleet_embedding (dim=64)
 
 Input C — Contexto temporal:
@@ -634,7 +555,7 @@ A2 más el estado actual de la flota de la agencia:
 ```
 Input:  distancia_restante, velocidad_actual, hora, día_semana
         + fleet_state: todos los vehículos activos de la agencia (40-200 vehículos)
-          con lat, lon, speed, route_id_rank, direction_id
+          con lat, lon, speed, ramal_id (resuelto por la lookup), direction_id
 Output: segundos hasta el target
 ```
 
@@ -664,7 +585,7 @@ Regla general: se codifica la **estructura de la información** (qué está pres
 Siempre disponible (incluso sin bus visible):
   hora_sin, hora_cos              ← encoding cíclico
   día_semana                      ← embedding
-  fleet_state                     ← todos los vehículos activos de la agencia (lat, lon, speed, route_id_rank, direction_id)
+  fleet_state                     ← todos los vehículos activos de la agencia (lat, lon, speed, ramal_id, direction_id)
                                      (construido del llamado filtrado por agencia, 40-200 vehículos según la línea)
 
 Adicional cuando hay bus activo del ramal:
@@ -721,10 +642,10 @@ A3 (este modelo unificado) se implementa en Fase 3 (3-4 semanas, 3 meses de dato
 
 Hay dos triggers:
 
-**A. Rotación de route_ids (~cada 3 semanas)**
-- Detectado automáticamente: cuando el `route_id_registry` detecta que >30% de los route_ids para una línea cambiaron
-- Acción: actualizar registry → fine-tuning del Modelo 1 con datos de las últimas 6 semanas
-- Costo: ~30 min en RTX 3080
+**A. Rotación de route_ids (~cada 3 semanas) — Modelo 1**
+- Detectado automáticamente: aparecen `route_ids` nuevos para una línea (`build_ramal_map.py` los marca como pendientes)
+- Acción: **reconstruir la lookup** `route_id → shape`, no reentrenar nada. No hay modelo ni pesos en Modelo 1.
+- Costo: minutos de CPU; converge con 1-2 días de GPS acumulado del período nuevo
 
 **B. Reentrenamiento mensual completo**
 - Para Modelo 2 (ETA): fine-tuning con datos del último mes
@@ -735,13 +656,9 @@ Hay dos triggers:
 
 Fine-tuning = tomar el modelo existente y continuar el entrenamiento con nuevos datos. Es mucho más rápido que entrenar desde cero porque los pesos ya capturan la mayoría de los patrones.
 
-```
-Modelo 1 — Fine-tuning por rotación:
-  Datos: últimas 6 semanas (ventana deslizante)
-  Learning rate: 10x más bajo que el entrenamiento inicial
-  Épocas: 10-20 (vs 100+ para entrenamiento inicial)
-  Tiempo: ~30 min en 3080
+El fine-tuning aplica **solo a Modelo 2 (ETA)**. Modelo 1 no se fine-tunea: se reconstruye la lookup (ver trigger A arriba).
 
+```
 Modelo 2 — Fine-tuning mensual:
   Datos: último mes de viajes completos (todas las líneas juntas)
   Learning rate: 5x más bajo
@@ -789,18 +706,14 @@ df.groupby(['ramal', 'hour_of_day', 'day_of_week']).sample(n=1000, random_state=
     2026-Q2-trips.parquet   # viajes segmentados, ~200MB
     2026-Q2-trips-projected.parquet   # con distancia en ruta calculada
   training/
-    model1_ramal_id/
-      train.parquet
-      val.parquet
-    model2_eta/
+    model2_eta/             # Modelo 1 no entrena → no tiene dataset de training
       train.parquet
       val.parquet
   models/
-    ramal_id_v1.onnx        # 2026-06-15
-    ramal_id_v2.onnx        # 2026-07-08 (post primera rotación)
-    eta_a3_v1.onnx          # modelo unificado, todas las líneas
-  registry/
-    route_id_registry.json  # route_ids activos por línea y período
+    eta_a3_v1.onnx          # modelo unificado, todas las líneas (solo Modelo 2 es .onnx)
+  ramal_lookup/
+    ramal_map.json          # lookup route_id → shape (Modelo 1), con first_seen/last_seen por período
+    families_39.json        # familias de fraccionados, fijas por línea
 ```
 
 ---
@@ -823,14 +736,7 @@ df.groupby(['ramal', 'hour_of_day', 'day_of_week']).sample(n=1000, random_state=
 
 #### Modelo 1 — Ramal ID
 
-| Parámetros | ~1.2M |
-|------------|-------|
-| Dataset (3 meses, 50K snapshots etiquetados) | ~50K ejemplos |
-| Batch size | 64 snapshots |
-| Épocas | 100 |
-| Iteraciones totales | ~78K |
-| **Tiempo en 3080 (FP16)** | **~45 min** |
-| Fine-tuning post-rotación | ~15 min |
+No usa GPU: es una lookup geométrica offline en CPU (`ramal_lookup/`). El costo es de I/O + proyección, del orden de minutos por línea por período. La RTX 3080 solo se usa para Modelo 2.
 
 #### Modelo 2 — ETA (unificado, todas las líneas)
 
@@ -850,7 +756,7 @@ df.groupby(['ramal', 'hour_of_day', 'day_of_week']).sample(n=1000, random_state=
 | Reconstruir snapshots (CPU, Python) | 6-8 horas una sola vez |
 | Segmentar viajes (DuckDB, CPU) | 30 min |
 | Proyectar sobre shapes (CPU, Python, multiprocess) | 4-6 horas |
-| Entrenar Modelo 1 (una vez para todas las líneas) | 1-2 horas |
+| Construir lookup Modelo 1 (CPU, `ramal_lookup/`) | minutos por línea |
 | Entrenar Modelo 2 (unificado, todas las líneas) | 2-3 horas |
 | **Total setup inicial** | **~1-2 días** (incluyendo debugging) |
 
@@ -874,13 +780,12 @@ Los Parquet de training (~500MB por modelo) son transferibles fácilmente.
 
 ### Tamaño de los modelos entrenados
 
-| Modelo | Parámetros | Tamaño en disco (.onnx) |
+| Artefacto | Parámetros | Tamaño en disco |
 |--------|------------|------------------------|
-| Ramal ID | ~1.2M | ~5 MB |
-| ETA (unificado, todas las líneas) | ~300K | ~1.5 MB |
-| **Total** | — | **~6.5 MB** |
+| Ramal ID (`ramal_map.json`, lookup) | — | ~KB por línea (JSON) |
+| ETA (unificado, todas las líneas, .onnx) | ~300K | ~1.5 MB |
 
-Estos modelos se cargan en RAM del servidor en milisegundos. No tienen costo de inferencia notable.
+El ETA se carga en RAM en milisegundos; la lookup de ramal es un JSON chico. Ninguno tiene costo de inferencia notable.
 
 ---
 
@@ -909,22 +814,21 @@ Esta es la hoja de ruta ordenada por balance de esfuerzo vs reducción de error.
 
 **Por qué esta fase primero:** construir el pipeline de datos (reconstrucción, segmentación, proyección) es prerequisito para Fase 2 y 3. El valor inmediato es el pipeline, no A1 en sí.
 
-### Fase 2 — Identificación de ramal con DL
+### Fase 2 — Identificación de ramal (lookup offline)
 
-**Cuándo:** al tener 3 meses de datos
-**Esfuerzo:** ~1-2 semanas de trabajo
+**Cuándo:** al tener 1-2 días de datos por período (no requiere meses)
+**Esfuerzo:** ✅ implementado (`ramal_lookup/`)
 **Qué hace:**
-- Pipeline completo: NDJSON → snapshots.parquet → dataset de entrenamiento
-- Entrenar Modelo 1 (Fleet-level Transformer)
-- Integrar en server.js: cada ciclo, correr Model 1 sobre todos los vehículos de cada línea
-- Output: `FP_ramal` con probabilidad en vez de solo "resuelto/no resuelto"
+- Construir `ramal_map.json` (lookup `route_id → shape`) con el módulo `ramal_lookup/` (ver sección 6)
+- Integrar en server.js: cada ciclo, `lookup[route_id]` O(1) por vehículo
+- Output: `FP_ramal` resuelto desde el primer snapshot, incluidos fraccionados
 
 **Mejora:**
-- RamalEngine actual: ~65-70% de vehículos con ramal resuelto (solo los que pasaron divergencia)
-- Modelo 1: ~90-95% de vehículos resueltos en cualquier momento
-- Los fraccionados (39D/E/F) por primera vez tendrán una predicción probabilística
+- RamalEngine legacy: ~65-70% de vehículos con ramal resuelto (solo los que pasaron divergencia)
+- Lookup: ~100% dentro del período para líneas limpias; fraccionados (39D/E/F) resueltos por familia
+- Validado en línea 39: 36/36 route_ids en 3 períodos
 
-**Nota sobre route_id_rank:** el registry se actualiza automáticamente. El modelo ve el rank (posición relativa), no el valor absoluto. Robusto a rotaciones futuras sin recodificación.
+**Nota sobre rotaciones:** al aparecer route_ids nuevos se reconstruye la lookup (1-2 días), sin reentrenar. Ver sección 8, trigger A.
 
 ### Fase 3 — ETA con tráfico en tiempo real
 
@@ -945,7 +849,7 @@ Esta es la hoja de ruta ordenada por balance de esfuerzo vs reducción de error.
 **Cuándo:** después de tener los modelos de Fases 2 y 3 corriendo
 **Esfuerzo:** ~3-4 días
 **Qué hace:**
-- Cron semanal: detectar nuevos route_ids → trigger fine-tuning Modelo 1
+- Cron semanal: detectar nuevos route_ids → reconstruir la lookup de ramal (Modelo 1, sin entrenamiento)
 - Cron mensual: fine-tuning Modelo 2 con último mes de datos
 - Log de métricas: guardar MAE del modelo en producción para monitorear degradación
 
@@ -963,18 +867,18 @@ Esta es la hoja de ruta ordenada por balance de esfuerzo vs reducción de error.
 
 | Fase | Datos necesarios | Esfuerzo | MAE ETA | Ramal resuelto |
 |------|-----------------|----------|---------|----------------|
-| 0 (hoy) | — | ✅ Listo | — | ~65% (solo post-divergencia) |
+| 0 (hoy) | — | ✅ Listo | — | ~65% (RamalEngine legacy, post-divergencia) |
 | 1 — Pipeline + baseline | 1 mes | 3 días | A1 como prior² | ~65% (sin cambio) |
-| 2 — Ramal DL | 3 meses | 2 semanas | A1 como prior | **~93%** |
-| 3 — ETA con tráfico | 3-4 meses | 3 semanas | **~2 min** | ~93% |
-| 4 — Fine-tuning auto | post Fase 3 | 4 días | ~2 min (estable) | ~93% (estable) |
-| 5 — Transformer ETA | 6+ meses | 4 semanas | **~1 min** | ~95-97% |
+| 2 — Ramal lookup | 1-2 días/período | ✅ implementado | A1 como prior | **~100%** (líneas limpias) |
+| 3 — ETA con tráfico | 3-4 meses | 3 semanas | **~2 min** | ~100% |
+| 4 — Mantenimiento auto | post Fase 3 | 4 días | ~2 min (estable) | ~100% (estable) |
+| 5 — Transformer ETA | 6+ meses | 4 semanas | **~1 min** | ~100% |
 
 ²Fase 1 no produce una mejora de MAE sobre OBA cuando hay bus activo (OBA ya da ~1-2 min en tráfico normal). Su valor es el pipeline de datos y los headways históricos reales que habilitan Fases 2 y 3.
 
 ---
 
-## 10.1 Scope de entrenamiento: 7 líneas es el punto de partida
+## 10.1 Scope: 7 líneas es el punto de partida
 
 ### Modelo 1 — ramal ID: las 7 líneas son el punto de partida, no el scope completo
 
@@ -982,9 +886,9 @@ La gran mayoría de las líneas de CABA y AMBA tienen múltiples ramales. Contan
 
 Las 7 líneas con shapes en `line_shapes.json` son el punto de partida por disponibilidad de shapes — no porque sean las únicas que lo necesitan.
 
-**Escalado por transfer learning:** entrenar la arquitectura completa con las 7 líneas iniciales le enseña al modelo *cómo hacer inferencia fleet-level* (la mecánica general). Para cada línea nueva con shape disponible, un **fine-tune** de 10-15 min en la 3080 adapta el modelo a la geografía específica de esa línea. Mucho más rápido que entrenar desde cero (~1-2h) y requiere menos datos etiquetados por línea.
+**Escalado trivial:** agregar una línea nueva es crear su `families_{line}.json` (vacío `{}` si no tiene fraccionados) y volver a correr `build_ramal_map.py`. No hay entrenamiento, ni fine-tune, ni transfer learning — la misma lógica geométrica aplica a cualquier línea. El costo es minutos de CPU por línea.
 
-El bottleneck sigue siendo el mismo en todos los casos: **shapes per-ramal precisos**. Sin shape, no hay ramal ID posible (ni con ML ni con el algoritmo geográfico). BabusNova GTFS ya tiene `shapes.txt` con 700K líneas — el mismo origen que las 7 actuales. La pregunta abierta es cuántas líneas de BabusNova tienen shapes per-ramal suficientemente precisos para proyectar correctamente.
+El bottleneck sigue siendo el mismo en todos los casos: **shapes per-ramal precisos**. Sin shape, no hay ramal ID posible. BabusNova GTFS ya tiene `shapes.txt` con 700K líneas — el mismo origen que las 7 actuales. La pregunta abierta es cuántas líneas de BabusNova tienen shapes per-ramal suficientemente precisos para proyectar correctamente.
 
 ### Modelo 2 — ETA: entrena en 7, funciona en cualquier línea con shape
 
@@ -1013,7 +917,7 @@ Agregar una línea nueva al sistema = conseguir el shape → A1 funciona de inme
 Los modelos están **loosely coupled** a través del string `ramal_id`. No hay dependencia directa entre los pesos entrenados de ambos.
 
 ```
-Model 1 output:  ramal_id = "39-1"   (o override manual, o RamalEngine)
+Model 1 output:  ramal_id = "39-1"   (lookup[route_id], o override manual)
                      ↓
 Shape lookup:    polilínea del ramal "39-1"
                      ↓
@@ -1062,18 +966,20 @@ Model 2 input:   [distance_remaining, speed_history, fleet_state, time_of_day]
 
 ### Límites del modelo
 
-**Cold start de ramal:** los primeros ~5 minutos de un viaje nuevo, el vehículo no tiene historia. El modelo solo tiene route_id_rank + dirección + posición. En este caso, el modelo devuelve probabilidad distribuida (incertidumbre alta). El cliente debe mostrar "identificando..." en vez de un ramal incorrecto.
+**Cold start de ramal (post-rotación):** cuando aparece un `route_id` nuevo y todavía no acumuló suficientes viajes, la lookup lo deja en `pending` (gate de cold-start) en vez de asignarlo mal. El cliente debe mostrar "identificando..." hasta que el `route_id` se resuelva (1-2 días). Nota: una vez resuelto, no hay cold start por viaje — el ramal se conoce desde el primer snapshot vía `lookup[route_id]`.
 
-**Madrugada:** entre las 0:00 y las 5:00, hay 2-5 vehículos por línea activos. El fleet-level Transformer pierde su ventaja (poca flota para hacer inferencia por asociación). Pero como hay pocos pasajeros, el impacto en la experiencia del usuario es menor.
+**Madrugada:** entre las 0:00 y las 5:00 hay 2-5 vehículos por línea. No afecta a Modelo 1 (la lookup ya está construida y no depende de la flota activa); sí reduce la señal de tráfico para Modelo 2, pero como hay pocos pasajeros el impacto es menor.
 
-**Primera semana de rotación:** cuando aparecen route_ids nuevos, el registry detecta la rotación y re-asigna ranks. El Modelo 1 necesita fino-tuning para aprender los nuevos ranks. Hasta que ocurre (~30 min de proceso), el modelo opera con los ranks anteriores → degradación temporal aceptable.
+**Ventana de rotación:** cuando aparecen route_ids nuevos, los viejos dejan de servir y los nuevos están `pending` hasta acumular 1-2 días de GPS. Durante esa ventana esos vehículos no tienen ramal resuelto (degradación temporal aceptable). `direction_id` sí se conoce desde el primer snapshot.
 
 **Eventos no recurrentes:** paro de transporte, accidente de tránsito, corte por obras. El modelo no los detecta de forma especial — simplemente observa velocidades bajas en ciertos segmentos y los incorpora al tráfico actual. No puede predecir cuándo termina el evento. Para esto haría falta integrar fuentes externas (Twitter/X, Waze) — fuera del scope actual.
 
-**Líneas sin shapes OSM:** el sistema completo depende de tener polilíneas precisas por ramal. Las 7 líneas actuales en `line_shapes.json` están cubiertas. Agregar una nueva línea requiere: obtener el shape (OSM o BabusNova GTFS), proyectar los datos históricos, reentrenar o fine-tunear el modelo con esa línea.
+**Líneas sin shapes OSM:** el sistema completo depende de tener polilíneas precisas por ramal. Las 7 líneas actuales en `line_shapes.json` están cubiertas. Agregar una nueva línea requiere: obtener el shape (OSM o BabusNova GTFS), crear su `families_{line}.json` y correr `build_ramal_map.py` (Modelo 1, sin entrenar); Modelo 2 funciona sin reentrenar.
+
+**Líneas caóticas (151, 124):** la lookup asume `route_id ↔ shape` 1:1 estable en el período. La 151 (71 route_ids en 62 días, dual_direction, obs_count=1) y la 124 (gaps frecuentes) no cumplen eso del todo y requieren filtro previo por volumen. La lookup degrada a `pending` en esos casos en vez de resolver mal. Ver `research_direction_routeid.md`.
 
 ### Dependencias externas
 
 - **API BA Transporte:** si deja de funcionar o cambia formato, el grabador deja de acumular datos. Los modelos ya entrenados siguen funcionando con datos históricos mientras la API esté parcialmente disponible.
 - **Shapes OSM:** si cambia el recorrido de una línea físicamente, el shape queda desactualizado y la proyección falla. Requiere actualizar `line_shapes.json` manualmente.
-- **Rotación de route_ids:** si el período cambia de 3 semanas a otra duración, el registry se adapta automáticamente (detecta cambios por observación, no por timer fijo).
+- **Rotación de route_ids:** si el período cambia de 3 semanas a otra duración, la lookup se reconstruye automáticamente al aparecer route_ids nuevos (detecta cambios por observación, no por timer fijo).

@@ -67,7 +67,7 @@ class ShapeIndex:
 
         ap_dot_ab = ap_x * self._ab_x + ap_y * self._ab_y   # (N-1,)
 
-        t = np.where(self._valid, ap_dot_ab / self._ab_dot, 0.0)
+        t = np.divide(ap_dot_ab, self._ab_dot, out=np.zeros_like(self._ab_dot), where=self._valid)
         t = np.clip(t, 0.0, 1.0)
 
         proj_lat = pts[:-1, 0] + t * (pts[1:, 0] - pts[:-1, 0])
@@ -80,6 +80,70 @@ class ShapeIndex:
         best_i = int(np.argmin(perp))
         dist_along = float(self._cum_dist[best_i] + t[best_i] * self._seg_lens[best_i])
         return dist_along, float(perp[best_i])
+
+    def project_many(
+        self,
+        lats: "np.ndarray",
+        lons: "np.ndarray",
+    ) -> "tuple[np.ndarray, np.ndarray]":
+        """
+        Proyecta N puntos sobre el shape en una sola operación vectorizada.
+
+        Parámetros
+        ----------
+        lats : array-like de shape (M,)  — latitudes
+        lons : array-like de shape (M,)  — longitudes
+
+        Retorna
+        -------
+        dist_along : ndarray (M,) — distancia acumulada sobre el shape en metros
+        perp       : ndarray (M,) — error perpendicular en metros
+
+        Equivalencia exacta con project():
+          Para todo i: project_many(lats, lons)[0][i] == project(lats[i], lons[i])[0]
+          (y lo mismo para perp).  Los resultados son idénticos bit-a-bit a los del
+          loop porque usan la misma aritmética de punto flotante sobre los mismos arrays.
+
+        Complejidad: O(M × S) donde S = nº segmentos del shape. Evita el overhead del
+        loop Python por punto (~2.25M llamadas en el profiling → cuellos de botella
+        del 20% del tiempo total de build_ramal_map).
+        """
+        lats_arr = np.asarray(lats, dtype=np.float64)   # (M,)
+        lons_arr = np.asarray(lons, dtype=np.float64)   # (M,)
+        M = len(lats_arr)
+        pts = self._pts
+        n_segs = len(self._ab_x)
+
+        # Broadcast: (M, n_segs) para cada punto contra todos los segmentos
+        # ap_* son los vectores desde el inicio de cada segmento al punto GPS
+        ap_y = (lats_arr[:, None] - pts[:-1, 0][None, :]) * _M_PER_DEG_LAT   # (M, S)
+        ap_x = (lons_arr[:, None] - pts[:-1, 1][None, :]) * self._m_per_deg_lon[None, :]  # (M, S)
+
+        ap_dot_ab = ap_x * self._ab_x[None, :] + ap_y * self._ab_y[None, :]  # (M, S)
+
+        # t clampeado a [0,1]: posición proyectada dentro del segmento
+        ab_dot = self._ab_dot[None, :]                                         # (1, S)
+        valid = self._valid[None, :]                                            # (1, S)
+        t = np.where(valid, ap_dot_ab / np.where(valid, ab_dot, 1.0), 0.0)   # (M, S)
+        t = np.clip(t, 0.0, 1.0)
+
+        # Punto proyectado sobre el segmento
+        proj_lat = pts[:-1, 0][None, :] + t * (pts[1:, 0] - pts[:-1, 0])[None, :]  # (M, S)
+        proj_lon = pts[:-1, 1][None, :] + t * (pts[1:, 1] - pts[:-1, 1])[None, :]  # (M, S)
+
+        dp_y = (lats_arr[:, None] - proj_lat) * _M_PER_DEG_LAT
+        dp_x = (lons_arr[:, None] - proj_lon) * self._m_per_deg_lon[None, :]
+        perp_all = np.sqrt(dp_x ** 2 + dp_y ** 2)                              # (M, S)
+
+        # Para cada punto, el segmento con menor error perpendicular
+        best_i = np.argmin(perp_all, axis=1)                                    # (M,)
+        perp_out = perp_all[np.arange(M), best_i]                              # (M,)
+
+        t_best = t[np.arange(M), best_i]                                       # (M,)
+        seg_lens_best = self._seg_lens[best_i]                                  # (M,)
+        dist_along_out = self._cum_dist[best_i] + t_best * seg_lens_best       # (M,)
+
+        return dist_along_out, perp_out
 
     @property
     def total_length_m(self) -> float:
