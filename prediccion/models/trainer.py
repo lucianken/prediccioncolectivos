@@ -178,13 +178,13 @@ def train_phase3(
             for ramal in line_data.get("ramales", []):
                 pts = [tuple(p) for p in ramal["points"]]
                 if len(pts) >= 2:
-                    # Naive key fallback
+                    # Clave primaria: shape_id de OSM
+                    sh_id = ramal.get("shapeId")
+                    if sh_id:
+                        shape_lengths[sh_id] = polyline_length_m(pts)
+                    # Fallback naive
                     shape_lengths[f"{line_num}-{ramal.get('direction', 0)}"] = polyline_length_m(pts)
-                    # Exact shape_key (e.g. "39A-d0")
-                    short_name = ramal.get("shortName", line_num)
-                    direction = ramal.get("direction", 0)
-                    shape_lengths[f"{short_name}-d{direction}"] = polyline_length_m(pts)
-        print(f"      Shape lengths cargados: {len(shape_lengths)} ramales")
+        print(f"      Shape lengths cargados: {len(shape_lengths)} shapes")
     except Exception as e:
         print(f"      WARN: no se pudieron cargar shape lengths: {e}. Usando dist_remaining sin normalizar.")
 

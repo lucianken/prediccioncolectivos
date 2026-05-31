@@ -52,20 +52,14 @@ class ShapeLoader:
             for r in data.get("ramales", []):
                 pts = [tuple(p) for p in r["points"]]
                 length_m = polyline_length_m(pts)
-                
-                short_name = r.get("shortName", line)
-                direction = r.get("direction", 0)
-                if short_name != line or line == "39":
-                    ramal_id = f"{short_name}-d{direction}"
-                else:
-                    ramal_id = f"{line}-{direction}"
-
+                # shape_id es la fuente de verdad (OSM) — misma clave que en el dataset de training
+                ramal_id = r.get("shapeId") or f"{line}-{r.get('direction', 0)}"
                 ramales.append(Ramal(
                     line=line,
                     ramal_id=ramal_id,
                     name=r.get("name", ""),
-                    short_name=short_name,
-                    direction=direction,
+                    short_name=r.get("shortName", line),
+                    direction=r.get("direction", 0),
                     shape_id=r.get("shapeId", ""),
                     points=pts,
                     length_m=length_m,
