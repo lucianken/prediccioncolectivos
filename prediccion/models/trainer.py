@@ -240,7 +240,7 @@ def train_phase3(
 
     t_start = time.time()
 
-    def _run_epoch(loader, train_mode: bool) -> float:
+    def _run_epoch(loader, train_mode: bool) -> tuple[float, dict[str, float]] | float:
         model.train(train_mode)
         total_loss = 0.0
         n = 0
@@ -252,6 +252,10 @@ def train_phase3(
             pbar = tqdm(loader, desc=desc, leave=False)
         except ImportError:
             pbar = loader
+
+        if not train_mode:
+            bucket_sums = {"0_500m": 0.0, "500m_2km": 0.0, "2km_plus": 0.0}
+            bucket_counts = {"0_500m": 0, "500m_2km": 0, "2km_plus": 0}
 
         with ctx:
             for batch in pbar:
@@ -283,6 +287,21 @@ def train_phase3(
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                     scaler.step(optimizer)
                     scaler.update()
+                else:
+                    dist_rem_m = batch["dist_remaining_m"].to(actual_device)
+                    errors = torch.abs(pred - eta_target)
+                    mask_0_500 = dist_rem_m <= 500
+                    mask_500_2k = (dist_rem_m > 500) & (dist_rem_m <= 2000)
+                    mask_2k_plus = dist_rem_m > 2000
+                    
+                    bucket_sums["0_500m"] += errors[mask_0_500].sum().item()
+                    bucket_counts["0_500m"] += mask_0_500.sum().item()
+                    
+                    bucket_sums["500m_2km"] += errors[mask_500_2k].sum().item()
+                    bucket_counts["500m_2km"] += mask_500_2k.sum().item()
+                    
+                    bucket_sums["2km_plus"] += errors[mask_2k_plus].sum().item()
+                    bucket_counts["2km_plus"] += mask_2k_plus.sum().item()
 
                 bs = eta_target.shape[0]
                 total_loss += loss.item() * bs
@@ -291,16 +310,23 @@ def train_phase3(
                 if hasattr(pbar, "set_postfix"):
                     pbar.set_postfix(loss=loss.item())
 
+        if not train_mode:
+            by_bucket = {
+                k: (bucket_sums[k] / bucket_counts[k] if bucket_counts[k] > 0 else 0.0)
+                for k in bucket_sums
+            }
+            return (total_loss / n if n > 0 else float("inf")), by_bucket
         return total_loss / n if n > 0 else float("inf")
 
-    print(f"\n{'Epoch':>6}  {'Train MAE (s)':>14}  {'Val MAE (s)':>12}  {'LR':>10}  {'Best':>5}")
-    print("-" * 60)
+    print(f"\n{'Epoch':>5}  {'Train MAE':>11}  {'Val MAE':>11}  {'0-500m':>9}  {'500m-2km':>9}  {'2km+':>9}  {'LR':>9}  {'Best':>5}")
+    print("-" * 80)
 
     for epoch in range(1, epochs + 1):
         train_mae = _run_epoch(train_loader, train_mode=True)
         val_mae = float("inf")
+        val_by_bucket = {}
         if val_loader is not None:
-            val_mae = _run_epoch(val_loader, train_mode=False)
+            val_mae, val_by_bucket = _run_epoch(val_loader, train_mode=False)
             scheduler.step(val_mae)
         else:
             scheduler.step(train_mae)
@@ -317,19 +343,24 @@ def train_phase3(
                 "optimizer_state_dict": optimizer.state_dict(),
                 "val_mae_s": best_val_mae,
                 "train_mae_s": train_mae,
+                "val_mae_by_bucket": val_by_bucket if has_val else None,
             }, best_ckpt_path)
         else:
             no_improve += 1
 
         current_lr = optimizer.param_groups[0]["lr"]
-        val_str = f"{val_mae:12.1f}" if has_val else "         N/A"
+        val_str = f"{val_mae:11.1f}" if has_val else "        N/A"
+        b0_str = f"{val_by_bucket.get('0_500m', 0.0):9.1f}" if has_val else "      N/A"
+        b1_str = f"{val_by_bucket.get('500m_2km', 0.0):9.1f}" if has_val else "      N/A"
+        b2_str = f"{val_by_bucket.get('2km_plus', 0.0):9.1f}" if has_val else "      N/A"
         best_str = "  ★" if is_best else ""
-        print(f"{epoch:>6}  {train_mae:14.1f}  {val_str}  {current_lr:10.2e}{best_str}")
+        print(f"{epoch:>5}  {train_mae:11.1f}  {val_str}  {b0_str}  {b1_str}  {b2_str}  {current_lr:9.2e}{best_str}")
 
         history.append({
             "epoch": epoch,
             "train_mae_s": train_mae,
             "val_mae_s": val_mae if has_val else None,
+            "val_mae_by_bucket": val_by_bucket if has_val else None,
             "lr": current_lr,
         })
 
@@ -357,6 +388,7 @@ def train_phase3(
         "train_mae_s": history[best_epoch - 1]["train_mae_s"] if history else None,
         "val_mae_s": best_val_mae if has_val else None,
         "val_mae_min": best_val_mae / 60 if has_val else None,
+        "val_mae_by_bucket": history[best_epoch - 1]["val_mae_by_bucket"] if (history and has_val) else None,
         "training_time_s": training_time_s,
         "device": actual_device,
         "batch_size": batch_size,
@@ -419,18 +451,13 @@ def _export_a3_onnx(model, onnx_path: Path, device: str) -> None:
         import onnxruntime as ort
         import numpy as np
         sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+        # Filtrar inputs según lo que realmente espera el modelo ONNX exportado (ya que PyTorch optimiza y remueve inputs no usados como fleet/fleet_mask cuando n_fleet=0)
         ort_inputs = {
-            "trajectory":          np.zeros((1, 1, 3),  dtype=np.float32),
-            "trajectory_mask":     np.zeros((1, 1),     dtype=bool),
-            "fleet":               np.zeros((1, 0, 5),  dtype=np.float32),
-            "fleet_mask":          np.zeros((1, 0),     dtype=bool),
-            "hour_sin":            np.zeros((1, 1),     dtype=np.float32),
-            "hour_cos":            np.zeros((1, 1),     dtype=np.float32),
-            "dow":                 np.zeros((1,),       dtype=np.int64),
-            "dist_remaining_norm": np.zeros((1, 1),     dtype=np.float32),
-            "time_since_start":    np.zeros((1, 1),     dtype=np.float32),
-            "has_active_bus":      np.zeros((1, 1),     dtype=np.float32),
+            name: val.cpu().numpy()
+            for name, val in zip(input_names, ex)
         }
+        expected_names = {i.name for i in sess.get_inputs()}
+        ort_inputs = {k: v for k, v in ort_inputs.items() if k in expected_names}
         out = sess.run(None, ort_inputs)
         print(f"      ONNX verificado con onnxruntime. Salida de prueba: {out[0]}")
     except ImportError:

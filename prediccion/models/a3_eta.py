@@ -94,17 +94,17 @@ class TimeEncoder(nn.Module):
 
 
 class A3ETAModel(nn.Module):
-    def __init__(self, hidden_dims: tuple = (64, 32)):
+    def __init__(self, d_model: int = 128, hidden_dims: tuple = (256, 128, 64)):
         """
-        Concatena: trajectory(64) + fleet(64) + time(12) + dist(1) + time_since_start(1) + has_bus(1) = 143
-        MLP: Linear(143→64) → GELU → Dropout(0.1) → Linear(64→32) → GELU → Linear(32→1) → Softplus
+        Concatena: trajectory(d_model) + fleet(d_model) + time(16) + dist(1) + time_since_start(1) + has_bus(1)
+        MLP: Linear(concat_dim → 256) → GELU → Dropout(0.1) → Linear(256 → 128) → GELU → Linear(128 → 64) → GELU → Linear(64 → 1) → Softplus
         """
         super().__init__()
-        self.trajectory_enc = TrajectoryEncoder()
-        self.fleet_enc = FleetEncoder()
-        self.time_enc = TimeEncoder()
+        self.trajectory_enc = TrajectoryEncoder(d_model=d_model, nhead=4, num_layers=3)
+        self.fleet_enc = FleetEncoder(d_model=d_model, nhead=4, num_layers=3)
+        self.time_enc = TimeEncoder(dow_embed_dim=8, out_dim=16)
 
-        concat_dim = 64 + 64 + 12 + 1 + 1 + 1  # = 143
+        concat_dim = d_model + d_model + 16 + 1 + 1 + 1  # = 2 * d_model + 19
 
         layers = []
         in_dim = concat_dim

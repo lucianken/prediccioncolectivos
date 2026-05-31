@@ -43,24 +43,19 @@ def make_training_rows_eta(
     trip: "Trip",
     ramal_id: str,
     shape_length_m: float,
+    fleet_by_line_at_ts: dict[tuple[str, int], list[dict]] | None = None,
 ) -> "list[ETATrainingRow]":
     """
-    Genera filas de entrenamiento para el modelo de ETA.
+    Genera filas de entrenamiento enriquecidas para el modelo de ETA.
 
     Para cada par (punto_actual P, punto_futuro F) del trip donde F está adelante de P:
-    - dist_remaining_m = F.dist_along_shape_m - P.dist_along_shape_m  (debe ser > 0)
-    - observed_eta_s = F.ts - P.ts  (debe ser > 0)
+    - dist_remaining_m = F.dist_along_shape_m - P.dist_along_shape_m
+    - observed_eta_s = F.ts - P.ts
     - seg_idx = get_segment_index(P.dist_along_shape_m)
     - time_enc = encode_time(P.ts)
-
-    Retorna lista de dicts con keys:
-      ramal_id, seg_idx, dist_remaining_m, dist_along_norm,
-      speed_mps, hour_sin, hour_cos, dow, has_active_bus (siempre True),
-      observed_eta_s
-
-    dist_along_norm = P.dist_along_shape_m / shape_length_m
-    Filtra pares donde observed_eta_s <= 0 o dist_remaining_m <= 0.
-    Solo puntos con dist_along_shape_m >= 0 (proyectados).
+    - time_since_start = P.ts - points[0].ts
+    - traj_dist, traj_speed, traj_dt = historial de hasta 10 posiciones de este colectivo
+    - fleet_features_flat, n_fleet = estado de la flota de la misma línea en este timestamp
     """
     rows = []
     points = [pt for pt in trip.points if pt.dist_along_shape_m >= 0]
@@ -72,6 +67,48 @@ def make_training_rows_eta(
         time_enc = encode_time(p.ts)
         seg_idx = get_segment_index(p.dist_along_shape_m)
         dist_along_norm = p.dist_along_shape_m / shape_length_m
+
+        # 1. Historia de trayectoria (hasta 10 puntos)
+        K = 10
+        hist_pts = points[max(0, i - K + 1):i + 1]
+        
+        traj_dist = []
+        traj_speed = []
+        traj_dt = []
+        for j, hp in enumerate(hist_pts):
+            traj_dist.append(float(hp.dist_along_shape_m / shape_length_m))
+            traj_speed.append(float(hp.speed))
+            if j == 0:
+                traj_dt.append(0.0)
+            else:
+                traj_dt.append(float(hp.ts - hist_pts[j-1].ts))
+
+        # 2. Estado de la flota circundante
+        fleet_rows = []
+        if fleet_by_line_at_ts and trip.line_number:
+            fleet_list = fleet_by_line_at_ts.get((trip.line_number, p.ts), [])
+            fleet_other = [f for f in fleet_list if f.get("vehicle_id") != trip.vehicle_id]
+            for f in fleet_other:
+                lat_norm = (f["lat"] - (-34.6)) * 10.0
+                lon_norm = (f["lon"] - (-58.4)) * 10.0
+                is_same_dir = 1.0 if f["direction_id"] == trip.direction_id else 0.0
+                fleet_rows.append([
+                    float(lat_norm),
+                    float(lon_norm),
+                    float(f["speed"]),
+                    float(f["direction_id"]),
+                    is_same_dir
+                ])
+            # Limitar a un tamaño manejable (max 20 vehículos)
+            fleet_rows = fleet_rows[:20]
+
+        fleet_features_flat = []
+        for row in fleet_rows:
+            fleet_features_flat.extend(row)
+        n_fleet = len(fleet_rows)
+
+        # 3. Segundos desde el inicio del viaje
+        time_since_start = float(p.ts - points[0].ts)
 
         for f in points[i + 1:]:
             dist_remaining_m = f.dist_along_shape_m - p.dist_along_shape_m
@@ -91,6 +128,12 @@ def make_training_rows_eta(
                 "dow": time_enc["dow"],
                 "has_active_bus": True,
                 "observed_eta_s": observed_eta_s,
+                "time_since_start": time_since_start,
+                "traj_dist": traj_dist,
+                "traj_speed": traj_speed,
+                "traj_dt": traj_dt,
+                "fleet_features_flat": fleet_features_flat,
+                "n_fleet": n_fleet,
             })
 
     return rows

@@ -73,6 +73,9 @@ class ETADataset(Dataset):
                 "ramal_id", "dist_remaining_m", "dist_along_norm",
                 "speed_mps", "hour_sin", "hour_cos", "dow",
                 "has_active_bus", "observed_eta_s",
+            ] + [
+                c for c in ["time_since_start", "traj_dist", "traj_speed", "traj_dt", "fleet_features_flat", "n_fleet"]
+                if c in pq.read_metadata(str(parquet_path)).schema.names
             ],
         )
         df = tbl.to_pydict()
@@ -106,11 +109,15 @@ class ETADataset(Dataset):
             for j in range(len(valid))
         ], dtype=np.float32)
 
-        # Tensores fijos vacíos para fleet (MVP sin estado de flota)
-        self._empty_fleet      = torch.zeros(0, 5)
-        self._empty_fleet_mask = torch.zeros(0, dtype=torch.bool)
-        self._shared_traj_mask = torch.zeros(1, dtype=torch.bool)
-        self._shared_time_since_start = torch.zeros(1, dtype=torch.float32)
+        # Extraer variables extendidas con defaults para compatibilidad hacia atrás
+        time_since_start_list = df.get("time_since_start", [0.0] * n)
+        traj_dist_list = df.get("traj_dist", [[df["dist_along_norm"][i]] for i in range(n)])
+        traj_speed_list = df.get("traj_speed", [[df["speed_mps"][i]] for i in range(n)])
+        traj_dt_list = df.get("traj_dt", [[0.0] for i in range(n)])
+        fleet_flat_list = df.get("fleet_features_flat", [[] for i in range(n)])
+        n_fleet_list = df.get("n_fleet", [0] * n)
+
+        self._time_since_start = np.array([float(time_since_start_list[i]) for i in valid], dtype=np.float32)
 
         # Pre-convertir arrays de NumPy a tensores PyTorch de una vez para evitar alocaciones repetidas
         self._hour_sin_t = torch.from_numpy(self._hour_sin)
@@ -118,27 +125,53 @@ class ETADataset(Dataset):
         self._dow_t      = torch.from_numpy(self._dow)
         self._has_bus_t  = torch.from_numpy(self._has_bus)
         self._eta_s_t    = torch.from_numpy(self._eta_s)
+        self._dist_remaining_t = torch.from_numpy(self._dist_remaining)
         self._dist_remaining_norm_t = torch.from_numpy(self._dist_remaining_norm)
+        self._time_since_start_t = torch.from_numpy(self._time_since_start).unsqueeze(-1)  # (len, 1)
 
-        # Pre-construir tensor de trayectorias (len, 1, 3)
-        self._trajectories = torch.zeros(len(valid), 1, 3, dtype=torch.float32)
-        self._trajectories[:, 0, 0] = torch.from_numpy(self._dist_along_norm)
-        self._trajectories[:, 0, 1] = torch.from_numpy(self._speed_mps)
+        # Pre-construir tensor de trayectorias (len, 10, 3) y su máscara
+        self._trajectories = torch.zeros(len(valid), 10, 3, dtype=torch.float32)
+        self._trajectory_masks = torch.ones(len(valid), 10, dtype=torch.bool)
+        
+        # Pre-construir tensor de flota (len, 20, 5) y su máscara
+        self._fleets = torch.zeros(len(valid), 20, 5, dtype=torch.float32)
+        self._fleet_masks = torch.ones(len(valid), 20, dtype=torch.bool)
+
+        for idx, i in enumerate(valid):
+            # Llenar trayectoria
+            td = traj_dist_list[i]
+            ts = traj_speed_list[i]
+            tdt = traj_dt_list[i]
+            sl = min(len(td), 10)
+            self._trajectories[idx, :sl, 0] = torch.tensor(td[:sl], dtype=torch.float32)
+            self._trajectories[idx, :sl, 1] = torch.tensor(ts[:sl], dtype=torch.float32)
+            self._trajectories[idx, :sl, 2] = torch.tensor(tdt[:sl], dtype=torch.float32)
+            self._trajectory_masks[idx, :sl] = False
+
+            # Llenar flota
+            nf = n_fleet_list[i]
+            if nf > 0:
+                flat_f = fleet_flat_list[i]
+                fl = min(nf, 20)
+                for f_idx in range(fl):
+                    self._fleets[idx, f_idx, :] = torch.tensor(flat_f[f_idx*5 : (f_idx+1)*5], dtype=torch.float32)
+                    self._fleet_masks[idx, f_idx] = False
 
     def __len__(self) -> int:
         return len(self._eta_s)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
         return {
-            "trajectory":           self._trajectories[idx],          # (1, 3)
-            "trajectory_mask":      self._shared_traj_mask,           # (1,)
-            "fleet":                self._empty_fleet,                # (0, 5)
-            "fleet_mask":           self._empty_fleet_mask,           # (0,)
+            "trajectory":           self._trajectories[idx],          # (10, 3)
+            "trajectory_mask":      self._trajectory_masks[idx],      # (10,)
+            "fleet":                self._fleets[idx],                # (20, 5)
+            "fleet_mask":           self._fleet_masks[idx],           # (20,)
             "hour_sin":             self._hour_sin_t[idx:idx+1],      # (1,)
             "hour_cos":             self._hour_cos_t[idx:idx+1],      # (1,)
             "dow":                  self._dow_t[idx],                 # ()
+            "dist_remaining_m":     self._dist_remaining_t[idx:idx+1], # (1,)
             "dist_remaining_norm":  self._dist_remaining_norm_t[idx:idx+1],  # (1,)
-            "time_since_start":     self._shared_time_since_start,    # (1,)
+            "time_since_start":     self._time_since_start_t[idx],    # (1,)
             "has_active_bus":       self._has_bus_t[idx:idx+1],        # (1,)
             "eta_seconds":          self._eta_s_t[idx:idx+1],          # (1,)
         }
@@ -179,6 +212,7 @@ def collate_eta(batch: list[dict]) -> dict[str, torch.Tensor]:
         "hour_sin":             torch.stack([item["hour_sin"]            for item in batch]),
         "hour_cos":             torch.stack([item["hour_cos"]            for item in batch]),
         "dow":                  torch.stack([item["dow"]                 for item in batch]),
+        "dist_remaining_m":     torch.stack([item["dist_remaining_m"]   for item in batch]),
         "dist_remaining_norm":  torch.stack([item["dist_remaining_norm"] for item in batch]),
         "time_since_start":     torch.stack([item["time_since_start"]   for item in batch]),
         "has_active_bus":       torch.stack([item["has_active_bus"]     for item in batch]),

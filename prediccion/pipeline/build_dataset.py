@@ -90,6 +90,7 @@ def _process_daily_file(
         from prediccion.pipeline.reader import reconstruct_snapshots
         snapshots_iter = reconstruct_snapshots(fp, interval_s=interval_s)
 
+    fleet_by_line_at_ts: dict[tuple[str, int], list[dict]] = {}
     day_vehicle_obs: dict[str, list[dict]] = {
         vid: list(obs) for vid, obs in vehicle_obs_carry.items()
     }
@@ -98,6 +99,19 @@ def _process_daily_file(
             obs = dict(fields)
             obs["ts"] = obs.get("ts", ts)
             day_vehicle_obs.setdefault(vid, []).append(obs)
+
+            # Reconstruir estado de la flota
+            raw_label = obs.get("label", "")
+            suffix = raw_label.split("-")[-1] if raw_label else ""
+            line_number = label_line_map.get(suffix)
+            if line_number:
+                fleet_by_line_at_ts.setdefault((line_number, ts), []).append({
+                    "vehicle_id": vid,
+                    "lat": obs.get("lat", 0.0),
+                    "lon": obs.get("lon", 0.0),
+                    "speed": obs.get("speed", 0.0),
+                    "direction_id": obs.get("direction_id", 0),
+                })
 
     day_trips = []
     new_carry: dict[str, list[dict]] = {}
@@ -141,7 +155,12 @@ def _process_daily_file(
             "n_points": len(pt.points),
         })
         ramal_id = f"{line_num}-{pt.direction_id}"
-        rows = make_training_rows_eta(pt, ramal_id, shape_lengths.get(ramal_id, 1.0))
+        rows = make_training_rows_eta(
+            pt,
+            ramal_id,
+            shape_lengths.get(ramal_id, 1.0),
+            fleet_by_line_at_ts=fleet_by_line_at_ts,
+        )
         if rows:
             eta_by_line.setdefault(line_num, []).extend(rows)
 

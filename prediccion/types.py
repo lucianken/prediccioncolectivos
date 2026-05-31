@@ -71,3 +71,10 @@ class ETATrainingRow(TypedDict):
     dow: int
     has_active_bus: bool
     observed_eta_s: float
+    # Nuevas variables enriquecidas
+    time_since_start: float
+    traj_dist: list[float]
+    traj_speed: list[float]
+    traj_dt: list[float]
+    fleet_features_flat: list[float]
+    n_fleet: int
