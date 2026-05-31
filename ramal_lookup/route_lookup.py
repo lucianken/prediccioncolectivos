@@ -107,6 +107,8 @@ class ShapeEntry:
     index: ShapeIndex
     is_fraccionado: bool = False
     parent_short_name: Optional[str] = None
+    shape_id: str = ""                     # shapeId de line_shapes.json (estable, no rota)
+    name: str = ""                         # headsign descriptivo, e.g. "Línea 39 - Ramal 1: Barracas → Chacarita"
 
     @property
     def key(self) -> str:
@@ -123,6 +125,8 @@ class LookupEntry:
     # Solo si resolved:
     assigned_shape_key: Optional[str] = None   # e.g. "39A-d0"
     short_name: Optional[str] = None
+    shape_id: Optional[str] = None             # shapeId de line_shapes.json (referencia autoritativa)
+    name: Optional[str] = None                 # headsign descriptivo del shape asignado
     shape_direction: Optional[int] = None
     assignment_type: Optional[str] = None      # "completo" | "fraccionado"
     method: Optional[str] = None               # "vote+coverage" | "vote_only" | "coverage_gap"
@@ -152,6 +156,8 @@ class LookupEntry:
             "reason": self.reason,
             "assigned_shape_key": self.assigned_shape_key,
             "short_name": self.short_name,
+            "shape_id": self.shape_id,
+            "name": self.name,
             "shape_direction": self.shape_direction,
             "assignment_type": self.assignment_type,
             "method": self.method,
@@ -199,6 +205,8 @@ def build_shape_entries(shapes: dict, line: str, families: dict[str, list[str]])
             index=ShapeIndex([tuple(p) for p in r["points"]]),
             is_fraccionado=sn in fraccionado_names,
             parent_short_name=parent_map.get(sn),
+            shape_id=r.get("shapeId", ""),
+            name=r.get("name", ""),
         ))
     return entries
 
@@ -406,6 +414,8 @@ def build_lookup(
                     status="resolved",
                     assigned_shape_key=cov_winner_key,
                     short_name=cov_winner_entry.short_name,
+                    shape_id=cov_winner_entry.shape_id,
+                    name=cov_winner_entry.name,
                     shape_direction=direction,
                     assignment_type="fraccionado",
                     method="coverage_gap",
@@ -461,11 +471,14 @@ def build_lookup(
                 if winner_key == cov_winner_key: parts.append("cov")
                 method = "+".join(parts)
 
+                winner_entry = entries_by_key[winner_key]
                 lookup[rid] = LookupEntry(
                     route_id=rid, direction_id=direction,
                     status="resolved",
                     assigned_shape_key=winner_key,
-                    short_name=entries_by_key[winner_key].short_name,
+                    short_name=winner_entry.short_name,
+                    shape_id=winner_entry.shape_id,
+                    name=winner_entry.name,
                     shape_direction=direction,
                     assignment_type="completo",
                     method=method,

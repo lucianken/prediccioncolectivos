@@ -15,6 +15,31 @@ los mismos ramales físicos reciben números nuevos. El mismo número puede volv
 en el futuro representando un ramal distinto. `ramal_map.json` guarda
 `first_seen`/`last_seen` por cada entrada para manejar esto sin ambigüedad.
 
+## Contrato del consumidor (Modelo 2 ETA y otros)
+
+Cada entrada resuelta en `ramal_map.json` expone:
+
+| Campo | Significado |
+|-------|-------------|
+| `shape_key` | Label legible interno (`"39A-d0"`). El sufijo `d0`/`d1` es **orden de aparición** en `line_shapes.json`, no una dirección semántica. |
+| `shape_id` | **Referencia autoritativa** al shape en `line_shapes.json`. Estable por línea; no rota con los `route_id`. Ejemplo: `"382202"`, `"frac_382208"`. |
+| `name` | Headsign descriptivo del shape asignado. Ejemplo: `"Línea 39 - Ramal 1: Barracas → x Córdoba → Chacarita"`. Identifica la dirección física sin ambigüedad. |
+
+**Cómo resolver un shape en el consumidor:**
+
+```python
+# En ramal_map.json:
+entry = lookup_by_route_id(route_id, ts)   # → {shape_id: "382202", name: "...", ...}
+
+# En line_shapes.json (ya cargado para proyección):
+ramal = next(r for r in shapes[line]["ramales"] if r["shapeId"] == entry["shape_id"])
+# → ramal["points"], ramal["stops"], ramal["name"] directamente
+```
+
+No se necesita un tercer diccionario. `line_shapes.json` es la fuente de verdad
+de geometría + semántica. El `shape_id` es el único link necesario entre los dos
+archivos. **Nunca interpretar `d0`/`d1` como dirección física.**
+
 ---
 
 ## Archivos
@@ -150,6 +175,44 @@ Si cov_winner es completo:
 
 Gate cold-start: n_trips < 3 → pending
 ```
+
+### Robustez del match de dirección
+
+`build_lookup` filtra candidatos con `e.direction == route_id.direction_id`,
+donde `e.direction` es el orden de aparición del `shortName` en `line_shapes.json`
+(primera ocurrencia = d0, segunda = d1). Esto asume:
+
+> **Asunción**: el orden del array de ramales en `line_shapes.json` para cada
+> `shortName` alinea con el `direction_id` de la API (`0` → primera ocurrencia,
+> `1` → segunda).
+
+**Estado en línea 39 (verificado):**  
+36/36 asignaciones correctas en 3 períodos de rotación. Todos los `direction_id=0`
+quedan mapeados a shapes con headsign `Barracas/Constitución → Chacarita` (d0),
+y todos los `direction_id=1` a `Chacarita → Barracas/Constitución` (d1). La
+asunción se sostiene para esta línea.
+
+**Riesgo de escala:**  
+Si una línea nueva tiene el array de ramales en orden inverso en `line_shapes.json`,
+el filtro de candidatos asignaría los shapeIds de la dirección equivocada **en
+silencio** — porque el shape físico sigue siendo geométricamente coherente con
+el GPS (misma geometría, solo sentido invertido). El `name` emitido permite
+detectar un flip: si los route_ids con `direction_id=0` reciben un `name` con
+`Chacarita → Barracas` en lugar de `Barracas → Chacarita`, el array está
+invertido.
+
+**Mitigación práctica sin cambio de algoritmo:**  
+Al resolver una línea nueva, verificar que el `name` del primer route_id resuelto
+con `direction_id=0` empiece por el terminal esperado (el que figura primero en
+la documentación de la línea). Si está invertido, invertir el orden de los
+ramales en `line_shapes.json` para esa línea antes de regenerar.
+
+Una forma robusta de derivar la dirección automáticamente —sin depender del
+orden del array— sería comparar el `direction_id` de la API contra la tendencia
+temporal del `dist_along` (positiva = d0, negativa = d1). Esto requiere
+acceder a los `dist_along` por viaje en `build_lookup`, lo cual no está
+implementado hoy. Queda documentado como mejora futura si la asunción falla
+para alguna línea.
 
 ### Fraccionados
 

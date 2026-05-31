@@ -198,6 +198,8 @@ def build_line(
                     "assignment_status": "unresolved",
                     "shape_key": None,
                     "short_name": None,
+                    "shape_id": None,
+                    "name": None,
                     "confidence": None,
                     "method": None,
                 })
@@ -228,6 +230,8 @@ def build_line(
                             "assignment_status": "resolved",
                             "shape_key": result.assigned_shape_key,
                             "short_name": result.short_name,
+                            "shape_id": result.shape_id,
+                            "name": result.name,
                             "confidence": result.confidence,
                             "method": result.method,
                             "assignment_type": result.assignment_type,
@@ -259,6 +263,8 @@ def build_line(
             "assignment_status": "pending",
             "shape_key": None,
             "short_name": None,
+            "shape_id": None,
+            "name": None,
             "confidence": None,
             "method": None,
         })
