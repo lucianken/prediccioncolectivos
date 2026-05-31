@@ -67,7 +67,6 @@ def _process_daily_file(
       trips_by_line: {line_num: [trip_row, ...]}
       nuevo_carry:   {vehicle_id: [obs, ...]}
     """
-    from prediccion.pipeline.reader import reconstruct_snapshots
     from prediccion.pipeline.segmenter import segment_vehicle_history
     from prediccion.pipeline.projector import project_trip, ShapeIndex
     from prediccion.pipeline.features import make_training_rows_eta
@@ -81,10 +80,20 @@ def _process_daily_file(
                 key = (line_num, ramal.get("direction", 0))
                 shape_indices[key] = ShapeIndex(pts)
 
+    target_lines = set(shapes.keys()) if shapes else set()
+    if target_lines:
+        from prediccion.pipeline.reader import reconstruct_lines_snapshots
+        snapshots_iter = reconstruct_lines_snapshots(
+            fp, label_line_map, target_lines, interval_s=interval_s
+        )
+    else:
+        from prediccion.pipeline.reader import reconstruct_snapshots
+        snapshots_iter = reconstruct_snapshots(fp, interval_s=interval_s)
+
     day_vehicle_obs: dict[str, list[dict]] = {
         vid: list(obs) for vid, obs in vehicle_obs_carry.items()
     }
-    for ts, state in reconstruct_snapshots(fp, interval_s=interval_s):
+    for ts, state in snapshots_iter:
         for vid, fields in state.items():
             obs = dict(fields)
             obs["ts"] = obs.get("ts", ts)

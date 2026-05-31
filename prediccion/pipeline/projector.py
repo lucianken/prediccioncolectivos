@@ -168,16 +168,23 @@ def project_trip(
     shape_index: "ShapeIndex | None" = None,
 ) -> "Trip":
     """
-    Proyecta todos los puntos del trip sobre el shape.
-    Si se pasa shape_index pre-construido, lo reutiliza (más eficiente
-    cuando se proyectan muchos trips del mismo ramal).
+    Proyecta todos los puntos del trip sobre el shape de manera vectorizada.
+    Si se pasa shape_index pre-construido, lo reutiliza.
     """
     if shape_index is None:
         shape_index = ShapeIndex(shape_points)
 
+    if not trip.points:
+        return trip
+
+    lats = np.array([pt.lat for pt in trip.points], dtype=np.float64)
+    lons = np.array([pt.lon for pt in trip.points], dtype=np.float64)
+    dists, perps = shape_index.project_many(lats, lons)
+
     valid_points = []
-    for pt in trip.points:
-        dist_along, perp_error = shape_index.project(pt.lat, pt.lon)
+    for i, pt in enumerate(trip.points):
+        dist_along = float(dists[i])
+        perp_error = float(perps[i])
         pt.dist_along_shape_m = dist_along
         pt.perp_error_m = perp_error
         if perp_error <= max_perp_error_m:

@@ -2,19 +2,18 @@
 """
 CLI unificado de entrenamiento para todas las fases.
 
+NOTA: Phase 2 (Ramal ID) NO es ML — es la lookup geométrica offline en ramal_lookup/.
+Ver ramal_lookup/build_ramal_map.py.
+
 Uso:
-  # Phase 1 (30 días mínimo):
+  # Phase 1 — build dataset + entrenar A1Baseline (30+ días de datos):
   python prediccion/train.py --phase 1 \\
     --data-dir "\\\\192.168.0.18\\buffer\\grabaciones" \\
     --ml-dir "\\\\192.168.0.18\\buffer\\ml" \\
-    --shapes-url http://localhost:3000/api/line-shapes \\
-    --lines 39,42,151 \\
-    --validate-projection
+    --shapes-url prediccion/data/line_shapes.json \\
+    --lines 39
 
-  # Phase 2 (90 días mínimo):
-  python prediccion/train.py --phase 2 --ml-dir ... --line 39
-
-  # Phase 3 (90 días mínimo):
+  # Phase 3 — entrenar A3ETAModel (90+ días, requiere Phase 1 completada):
   python prediccion/train.py --phase 3 --ml-dir ...
 """
 import argparse
@@ -26,22 +25,26 @@ from prediccion.pipeline.shapes_io import DEFAULT_SHAPES_PATH as _DEFAULT_SHAPES
 
 def main():
     parser = argparse.ArgumentParser(description="Entrenamiento ML para predicción ETA")
-    parser.add_argument("--phase", type=int, choices=[1, 2, 3], default=1)
+    parser.add_argument("--phase", type=int, choices=[1, 3], default=1,
+                        help="1=build dataset+A1Baseline, 3=entrenar A3ETAModel")
     parser.add_argument("--data-dir", type=Path, default=None)
     parser.add_argument("--ml-dir", type=Path, required=True)
     parser.add_argument("--shapes-url", default=str(_DEFAULT_SHAPES))
     parser.add_argument("--label-map", type=Path, default=Path("LABEL_LINE_MAP.json"))
     parser.add_argument("--lines", default=None)
-    parser.add_argument("--line", default=None, help="Línea específica para Phase 2")
+    parser.add_argument("--line", default=None, help="Línea específica (no usada en phase 3)")
     parser.add_argument("--validate-projection", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--device", default="cuda", choices=["cuda", "cpu"])
+    # Hiperparámetros phase 3
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--patience", type=int, default=8)
     args = parser.parse_args()
 
     if args.phase == 1:
         _run_phase1(args)
-    elif args.phase == 2:
-        _run_phase2(args)
     elif args.phase == 3:
         _run_phase3(args)
 
@@ -83,57 +86,27 @@ def _run_phase1(args):
     print(f"[4/4] Modelo guardado en: {metrics.get('model_path', 'N/A')}")
 
 
-def _run_phase2(args):
-    from prediccion.models import check_data_sufficiency, DataInsufficientError
-
-    if args.data_dir is None:
-        print("Error: --data-dir requerido para Phase 2", file=sys.stderr)
-        sys.exit(1)
-    if args.line is None:
-        print("Error: --line requerido para Phase 2", file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        days = check_data_sufficiency(args.data_dir)
-    except DataInsufficientError as e:
-        print(f"{e}", file=sys.stderr)
-        sys.exit(1)
-
-    print(f"Datos suficientes: {days} días")
-
-    from prediccion.models.trainer import train_phase2
-    output_dir = args.output_dir or (args.ml_dir / "models")
-    metrics = train_phase2(
-        ml_dir=args.ml_dir,
-        output_dir=output_dir,
-        line=args.line,
-        n_ramales=6,  # TODO: leer del shapes
-        device=args.device,
-    )
-    print(f"Phase 2 completado: accuracy={metrics.get('val_accuracy', 'N/A')}")
-
 
 def _run_phase3(args):
-    from prediccion.models import check_data_sufficiency, DataInsufficientError
-
-    if args.data_dir is None:
-        print("Error: --data-dir requerido para Phase 3", file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        check_data_sufficiency(args.data_dir)
-    except DataInsufficientError as e:
-        print(f"{e}", file=sys.stderr)
-        sys.exit(1)
-
     from prediccion.models.trainer import train_phase3
+
+    print(f"[1/2] Entrenando A3ETAModel...")
     output_dir = args.output_dir or (args.ml_dir / "models")
     metrics = train_phase3(
         ml_dir=args.ml_dir,
         output_dir=output_dir,
+        epochs=getattr(args, "epochs", 50),
+        batch_size=getattr(args, "batch_size", 256),
+        lr=getattr(args, "lr", 1e-3),
         device=args.device,
+        patience=getattr(args, "patience", 8),
     )
-    print(f"Phase 3 completado: MAE={metrics.get('val_mae_min', 'N/A')} min")
+    val_mae = metrics.get("val_mae_min")
+    val_str = f"{val_mae:.2f} min" if val_mae is not None else "N/A"
+    print(f"[2/2] A3 completado: val MAE = {val_str}")
+    print(f"      Modelo: {metrics.get('model_path')}")
+    print(f"      ONNX:   {metrics.get('onnx_path')}")
+
 
 
 if __name__ == "__main__":

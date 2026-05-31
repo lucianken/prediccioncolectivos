@@ -105,3 +105,25 @@ def test_iter_daily_files_sorted(tmp_path):
     assert names == sorted(names)
     assert "other_file.txt" not in names
     assert len(files) == 4
+
+
+def test_reconstruct_lines_snapshots_filters_correctly(sample_ndjson_gz):
+    from prediccion.pipeline.reader import reconstruct_lines_snapshots
+    # Mapear los vehículos sintéticos v1, v2 a la línea "39" y v3 a la línea "40"
+    label_line_map = {"v1": "39", "v2": "39", "v3": "40"}
+    
+    # Caso 1: Filtrar solo por línea "39"
+    snapshots_39 = list(reconstruct_lines_snapshots(sample_ndjson_gz, label_line_map, {"39"}, interval_s=30))
+    assert len(snapshots_39) >= 1
+    # Cada snapshot sólo debe tener v1 y v2 (línea 39), no v3
+    for ts, state in snapshots_39:
+        for vid in state:
+            assert vid in ("v1", "v2")
+            assert vid != "v3"
+
+    # Caso 2: Filtrar por línea "40"
+    snapshots_40 = list(reconstruct_lines_snapshots(sample_ndjson_gz, label_line_map, {"40"}, interval_s=30))
+    assert len(snapshots_40) >= 1
+    for ts, state in snapshots_40:
+        for vid in state:
+            assert vid == "v3"

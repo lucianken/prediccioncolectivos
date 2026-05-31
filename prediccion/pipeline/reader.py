@@ -113,37 +113,22 @@ def reconstruct_snapshots(
                 yield (t, dict(state))
 
 
-def reconstruct_line_snapshots(
+def reconstruct_lines_snapshots(
     filepath: Path,
     label_line_map: dict[str, str],
-    line: str,
+    lines: set[str],
     interval_s: int = 300,
 ) -> Iterator[tuple[int, SnapshotState]]:
     """
     Variante filtrada de reconstruct_snapshots: mantiene en state SOLO los
-    vehículos cuyo label pertenece a la línea indicada.
+    vehículos cuyo label pertenece a alguna de las líneas indicadas en `lines`.
 
     Ventaja de rendimiento: evita copiar el dict de ~4000 entradas de la flota
-    completa en cada snapshot; en cambio copia únicamente los ~50 vehículos de
-    la línea. Esto elimina el 11% de CPU atribuido al filtrado de flota en los
-    consumidores (build_ramal_map.py y build_lookup.py).
-
-    Cómo funciona el tracking de vids:
-    - Los frames "new" (keyframe y delta) traen el campo "label" → se puede
-      consultar label_line_map en el momento en que aparece el vehículo.
-    - Los frames "upd" NO traen "label" → se rastrea en line_vids el conjunto
-      de vids conocidos como pertenecientes a la línea; así los upd se aplican
-      solo si el vid ya estaba en state.
-    - Los frames "del" eliminan el vid de state y de line_vids.
-
-    El yield entrega {vehicle_id: fields_dict} filtrado; los callers no necesitan
-    volver a filtrar por label.
-
-    IMPORTANTE: el comportamiento por defecto de reconstruct_snapshots() NO cambia.
-    Esta función es infra nueva para los consumidores de ramal_lookup.
+    completa en cada snapshot; en cambio copia únicamente los vehículos de las
+    líneas indicadas.
     """
     state: SnapshotState = {}
-    line_vids: set[str] = set()   # vids de la línea que están vivos en state
+    line_vids: set[str] = set()   # vids de las líneas que están vivos en state
     last_yield_t: int = 0
 
     for frame in iter_frames(filepath):
@@ -159,22 +144,21 @@ def reconstruct_line_snapshots(
             for v in frame.get("new", []):
                 vid = v["id"]
                 suffix = v.get("label", "").split("-")[-1]
-                if label_line_map.get(suffix) == line:
+                if label_line_map.get(suffix) in lines:
                     state[vid] = dict(v)
                     line_vids.add(vid)
             last_yield_t = t
             yield (t, dict(state))
         else:
-            # Delta: new entries may or may not belong to our line
+            # Delta: new entries may or may not belong to our lines
             for v in frame.get("new", []):
                 vid = v["id"]
                 suffix = v.get("label", "").split("-")[-1]
-                if label_line_map.get(suffix) == line:
+                if label_line_map.get(suffix) in lines:
                     state[vid] = dict(v)
                     line_vids.add(vid)
                 else:
-                    # Vehicle not in our line: ensure it's not lingering from
-                    # a previous keyframe where it might have had a different label
+                    # Vehicle not in our lines: ensure it's not lingering
                     if vid in line_vids:
                         state.pop(vid, None)
                         line_vids.discard(vid)
@@ -191,6 +175,21 @@ def reconstruct_line_snapshots(
             if t - last_yield_t >= interval_s:
                 last_yield_t = t
                 yield (t, dict(state))
+
+
+def reconstruct_line_snapshots(
+    filepath: Path,
+    label_line_map: dict[str, str],
+    line: str,
+    interval_s: int = 300,
+) -> Iterator[tuple[int, SnapshotState]]:
+    """
+    Variante filtrada de reconstruct_snapshots: mantiene en state SOLO los
+    vehículos cuyo label pertenece a la línea indicada.
+    """
+    yield from reconstruct_lines_snapshots(
+        filepath, label_line_map, {line}, interval_s=interval_s
+    )
 
 
 def iter_daily_files(data_dir: Path) -> Iterator[Path]:
