@@ -307,30 +307,27 @@ A partir de eso se calculan containment/coverage/voto y se asigna el shape (ver 
 
 #### Para Modelo 2 (ETA)
 
-```python
-# Para cada punto en el viaje de un vehículo V en ramal R:
-{
-    "vehicle_id": "1839",
-    "ramal": "39-1",
-    "snapshot_ts": 1773583200,
-    "distance_along_route_m": 4350.2,     # posición en la ruta
-    "hour_sin": 0.77, "hour_cos": 0.63,   # encoding cíclico de la hora
-    "day_of_week": 2,                      # 0=lunes, 6=domingo
+Schema del parquet `eta_train.parquet` / `eta_val.parquet`:
 
-    # historia completa del viaje actual (desde start_time hasta este snapshot, longitud variable)
-    # el Transformer encoder maneja longitud variable — no se trunca
-    "history": [{"dist_m": 4280.1, "speed": 7.2, "dt": 30}, ...],
-
-    # distancia al punto específico del usuario proyectado sobre el shape (float continuo)
-    "distance_to_target_m": 1850.0,
-
-    # estado de la flota de la agencia en este momento (todos los vehículos activos)
-    "fleet_state": [{"lat": -34.61, "lon": -58.39, "speed": 8.3, "ramal_id": "39-1", "direction_id": 0}, ...],
-
-    # target: tiempo real observado hasta que el vehículo llegó al punto target
-    "eta_seconds": 234  # un solo float
-}
 ```
+ramal_id             str
+seg_idx              int32
+dist_remaining_m     float32
+dist_along_norm      float32
+speed_mps            float32
+hour_sin / hour_cos  float32    (encoding cíclico de la hora)
+dow                  int8       (0=Lunes … 6=Domingo)
+has_active_bus       bool
+observed_eta_s       float32    (label)
+time_since_start     float32
+traj_flat            FixedSizeList<float32>[30]      (10 puntos × 3 features: dist_norm, speed, dt; paddeado con ceros)
+traj_len             int8       (longitud real 1–10)
+fleet_flat           FixedSizeList<float32>[N_FLEET*5]  (hasta N_FLEET buses × 5 features; paddeado con ceros)
+n_fleet              int8       (vehículos reales activos)
+```
+
+Todas las columnas numéricas en float32. Las columnas FixedSizeList se leen con
+`np.asarray()` sin pasar por Python (zero-copy del buffer Arrow contiguo).
 
 ---
 
@@ -775,7 +772,10 @@ Los archivos de grabación están en Ubuntu. Para entrenar en Windows:
   opción A: compartir /mnt/buffer/ml vía SMB desde Ubuntu (//192.168.0.18/ml)
   opción B: rsync selectivo de los Parquet de entrenamiento a Windows cuando querés entrenar
 
-Los Parquet de training (~500MB por modelo) son transferibles fácilmente.
+El parquet de entrenamiento con el nuevo schema (FixedSizeList, float32, N_FLEET=60) ocupa
+~3-6 GB en disco (compresión snappy/zstd sobre ceros de padding es muy efectiva). El schema
+anterior era ~1.3 GB pero usaba List<double> variable-length, lo que hacía imposible leer
+con numpy sin to_pylist(). El nuevo schema permite zero-copy con np.asarray().
 ```
 
 ### Tamaño de los modelos entrenados
@@ -917,14 +917,14 @@ Agregar una línea nueva al sistema = conseguir el shape → A1 funciona de inme
 Los modelos están **loosely coupled** a través del string `ramal_id`. No hay dependencia directa entre los pesos entrenados de ambos.
 
 ```
-Model 1 output:  ramal_id = "39-1"   (lookup[route_id], o override manual)
+Model 1 output:  ramal_id = "39-A"   (lookup[route_id], o override manual)
                      ↓
-Shape lookup:    polilínea del ramal "39-1"
+Shape lookup:    polilínea del ramal "39-A"
                      ↓
 Proyección GPS → distance_along_route
                      ↓
 Model 2 input:   [distance_remaining, speed_history, fleet_state, time_of_day]
-                 ← NO recibe el string "39-1", solo sus consecuencias geométricas
+                 ← NO recibe el string "39-A", solo sus consecuencias geométricas
 ```
 
 **Consecuencias:**

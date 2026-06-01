@@ -40,6 +40,120 @@ logger = logging.getLogger(__name__)
 _CARRY_WINDOW_S = 900  # 15 min de observaciones carry-forward entre días
 
 
+def _make_eta_schema():
+    """Schema Arrow con tipos correctos: FixedSizeList en lugar de List<double>."""
+    import pyarrow as pa
+    from prediccion.pipeline.features import N_FLEET
+    return pa.schema([
+        pa.field("ramal_id",          pa.string()),
+        pa.field("seg_idx",           pa.int32()),
+        pa.field("dist_remaining_m",  pa.float32()),
+        pa.field("dist_along_norm",   pa.float32()),
+        pa.field("speed_mps",         pa.float32()),
+        pa.field("hour_sin",          pa.float32()),
+        pa.field("hour_cos",          pa.float32()),
+        pa.field("dow",               pa.int8()),
+        pa.field("has_active_bus",    pa.bool_()),
+        pa.field("observed_eta_s",    pa.float32()),
+        pa.field("time_since_start",  pa.float32()),
+        pa.field("traj_flat",         pa.list_(pa.float32(), 30)),
+        pa.field("traj_len",          pa.int8()),
+        pa.field("fleet_flat",        pa.list_(pa.float32(), N_FLEET * 5)),
+        pa.field("n_fleet",           pa.int8()),
+    ])
+
+
+def _day_eta_path(training_dir: Path, line_num: str, day_key: str) -> Path:
+    return training_dir / "days" / line_num / f"{day_key}.parquet"
+
+
+def _day_done_path(training_dir: Path, line_num: str, day_key: str) -> Path:
+    return training_dir / "days" / line_num / f"{day_key}.done"
+
+
+def _is_day_cached(training_dir: Path, line_num: str, day_key: str) -> bool:
+    eta_path = _day_eta_path(training_dir, line_num, day_key)
+    done_path = _day_done_path(training_dir, line_num, day_key)
+    if done_path.exists():
+        return True
+    if not eta_path.exists() or eta_path.stat().st_size == 0:
+        return False
+    try:
+        import pyarrow.parquet as pq
+        pq.read_metadata(str(eta_path))
+        return True
+    except Exception:
+        return False
+
+
+def _write_parquet_atomic(table, path: Path) -> None:
+    import pyarrow.parquet as pq
+
+    tmp = path.with_suffix(".tmp.parquet")
+    pq.write_table(table, tmp)
+    tmp.replace(path)
+
+
+def _collect_cached_day_keys(training_dir: Path, lines: list[str]) -> list[str]:
+    """Días procesados (con datos o marcados .done), ordenados."""
+    all_day_keys: set[str] = set()
+    for line_num in lines:
+        day_dir = training_dir / "days" / line_num
+        if not day_dir.exists():
+            continue
+        for p in day_dir.glob("*.parquet"):
+            if p.stat().st_size == 0:
+                continue
+            try:
+                import pyarrow.parquet as pq
+                pq.read_metadata(str(p))
+                all_day_keys.add(p.stem)
+            except Exception:
+                print(f"WARN: caché corrupta ignorada: {p}", file=sys.stderr)
+        for p in day_dir.glob("*.done"):
+            all_day_keys.add(p.stem)
+    return sorted(all_day_keys)
+
+
+def _merge_eta_splits(
+    training_dir: Path,
+    lines: list[str],
+    train_days: list[str],
+    val_days: list[str],
+) -> None:
+    import pyarrow.parquet as pq
+
+    for day_subset, out_name in [(train_days, "eta_train.parquet"), (val_days, "eta_val.parquet")]:
+        out_path = training_dir / out_name
+        tmp_path = out_path.with_suffix(".tmp.parquet")
+        writer = None
+        row_count = 0
+        for day_key in day_subset:
+            for line_num in lines:
+                day_path = _day_eta_path(training_dir, line_num, day_key)
+                if not day_path.exists() or day_path.stat().st_size == 0:
+                    continue
+                try:
+                    tbl = pq.read_table(day_path)
+                except Exception as exc:
+                    print(f"WARN: omitiendo caché corrupta {day_path}: {exc}", file=sys.stderr)
+                    continue
+                if len(tbl) == 0:
+                    continue
+                if writer is None:
+                    writer = pq.ParquetWriter(str(tmp_path), tbl.schema)
+                writer.write_table(tbl)
+                row_count += len(tbl)
+        if writer:
+            writer.close()
+            tmp_path.replace(out_path)
+            print(f"      {out_name}: {row_count} filas")
+        else:
+            tmp_path.unlink(missing_ok=True)
+            out_path.unlink(missing_ok=True)
+            print(f"WARN: {out_name}: sin filas — archivo eliminado si existía", file=sys.stderr)
+
+
 def _compute_shape_lengths(shapes: dict) -> dict[str, float]:
     from prediccion.pipeline.projector import polyline_length_m
     lengths: dict[str, float] = {}
@@ -174,13 +288,14 @@ def _process_daily_file(
             "n_points": len(pt.points),
         })
 
-        # ramal_id = shape_id (fuente de verdad) o fallback naive
-        ramal_id = sh_id if sh_id else f"{line_num}-{pt.direction_id}"
+        # ramal_id: shape_id si está disponible, None en caso contrario
+        # El modelo aprenderá a descartar None
+        ramal_id = sh_id
 
         rows = make_training_rows_eta(
             pt,
             ramal_id,
-            shape_lengths.get(ramal_id, 1.0),
+            shape_lengths.get(ramal_id, 1.0) if ramal_id else 1.0,
             fleet_by_line_at_ts=fleet_by_line_at_ts,
         )
         if rows:
@@ -223,6 +338,8 @@ def run_build_dataset(
     interval_s: int = 30,
     validate_projection: bool = False,
     label_map_path: Path | None = None,
+    merge_only: bool = False,
+    max_days: int | None = None,
 ):
     """Lógica principal — importable desde train.py"""
     try:
@@ -234,12 +351,31 @@ def run_build_dataset(
 
     from prediccion.pipeline.reader import iter_daily_files
 
+    ml_dir = Path(ml_dir)
+    training_dir = ml_dir / "training"
+
     # [1/4] Cargar shapes y mapa de labels
     print("[1/4] Cargando shapes desde:", shapes_url)
     all_shapes = _load_shapes(shapes_url)
     shapes = {k: v for k, v in all_shapes.items() if lines is None or k in lines}
     lines_to_process = list(shapes.keys())
     print(f"      Procesando {len(lines_to_process)} línea(s): {', '.join(lines_to_process)}")
+
+    if merge_only:
+        print("[2/4] Saltado (--merge-only)")
+        print("[3/4] Saltado (--merge-only)")
+        print("[4/4] Merge de caché → train/val...")
+        sorted_days = _collect_cached_day_keys(training_dir, lines_to_process)
+        if not sorted_days:
+            print("WARN: No hay días cacheados", file=sys.stderr)
+            return
+        split_idx = max(1, int(len(sorted_days) * 0.8))
+        train_days = sorted_days[:split_idx]
+        val_days = sorted_days[split_idx:]
+        print(f"      {len(sorted_days)} días: {len(train_days)} train / {len(val_days)} val")
+        _merge_eta_splits(training_dir, lines_to_process, train_days, val_days)
+        print("Done.")
+        return
 
     # Mapa de sufijo VP_label → line_number (fuente autoritativa)
     if label_map_path and label_map_path.exists():
@@ -291,6 +427,9 @@ def run_build_dataset(
     daily_files = [f for f in all_daily_files if f.name != today_name]
     if len(all_daily_files) != len(daily_files):
         print(f"      Excluido {today_name} (día parcial)")
+    if max_days is not None:
+        daily_files = daily_files[:max_days]
+        print(f"      Limitado a {max_days} días (--max-days)")
     if not daily_files:
         print("ERROR: No se encontraron archivos NDJSON.gz", file=sys.stderr)
         sys.exit(1)
@@ -305,7 +444,7 @@ def run_build_dataset(
 
         missing = [
             ln for ln in lines_to_process
-            if not (training_dir / "days" / ln / f"{day_key}.parquet").exists()
+            if not _is_day_cached(training_dir, ln, day_key)
         ]
 
         if not missing:
@@ -322,16 +461,17 @@ def run_build_dataset(
             eta_rows = eta_by_line.get(line_num, [])
             trip_rows = trips_by_line.get(line_num, [])
 
-            eta_path = training_dir / "days" / line_num / f"{day_key}.parquet"
+            eta_path = _day_eta_path(training_dir, line_num, day_key)
+            done_path = _day_done_path(training_dir, line_num, day_key)
             trip_path = trips_dir / "days" / line_num / f"{day_key}.parquet"
 
             if eta_rows:
-                tmp = eta_path.with_suffix(".tmp.parquet")
-                pq.write_table(pa.Table.from_pylist(eta_rows), tmp)
-                tmp.replace(eta_path)
+                _write_parquet_atomic(pa.Table.from_pylist(eta_rows, schema=_make_eta_schema()), eta_path)
+                done_path.unlink(missing_ok=True)
             else:
-                # Escribir parquet vacío para marcar el día como procesado
-                eta_path.touch()
+                # Marcar día procesado sin datos (evita .parquet vacío/corrupto)
+                done_path.touch()
+                eta_path.unlink(missing_ok=True)
 
             if trip_rows:
                 tmp = trip_path.with_suffix(".tmp.parquet")
@@ -350,12 +490,7 @@ def run_build_dataset(
     # [4/4] Merge → eta_train.parquet / eta_val.parquet
     print("[4/4] Merge de caché → train/val...")
 
-    # Tomar el conjunto de días disponibles para todas las líneas (unión)
-    all_day_keys: set[str] = set()
-    for line_num in lines_to_process:
-        for p in (training_dir / "days" / line_num).glob("*.parquet"):
-            all_day_keys.add(p.stem)
-    sorted_days = sorted(all_day_keys)
+    sorted_days = _collect_cached_day_keys(training_dir, lines_to_process)
 
     if not sorted_days:
         print("WARN: No hay días cacheados", file=sys.stderr)
@@ -366,25 +501,7 @@ def run_build_dataset(
     val_days = sorted_days[split_idx:]
     print(f"      {len(sorted_days)} días: {len(train_days)} train / {len(val_days)} val")
 
-    for day_subset, out_name in [(train_days, "eta_train.parquet"), (val_days, "eta_val.parquet")]:
-        out_path = training_dir / out_name
-        writer = None
-        row_count = 0
-        for day_key in day_subset:
-            for line_num in lines_to_process:
-                day_path = training_dir / "days" / line_num / f"{day_key}.parquet"
-                if not day_path.exists() or day_path.stat().st_size == 0:
-                    continue
-                tbl = pq.read_table(day_path)
-                if len(tbl) == 0:
-                    continue
-                if writer is None:
-                    writer = pq.ParquetWriter(out_path, tbl.schema)
-                writer.write_table(tbl)
-                row_count += len(tbl)
-        if writer:
-            writer.close()
-        print(f"      {out_name}: {row_count} filas")
+    _merge_eta_splits(training_dir, lines_to_process, train_days, val_days)
 
     # Trips summary
     all_trip_tables = []
@@ -416,6 +533,17 @@ def main():
     parser.add_argument("--lines", default=None)
     parser.add_argument("--validate-projection", action="store_true")
     parser.add_argument("--interval-s", type=int, default=30)
+    parser.add_argument(
+        "--merge-only",
+        action="store_true",
+        help="Solo re-mergear caché → eta_train/eta_val (sin releer NDJSON)",
+    )
+    parser.add_argument(
+        "--max-days",
+        type=int,
+        default=None,
+        help="Limitar a los primeros N días (para pruebas rápidas)",
+    )
     args = parser.parse_args()
 
     run_build_dataset(
@@ -426,6 +554,8 @@ def main():
         interval_s=args.interval_s,
         validate_projection=args.validate_projection,
         label_map_path=args.label_map,
+        merge_only=args.merge_only,
+        max_days=args.max_days,
     )
 
 
