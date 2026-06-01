@@ -88,7 +88,7 @@ class TimeEncoder(nn.Module):
         dow: torch.Tensor,       # (batch,) int64
     ) -> torch.Tensor:
         """Returns: (batch, out_dim)"""
-        dow_emb = self.dow_embed(dow)  # (batch, dow_embed_dim)
+        dow_emb = self.dow_embed(dow.squeeze(-1))  # (batch,) → (batch, dow_embed_dim)
         combined = torch.cat([hour_sin, hour_cos, dow_emb], dim=-1)  # (batch, 2+dow_embed_dim)
         return self.out_proj(combined)  # (batch, out_dim)
 

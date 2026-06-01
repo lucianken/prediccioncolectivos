@@ -84,6 +84,8 @@ class ETADataset(IterableDataset):
         max_eta_s: float = 7200.0,
         ramal_ids: list[str] | None = None,
         shuffle: bool = True,
+        yield_batch_size: int = 2048,
+        use_fleet: bool = True,
     ):
         import pyarrow.parquet as pq
 
@@ -91,13 +93,16 @@ class ETADataset(IterableDataset):
         self._shape_lengths: dict[str, float] = shape_lengths or {}
         self._max_eta = max_eta_s
         self._shuffle = shuffle
+        self._yield_batch_size = yield_batch_size
+        self._use_fleet = use_fleet
 
         pf = pq.ParquetFile(self._path)
         self._n_groups: int = pf.metadata.num_row_groups
         self._approx_len: int = pf.metadata.num_rows
         schema_names = set(pf.schema_arrow.names)
+        skip = {"fleet_flat", "n_fleet"} if not use_fleet else set()
         self._read_cols: list[str] = _BASE_COLS + [
-            c for c in _OPTIONAL_COLS if c in schema_names
+            c for c in _OPTIONAL_COLS if c in schema_names and c not in skip
         ]
 
         logger.info(
@@ -106,7 +111,8 @@ class ETADataset(IterableDataset):
         )
 
     def __len__(self) -> int:
-        return self._approx_len
+        import math
+        return math.ceil(self._approx_len / self._yield_batch_size)
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
         import pyarrow.parquet as pq
@@ -145,7 +151,9 @@ class ETADataset(IterableDataset):
         dist_rem_arr   = df["dist_remaining_m"].astype(np.float32)
         dist_along_arr = df["dist_along_norm"].astype(np.float32)
 
-        mask  = (eta_arr > 0) & (dist_rem_arr > 0) & (dist_along_arr >= 0)
+        # dist_along_norm > 1.0 indica shape_length_m=1.0 fallback (ramal sin resolver)
+        # → traj_flat contiene metros crudos en vez de 0-1, overflow en fp16
+        mask  = (eta_arr > 0) & (dist_rem_arr > 0) & (dist_along_arr >= 0) & (dist_along_arr <= 1.0)
         valid = np.where(mask)[0]
 
         if self._shuffle:
@@ -157,16 +165,24 @@ class ETADataset(IterableDataset):
         has_bus_arr  = df["has_active_bus"].astype(np.float32)
         eta_clipped  = np.clip(eta_arr, 1.0, self._max_eta)
 
-        tss_arr = df["time_since_start"].astype(np.float32) if "time_since_start" in df \
-            else np.zeros(len(eta_arr), dtype=np.float32)
+        tss_arr = (df["time_since_start"].astype(np.float32) / 3600.0) if "time_since_start" in df \
+            else np.zeros(len(eta_arr), dtype=np.float32)  # normalizar a horas (0-3.3h)
 
         ramal_ids    = df["ramal_id"]
         shape_lengths = self._shape_lengths
 
         # FixedSizeList → 2D numpy via flatten (contiguous float32 buffer, zero-copy)
         if "traj_flat" in df:
-            traj_all = _fsl_to_numpy(tbl["traj_flat"], 30).reshape(-1, 10, 3)  # (N, 10, 3)
+            traj_all = _fsl_to_numpy(tbl["traj_flat"], 30).reshape(-1, 10, 3).copy()  # (N, 10, 3)
             traj_len_all = df["traj_len"].astype(np.int32)                      # (N,)
+            # col 0 = dist_along_norm: historiales con shape_length=1 fallback → max 12756
+            #         clipear a [0, 1]
+            # col 1 = speed (0-30 m/s) → /30
+            # col 2 = dt (0-1200 s)    → /30, luego clipear a [0, 5] (max 150s gap)
+            np.clip(traj_all[:, :, 0], 0.0, 1.0, out=traj_all[:, :, 0])
+            traj_all[:, :, 1] /= 30.0
+            traj_all[:, :, 2] /= 30.0
+            np.clip(traj_all[:, :, 2], 0.0, 5.0, out=traj_all[:, :, 2])
         else:
             traj_all = np.zeros((len(eta_arr), 10, 3), dtype=np.float32)
             traj_len_all = np.ones(len(eta_arr), dtype=np.int32)
@@ -174,11 +190,15 @@ class ETADataset(IterableDataset):
             traj_all[:, 0, 1] = df["speed_mps"].astype(np.float32)
 
         if "fleet_flat" in df:
-            fleet_all = _fsl_to_numpy(tbl["fleet_flat"], N_FLEET * 5).reshape(-1, N_FLEET, 5)
+            fleet_all = _fsl_to_numpy(tbl["fleet_flat"], N_FLEET * 5).reshape(-1, N_FLEET, 5).copy()
             n_fleet_all = df["n_fleet"].astype(np.int32)
         else:
             fleet_all = np.zeros((len(eta_arr), N_FLEET, 5), dtype=np.float32)
             n_fleet_all = np.zeros(len(eta_arr), dtype=np.int32)
+
+        # Limpiar cualquier NaN/inf residual antes de mandar a la GPU
+        np.nan_to_num(traj_all,  nan=0.0, posinf=0.0, neginf=0.0, copy=False)
+        np.nan_to_num(fleet_all, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
 
         # Máscaras vectorizadas (sin loop por fila)
         traj_mask_all  = np.arange(10)[None, :]      >= traj_len_all[:, None]   # (N, 10)
@@ -189,25 +209,35 @@ class ETADataset(IterableDataset):
             f"read {time.time()-t0:.2f}s"
         )
 
-        for idx in valid:
-            ramal_id  = ramal_ids[idx]
-            dist_rem  = float(dist_rem_arr[idx])
-            shape_len = max(shape_lengths.get(ramal_id, 1.0), 1.0)
+        # Pre-compute shape_len_arr for all rows (vectorized, not per-sample lookup)
+        shape_len_arr = np.array([
+            max(shape_lengths.get(ramal_ids[i], 1.0), 1.0)
+            for i in range(len(eta_arr))
+        ], dtype=np.float32)
 
+        # Batch-level yields (FAST) instead of per-sample loop (SLOW)
+        B = self._yield_batch_size
+        for start in range(0, len(valid), B):
+            sl = valid[start:start + B]
             yield {
-                "trajectory":          torch.from_numpy(traj_all[idx]),
-                "trajectory_mask":     torch.from_numpy(traj_mask_all[idx]),
-                "fleet":               torch.from_numpy(fleet_all[idx]),
-                "fleet_mask":          torch.from_numpy(fleet_mask_all[idx]),
-                "hour_sin":            torch.tensor([hour_sin_arr[idx]], dtype=torch.float32),
-                "hour_cos":            torch.tensor([hour_cos_arr[idx]], dtype=torch.float32),
-                "dow":                 torch.tensor([dow_arr[idx]],      dtype=torch.int64),
-                "dist_remaining_m":    torch.tensor([dist_rem],          dtype=torch.float32),
-                "dist_remaining_norm": torch.tensor([dist_rem / shape_len], dtype=torch.float32),
-                "time_since_start":    torch.tensor([tss_arr[idx]],      dtype=torch.float32),
-                "has_active_bus":      torch.tensor([has_bus_arr[idx]],  dtype=torch.float32),
-                "eta_seconds":         torch.tensor([eta_clipped[idx]],  dtype=torch.float32),
+                "trajectory":      torch.from_numpy(np.ascontiguousarray(traj_all[sl])),       # (b, 10, 3)
+                "trajectory_mask": torch.from_numpy(np.ascontiguousarray(traj_mask_all[sl])),  # (b, 10)
+                "fleet":           torch.from_numpy(np.ascontiguousarray(fleet_all[sl])),      # (b, N_FLEET, 5)
+                "fleet_mask":      torch.from_numpy(np.ascontiguousarray(fleet_mask_all[sl])), # (b, N_FLEET)
+                "hour_sin":        torch.from_numpy(np.ascontiguousarray(hour_sin_arr[sl, None])),  # (b, 1)
+                "hour_cos":        torch.from_numpy(np.ascontiguousarray(hour_cos_arr[sl, None])),  # (b, 1)
+                "dow":             torch.from_numpy(np.ascontiguousarray(dow_arr[sl, None])),        # (b, 1)
+                "dist_remaining_m":    torch.from_numpy(np.ascontiguousarray(dist_rem_arr[sl, None])),   # (b, 1)
+                "dist_remaining_norm": torch.from_numpy(np.ascontiguousarray((dist_rem_arr[sl] / shape_len_arr[sl])[:, None])),  # (b, 1)
+                "time_since_start":    torch.from_numpy(np.ascontiguousarray(tss_arr[sl, None])),        # (b, 1)
+                "has_active_bus":      torch.from_numpy(np.ascontiguousarray(has_bus_arr[sl, None])),    # (b, 1)
+                "eta_seconds":         torch.from_numpy(np.ascontiguousarray(eta_clipped[sl, None])),    # (b, 1)
             }
+
+
+def collate_identity(batch: list[dict]) -> dict[str, torch.Tensor]:
+    """Collate para cuando el dataset ya emite batches completos (batch_size=1 en DataLoader)."""
+    return batch[0]
 
 
 def collate_eta(batch: list[dict]) -> dict[str, torch.Tensor]:

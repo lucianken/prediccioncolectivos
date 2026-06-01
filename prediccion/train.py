@@ -17,10 +17,18 @@ Uso:
   python prediccion/train.py --phase 3 --ml-dir ...
 """
 import argparse
+import logging
 import sys
 from pathlib import Path
 
 from prediccion.pipeline.shapes_io import DEFAULT_SHAPES_PATH as _DEFAULT_SHAPES
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 
 def main():
@@ -41,6 +49,16 @@ def main():
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--patience", type=int, default=8)
+    parser.add_argument("--d-model", type=int, default=128)
+    parser.add_argument("--no-fleet", action="store_true",
+                        help="Deshabilitar FleetEncoder (más rápido, útil para baseline sin tráfico)")
+    parser.add_argument("--resume", action="store_true",
+                        help="Reanudar desde eta_a3_best.pt si existe (recuperación tras corte)")
+    parser.add_argument(
+        "--merge-only",
+        action="store_true",
+        help="Phase 1: solo re-mergear eta_train/eta_val desde caché (sin releer NDJSON)",
+    )
     args = parser.parse_args()
 
     if args.phase == 1:
@@ -76,6 +94,7 @@ def _run_phase1(args):
         lines=args.lines.split(",") if args.lines else None,
         validate_projection=False,
         label_map_path=args.label_map,
+        merge_only=getattr(args, "merge_only", False),
     )
 
     print("[2/4] Entrenar A1Baseline...")
@@ -100,6 +119,9 @@ def _run_phase3(args):
         lr=getattr(args, "lr", 1e-3),
         device=args.device,
         patience=getattr(args, "patience", 8),
+        d_model=getattr(args, "d_model", 128),
+        use_fleet=not getattr(args, "no_fleet", False),
+        resume=getattr(args, "resume", False),
     )
     val_mae = metrics.get("val_mae_min")
     val_str = f"{val_mae:.2f} min" if val_mae is not None else "N/A"

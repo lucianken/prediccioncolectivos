@@ -220,4 +220,4 @@ class A1Baseline:
             seen.add(k[0])
         for k in self._fallback_global:
             seen.add(k)
-        return sorted(seen)
+        return sorted(s for s in seen if s is not None)

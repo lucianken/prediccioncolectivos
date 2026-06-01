@@ -1,0 +1,20 @@
+{
+  "target_lines": [
+    "151",
+    "65"
+  ],
+  "results": [
+    {
+      "line": "151",
+      "last_seen": "2026-05-29",
+      "first_not_seen": "2026-05-30",
+      "note": "cutoff within recent window, confirmed"
+    },
+    {
+      "line": "65",
+      "last_seen": "2026-05-29",
+      "first_not_seen": "2026-05-30",
+      "note": "cutoff within recent window, confirmed"
+    }
+  ]
+}

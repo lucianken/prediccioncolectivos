@@ -631,6 +631,28 @@ def predict(ramal, target_point, active_vehicles):
 
 A3 (este modelo unificado) se implementa en Fase 3 (3-4 semanas, 3 meses de datos).
 
+### Loss function: Pinball asimétrica por distancia
+
+El error de predicción no tiene el mismo costo en todos los puntos del recorrido.
+A distancias cortas (< 1 km), la decisión del usuario es binaria: llego o no llego.
+Subestimar ("faltan 2 min" cuando ya pasó) hace que el usuario pierda el colectivo.
+Sobreestimar ("faltan 5 min" cuando son 3) solo hace que espere un poco más.
+
+Por esto se usa una **Pinball Loss** (quantile loss) que varía con la distancia:
+
+- **dist > 1 km:** q = 0.5 → L1 simétrica (MAE estándar)
+- **dist < 1 km:** q = 0.8 → underestimar penaliza 4× más que overestimar
+
+```
+loss = q * error       si pred < real  (subestimé — usuario llega tarde)
+loss = (1-q) * error   si pred > real  (sobrestimé — usuario espera un poco más)
+```
+
+Con q = 0.8 el modelo aprende a predecir "por las dudas un poco más" cuando el
+bus está cerca — el error tolerable asimétrico refleja la realidad de uso.
+
+La transición es suave: q = 0.5 + 0.3 × clamp(1 - dist_m/1000, 0, 1)
+
 ---
 
 ## 8. Reentrenamiento continuo

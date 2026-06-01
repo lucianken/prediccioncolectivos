@@ -1,0 +1,34 @@
+{
+  "model": "A3ETAModel",
+  "best_epoch": 1,
+  "epochs_run": 1,
+  "train_mae_s": 487.7183232899384,
+  "val_mae_s": 530.0086930343383,
+  "val_mae_min": 8.833478217238971,
+  "val_mae_by_bucket": {
+    "0_500m": 1913.9104841918545,
+    "500m_2km": 237.6822511190732,
+    "2km_plus": 363.7472030014954
+  },
+  "training_time_s": 522.4570469856262,
+  "device": "cuda",
+  "batch_size": 2048,
+  "lr_initial": 0.0003,
+  "model_path": "data\\ml\\models\\eta_a3_best.pt",
+  "onnx_path": "data\\ml\\models\\eta_a3_final.onnx",
+  "n_train": 5499,
+  "n_val": 1422,
+  "history": [
+    {
+      "epoch": 1,
+      "train_mae_s": 487.7183232899384,
+      "val_mae_s": 530.0086930343383,
+      "val_mae_by_bucket": {
+        "0_500m": 1913.9104841918545,
+        "500m_2km": 237.6822511190732,
+        "2km_plus": 363.7472030014954
+      },
+      "lr": 0.0003
+    }
+  ]
+}

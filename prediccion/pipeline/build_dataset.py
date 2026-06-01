@@ -90,7 +90,7 @@ def _write_parquet_atomic(table, path: Path) -> None:
     import pyarrow.parquet as pq
 
     tmp = path.with_suffix(".tmp.parquet")
-    pq.write_table(table, tmp)
+    pq.write_table(table, tmp, row_group_size=250_000)
     tmp.replace(path)
 
 
@@ -141,7 +141,7 @@ def _merge_eta_splits(
                 if len(tbl) == 0:
                     continue
                 if writer is None:
-                    writer = pq.ParquetWriter(str(tmp_path), tbl.schema)
+                    writer = pq.ParquetWriter(str(tmp_path), tbl.schema, row_group_size=250_000)
                 writer.write_table(tbl)
                 row_count += len(tbl)
         if writer:
