@@ -483,6 +483,27 @@ Con modelo unificado (todas las líneas):
 - 3 meses: ~21M ejemplos de entrenamiento — más que suficiente
 - Comparación: con modelo por línea necesitarías 3 meses por línea, ahora los 3 meses sirven para todo
 
+---
+
+### ERROR DE DISEÑO CRÍTICO — Distancia mínima de predicción (2026-06-02)
+
+**Problema detectado:** El generador de pares de entrenamiento (`make_training_rows_eta` en `features.py`) producía pares con `dist_remaining_m < 50m`, incluyendo casos de 4-15 metros. Estos pares son **ruido puro de GPS**:
+- La precisión del GPS es ~5-10m. Dos pings del mismo bus parado pueden proyectar a posiciones 4-8m distintas en el shape.
+- Un bus en el depósito con el shape terminando 4.6m más adelante genera el par `dist_rem=4.6m, eta=8 horas`.
+- El modelo intentaba predecir "¿cuándo viaja el bus 4.6 metros?" — una pregunta sin respuesta real.
+
+**Consecuencia:** el bucket 0-500m del modelo tenía MAE de 425-840s (7-14 minutos) a pesar de que un bus a 300m debería tardar ~60-120s. Los pares sub-50m contaminaban el entrenamiento con ejemplos imposibles de aprender.
+
+**Impacto medido (2026-06-02):**
+- Sin fix, no-fleet, full data, 17 epochs: val MAE = 176s, bucket 0-500m = 479s
+- Con fix, no-fleet, 20 grupos, 3 epochs: val MAE = **119s**, bucket 0-500m = **103s**
+- El fix redujo el bucket 0-500m en ~5x con menos datos y menos epochs.
+
+**Fix aplicado:**
+1. `prediccion/pipeline/features.py`: cambiar `dist_remaining_m <= 0` por `dist_remaining_m < 50.0` en la condición de skip al generar pares.
+2. `prediccion/models/eta_dataset.py`: cambiar `dist_rem_arr > 0` por `dist_rem_arr >= 50.0` en el mask del dataset (safety net para parquets existentes).
+
+**Regla de diseño:** nunca generar pares de entrenamiento con `dist_remaining_m < 50m`. En producción, si un bus está a menos de 50m del punto del usuario, el ETA ya es 0 o irrelevante.
 
 ---
 

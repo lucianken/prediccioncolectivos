@@ -162,7 +162,8 @@ class ETADataset(IterableDataset):
 
         # dist_along_norm > 1.0 indica shape_length_m=1.0 fallback (ramal sin resolver)
         # → traj_flat contiene metros crudos en vez de 0-1, overflow en fp16
-        mask  = (eta_arr > 0) & (dist_rem_arr > 0) & (dist_along_arr >= 0) & (dist_along_arr <= 1.0)
+        # dist_rem < 50m: ruido de GPS (precisión ~5-10m) o bus ya llegó — no predecible ni útil
+        mask  = (eta_arr > 0) & (dist_rem_arr >= 50.0) & (dist_along_arr >= 0) & (dist_along_arr <= 1.0)
         valid = np.where(mask)[0]
 
         if self._shuffle:

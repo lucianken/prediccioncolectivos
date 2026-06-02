@@ -288,8 +288,9 @@ def _process_daily_file(
             "n_points": len(pt.points),
         })
 
-        # ramal_id: shape_id si está disponible, None en caso contrario
-        # El modelo aprenderá a descartar None
+        # Sin shape_id confirmado por ramal_map no hay normalización correcta — skip
+        if not sh_id:
+            continue
         ramal_id = sh_id
 
         rows = make_training_rows_eta(
