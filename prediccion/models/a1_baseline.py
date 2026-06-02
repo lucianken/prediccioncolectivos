@@ -158,6 +158,29 @@ class A1Baseline:
         dt = datetime.fromtimestamp(timestamp_unix, tz=_TZ_BA)
         hour = dt.hour
         dow = dt.weekday()
+        return self._predict_core(ramal_id, dist_vehicle_m, dist_target_m, hour, dow)
+
+    def predict_direct(
+        self,
+        ramal_id: str,
+        dist_vehicle_m: float,
+        dist_target_m: float,
+        hour: int,
+        dow: int,
+    ) -> tuple[float, str]:
+        """Predice ETA usando hour y dow directamente (sin timestamp)."""
+        if dist_target_m <= dist_vehicle_m:
+            return 0.0, "high"
+        return self._predict_core(ramal_id, dist_vehicle_m, dist_target_m, hour, dow)
+
+    def _predict_core(
+        self,
+        ramal_id: str,
+        dist_vehicle_m: float,
+        dist_target_m: float,
+        hour: int,
+        dow: int,
+    ) -> tuple[float, str]:
 
         MIN_SPEED = 0.5
         MAX_ETA = 7200.0

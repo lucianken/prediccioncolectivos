@@ -416,6 +416,12 @@ Resultado: **un solo modelo entrenado con datos de todas las líneas simultánea
 
 **Mejora futura (no implementar ahora):** llamar a múltiples agencias de líneas que comparten tramos. Requiere shapes completos de todas las líneas involucradas — no factible hasta tener mayor cobertura.
 
+**Línea de investigación — flota completa como señal de entrenamiento:**
+La API completa (~6000-9000 vehículos) es inviable en producción (3-4s latencia) pero el NUC la graba en cada ciclo. Hipótesis: entrenar con toda la flota como input enriquece las representaciones de tráfico aprendidas aunque en inferencia solo se use la agencia (40-200 vehículos). El FleetEncoder actual (self-attention O(N²)) no escala a N=6000. Requeriría pre-agregar la flota en un resumen geográfico (grid de velocidades por celda, o histograma por corredor) antes de pasarlo al modelo — lo que esencialmente convierte el problema en un "mapa de tráfico actual" como feature. Referencia: arquitectura de tráfico de Google Maps. No implementar hasta validar el modelo con flota por agencia.
+
+**Línea de investigación — filtrar fleet al mismo shape/corredor:**
+Los vehículos de la agencia en rutas completamente distintas (ej: línea 168 norte vs línea 168 sur) aportan señal débil o ruido. Filtrar el fleet_flat a solo los vehículos en el mismo corredor geográfico reduciría ruido y costo computacional. Requiere conocer el ramal resuelto de cada vehículo del fleet en el snapshot (disponible vía ramal_map.json en producción, y reconstruible en el pipeline de features offline). No requiere cambio en la arquitectura — solo en cómo se construye fleet_flat en build_dataset.py.
+
 ### Arquitectura unificada del Modelo 2
 
 ```

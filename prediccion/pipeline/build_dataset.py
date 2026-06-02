@@ -141,8 +141,8 @@ def _merge_eta_splits(
                 if len(tbl) == 0:
                     continue
                 if writer is None:
-                    writer = pq.ParquetWriter(str(tmp_path), tbl.schema, row_group_size=250_000)
-                writer.write_table(tbl)
+                    writer = pq.ParquetWriter(str(tmp_path), tbl.schema)
+                writer.write_table(tbl, row_group_size=250_000)
                 row_count += len(tbl)
         if writer:
             writer.close()

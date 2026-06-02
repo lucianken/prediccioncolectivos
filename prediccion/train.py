@@ -54,10 +54,19 @@ def main():
                         help="Deshabilitar FleetEncoder (más rápido, útil para baseline sin tráfico)")
     parser.add_argument("--resume", action="store_true",
                         help="Reanudar desde eta_a3_best.pt si existe (recuperación tras corte)")
+    parser.add_argument("--max-groups", type=int, default=None,
+                        help="Limitar a N row groups por epoch (para iteración rápida). Ej: --max-groups 30 ≈ 10%% del dato")
+    parser.add_argument("--fleet-same-dir-cap", type=int, default=None,
+                        help="Filtrar fleet a vehículos same_direction y capear a N. Ej: --fleet-same-dir-cap 20")
     parser.add_argument(
         "--merge-only",
         action="store_true",
         help="Phase 1: solo re-mergear eta_train/eta_val desde caché (sin releer NDJSON)",
+    )
+    parser.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Phase 1: saltar build_dataset, usar parquet existente. Útil para re-evaluar A1 sin regenerar datos.",
     )
     args = parser.parse_args()
 
@@ -68,41 +77,49 @@ def main():
 
 
 def _run_phase1(args):
-    from prediccion.pipeline.build_dataset import run_build_dataset
     from prediccion.models.trainer import train_phase1
 
-    if args.data_dir is None:
-        print("Error: --data-dir requerido para Phase 1", file=sys.stderr)
-        sys.exit(1)
-    if args.shapes_url is None:
-        print("Error: --shapes-url requerido para Phase 1", file=sys.stderr)
-        sys.exit(1)
+    skip_build = getattr(args, "skip_build", False)
 
-    if args.validate_projection:
-        from prediccion.scripts.validate_projection import run_validation
-        lines = args.lines.split(",") if args.lines else None
-        result = run_validation(args.data_dir, args.shapes_url, lines)
-        if not result.get("ok"):
-            print("Validación de proyección fallida. Abortando.", file=sys.stderr)
+    if not skip_build:
+        from prediccion.pipeline.build_dataset import run_build_dataset
+
+        if args.data_dir is None:
+            print("Error: --data-dir requerido para Phase 1 (o usar --skip-build)", file=sys.stderr)
+            sys.exit(1)
+        if args.shapes_url is None:
+            print("Error: --shapes-url requerido para Phase 1", file=sys.stderr)
             sys.exit(1)
 
-    print("[1/4] Build dataset...")
-    run_build_dataset(
-        data_dir=args.data_dir,
-        ml_dir=args.ml_dir,
-        shapes_url=args.shapes_url,
-        lines=args.lines.split(",") if args.lines else None,
-        validate_projection=False,
-        label_map_path=args.label_map,
-        merge_only=getattr(args, "merge_only", False),
-    )
+        if args.validate_projection:
+            from prediccion.scripts.validate_projection import run_validation
+            lines = args.lines.split(",") if args.lines else None
+            result = run_validation(args.data_dir, args.shapes_url, lines)
+            if not result.get("ok"):
+                print("Validación de proyección fallida. Abortando.", file=sys.stderr)
+                sys.exit(1)
 
-    print("[2/4] Entrenar A1Baseline...")
+        print("[1/4] Build dataset...")
+        run_build_dataset(
+            data_dir=args.data_dir,
+            ml_dir=args.ml_dir,
+            shapes_url=args.shapes_url,
+            lines=args.lines.split(",") if args.lines else None,
+            validate_projection=False,
+            label_map_path=args.label_map,
+            merge_only=getattr(args, "merge_only", False),
+        )
+        step_offset = 0
+    else:
+        print("[skip] Build dataset omitido (--skip-build)")
+        step_offset = -2
+
+    print(f"[{2 + step_offset}/4] Entrenar A1Baseline...")
     output_dir = args.output_dir or (args.ml_dir / "models")
     metrics = train_phase1(ml_dir=args.ml_dir, output_dir=output_dir)
 
-    print(f"[3/4] Métricas: MAE = {metrics.get('mae_min', 'N/A')} min")
-    print(f"[4/4] Modelo guardado en: {metrics.get('model_path', 'N/A')}")
+    print(f"[{3 + step_offset}/4] Metricas: MAE = {metrics.get('mae_min', 'N/A')} min")
+    print(f"[{4 + step_offset}/4] Modelo guardado en: {metrics.get('model_path', 'N/A')}")
 
 
 
@@ -122,6 +139,8 @@ def _run_phase3(args):
         d_model=getattr(args, "d_model", 128),
         use_fleet=not getattr(args, "no_fleet", False),
         resume=getattr(args, "resume", False),
+        max_groups=getattr(args, "max_groups", None),
+        fleet_same_dir_cap=getattr(args, "fleet_same_dir_cap", None),
     )
     val_mae = metrics.get("val_mae_min")
     val_str = f"{val_mae:.2f} min" if val_mae is not None else "N/A"

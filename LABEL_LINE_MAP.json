@@ -1,11 +1,10 @@
 {
-  "buildTime": "2026-03-15T02:00:00.000Z",
   "stats": {
-    "total": 390,
-    "singleLine": 285,
-    "multiLine": 95,
+    "total": 393,
+    "singleLine": 318,
+    "multiLine": 62,
     "noLine": 10,
-    "withLineNumber": 285
+    "withLineNumber": 321
   },
   "map": {
     "34": {
@@ -1446,9 +1445,10 @@
       "agencyId": "68",
       "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
       "lines": [
+        "51",
         "79"
       ],
-      "line": "79"
+      "line": null
     },
     "306": {
       "agencyId": "68",
@@ -1966,27 +1966,25 @@
       "agencyId": "11",
       "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
       "lines": [
-        "570"
+        "271"
       ],
-      "line": "570"
+      "line": "271"
     },
     "409": {
       "agencyId": "11",
       "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
       "lines": [
-        "25",
-        "271"
+        "373"
       ],
-      "line": null
+      "line": "373"
     },
     "410": {
       "agencyId": "11",
       "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
       "lines": [
-        "25",
         "384"
       ],
-      "line": null
+      "line": "384"
     },
     "412": {
       "agencyId": "120",
@@ -2276,7 +2274,7 @@
         "153",
         "321"
       ],
-      "line": null
+      "line": "321"
     },
     "923": {
       "agencyId": "82",
@@ -2589,10 +2587,9 @@
       "agencyId": "11",
       "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
       "lines": [
-        "25",
         "164"
       ],
-      "line": null
+      "line": "164"
     },
     "1264": {
       "agencyId": "322",
@@ -2642,7 +2639,7 @@
         "6",
         "50"
       ],
-      "line": null
+      "line": "50"
     },
     "1325": {
       "agencyId": "4",
@@ -2755,7 +2752,7 @@
         "99",
         "106"
       ],
-      "line": null
+      "line": "106"
     },
     "1345": {
       "agencyId": "36",
@@ -3116,6 +3113,14 @@
         "184"
       ],
       "line": "184"
+    },
+    "4050": {
+      "agencyId": "4",
+      "agencyName": "NUDO S.A.",
+      "lines": [
+        "7"
+      ],
+      "line": "7"
     },
     "4075": {
       "agencyId": "149",

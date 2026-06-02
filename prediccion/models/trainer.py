@@ -96,7 +96,7 @@ def evaluate_a1(model: "A1Baseline", val_parquet: Path) -> dict[str, object]:
         SELECT ramal_id, seg_idx, dist_remaining_m, hour_sin, hour_cos, dow, observed_eta_s
         FROM read_parquet('{path}')
         WHERE observed_eta_s > 0 AND dist_remaining_m > 0
-        LIMIT 10000
+        USING SAMPLE 500000 ROWS
     """).fetchall()
     con.close()
 
@@ -106,10 +106,11 @@ def evaluate_a1(model: "A1Baseline", val_parquet: Path) -> dict[str, object]:
     errors = []
     bucket_errors: dict[str, list[float]] = {"0_500m": [], "500m_2km": [], "2km_plus": []}
     n_negative = 0
-    now = int(time.time())
+    import math as _math
 
     for ramal_id, seg_idx, dist_remaining_m, hour_sin, hour_cos, dow, observed_eta_s in rows:
-        eta, conf = model.predict(ramal_id, 0.0, dist_remaining_m, now)
+        hour = int(round(_math.atan2(hour_sin, hour_cos) * 24 / (2 * _math.pi))) % 24
+        eta, conf = model.predict_direct(ramal_id, 0.0, dist_remaining_m, hour, int(dow))
         err = abs(eta - observed_eta_s)
         errors.append(err)
 
@@ -158,6 +159,8 @@ def train_phase3(
     d_model: int = 128,
     use_fleet: bool = True,
     resume: bool = False,
+    max_groups: int | None = None,
+    fleet_same_dir_cap: int | None = None,
 ) -> dict[str, object]:
     """
     Entrena A3ETAModel con L1Loss + mixed precision + early stopping.
@@ -221,8 +224,10 @@ def train_phase3(
     # Datasets — IterableDataset: lee de a un row group por vez, no carga todo en RAM
     print("      Inicializando dataset de entrenamiento...")
     print(f"      Fleet encoder: {'habilitado' if use_fleet else 'DESHABILITADO (--no-fleet)'}")
-    train_ds = ETADataset(train_parquet, shape_lengths=shape_lengths, shuffle=True, yield_batch_size=batch_size, use_fleet=use_fleet)
-    print(f"      Train: ~{len(train_ds):,} filas ({train_ds._n_groups} row groups)")
+    if max_groups is not None:
+        print(f"      WARN: --max-groups {max_groups} activo — subsampling para iteración rápida, no usar para modelo final")
+    train_ds = ETADataset(train_parquet, shape_lengths=shape_lengths, shuffle=True, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap)
+    print(f"      Train: ~{train_ds.approx_batches * batch_size:,} muestras en ~{train_ds.approx_batches:,} batches ({train_ds._n_groups} row groups)")
 
     has_val = val_parquet.exists() and val_parquet.stat().st_size > 0
     if has_val:
@@ -232,8 +237,8 @@ def train_phase3(
             print(f"      WARN: {exc}")
             has_val = False
     if has_val:
-        val_ds = ETADataset(val_parquet, shape_lengths=shape_lengths, shuffle=False, yield_batch_size=batch_size, use_fleet=use_fleet)
-        print(f"      Val:   ~{len(val_ds):,} filas ({val_ds._n_groups} row groups)")
+        val_ds = ETADataset(val_parquet, shape_lengths=shape_lengths, shuffle=False, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap)
+        print(f"      Val:   ~{val_ds.approx_batches * batch_size:,} muestras en ~{val_ds.approx_batches:,} batches ({val_ds._n_groups} row groups)")
     else:
         print("      WARN: eta_val.parquet no encontrado. No habrá val loss.")
         has_val = False
@@ -274,15 +279,17 @@ def train_phase3(
         optimizer, mode="min", factor=0.5, patience=3
     )
     def criterion(pred, target, dist_m):
-        # Pinball loss con q que varía por distancia:
-        #   dist > 1000m → q=0.5 (L1 simétrica)
-        #   dist < 1000m → q→0.8 (subestimar penaliza 4x más — usuario pierde el colectivo)
-        alpha = torch.clamp(1.0 - dist_m / 1000.0, 0.0, 1.0)
-        q = 0.5 + 0.3 * alpha                    # (B, 1)
-        error = target - pred                      # positivo = subestimé
+        # Pinball loss con q variable por distancia (ver prediccion_ml_plan.md §7b):
+        #   dist > 1km  → q = 0.5 (L1 simétrica, aprende la mediana)
+        #   dist < 1km  → q sube hasta 0.8 (underestimar penaliza 4x más que overestimar)
+        # Razón: cuando el bus está cerca, perder el colectivo por subestimar es peor
+        # que esperar un poco más por sobreestimar.
+        q = 0.5 + 0.3 * torch.clamp(1.0 - dist_m / 1000.0, 0.0, 1.0)  # (batch, 1)
+        error = target - pred   # positivo = subestimé (pred < target)
         loss = torch.where(error >= 0, q * error, (q - 1.0) * error)
         return loss.mean()
-    scaler = GradScaler("cuda", enabled=use_amp)
+    amp_dtype = torch.bfloat16  # bfloat16: mismo rango que fp32, sin overflow en fp16
+    scaler = GradScaler("cuda", enabled=False)  # bfloat16 no necesita escala — no hay overflow
 
     best_val_mae = float("inf")
     best_epoch = 0
@@ -305,14 +312,36 @@ def train_phase3(
     onnx_path = output_dir / "eta_a3_final.onnx"
     metrics_path = output_dir / "eta_a3_metrics.json"
 
-    t_start = time.time()
+    # Prevenir sleep de Windows durante el entrenamiento
+    import ctypes, sys as _sys
+    if _sys.platform == "win32":
+        ES_CONTINUOUS      = 0x80000000
+        ES_SYSTEM_REQUIRED = 0x00000001
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+        logger.info("[train_phase3] SetThreadExecutionState: sleep bloqueado durante entrenamiento")
 
-    def _run_epoch(loader, train_mode: bool) -> tuple[float, dict[str, float]] | float:
-        t_epoch = time.time()
+    t_start = time.time()
+    import time as _time
+    import json as _json
+    import warnings as _warnings
+    _warnings.filterwarnings("ignore", message="Length of IterableDataset", category=UserWarning)
+
+    _perf_log_path = output_dir / "perf_log.jsonl"
+
+    def _log_perf(record: dict) -> None:
+        """Appendea métricas de timing al perf_log.jsonl (solo archivo, no consola)."""
+        with open(_perf_log_path, "a", encoding="utf-8") as _f:
+            _f.write(_json.dumps(record) + "\n")
+
+    _PERF_INTERVAL = 200  # loguear cada N batches
+
+    def _run_epoch(loader, train_mode: bool, epoch: int) -> tuple[float, dict[str, float]] | float:
+        t_epoch = _time.perf_counter()
         model.train(train_mode)
         total_loss = 0.0
         n = 0
         ctx = torch.enable_grad() if train_mode else torch.no_grad()
+        phase = "train" if train_mode else "val"
 
         desc = "Train" if train_mode else "Val"
         try:
@@ -328,9 +357,20 @@ def train_phase3(
         if not train_mode:
             bucket_sums   = {"0_500m": 0.0, "500m_2km": 0.0, "2km_plus": 0.0, "under_500m": 0.0}
             bucket_counts = {"0_500m": 0,   "500m_2km": 0,   "2km_plus": 0,   "under_500m": 0}
+            naive_sum = 0.0
+            naive_n   = 0
+
+        # Acumuladores de timing para el intervalo actual
+        acc = {"fetch": 0.0, "todev": 0.0, "fwd": 0.0, "bwd": 0.0, "total": 0.0}
+        batch_idx = 0
+        t_batch_start = _time.perf_counter()
 
         with ctx:
             for batch in pbar:
+                t0 = _time.perf_counter()
+                acc["fetch"] += t0 - t_batch_start  # tiempo esperando el siguiente batch del dataloader
+
+                # ── transferencia a GPU ──────────────────────────────────────
                 traj       = batch["trajectory"].to(actual_device)
                 traj_mask  = batch["trajectory_mask"].to(actual_device)
                 fleet      = batch["fleet"].to(actual_device)
@@ -343,18 +383,31 @@ def train_phase3(
                 tss          = batch["time_since_start"].to(actual_device)
                 has_bus      = batch["has_active_bus"].to(actual_device)
                 eta_target   = batch["eta_seconds"].to(actual_device)
+                # No synchronize aquí — .to() es async, medir sin frenar el pipeline
+                t1 = _time.perf_counter()
+                acc["todev"] += t1 - t0
 
                 if train_mode:
                     optimizer.zero_grad(set_to_none=True)
 
-                with autocast(device_type=actual_device, enabled=use_amp):
+                # ── forward ─────────────────────────────────────────────────
+                with autocast(device_type=actual_device, dtype=amp_dtype, enabled=use_amp):
                     pred = model(
                         traj, traj_mask, fleet, fleet_mask,
                         h_sin, h_cos, dow, dist_rem, tss, has_bus,
                     )
                     loss = criterion(pred, eta_target, dist_rem_m)
+                # No synchronize — forward es async hasta que necesitemos el valor
+                t2 = _time.perf_counter()
+                acc["fwd"] += t2 - t1
 
+                # ── backward / eval metrics ──────────────────────────────────
                 if train_mode:
+                    if not torch.isfinite(loss):
+                        logger.warning(f"[_run_epoch] NaN/inf loss detectado — batch saltado (loss={loss.item()})")
+                        optimizer.zero_grad(set_to_none=True)
+                        t_batch_start = _time.perf_counter()
+                        continue
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -381,14 +434,47 @@ def train_phase3(
                         bucket_sums["under_500m"]   += under_500
                         bucket_counts["under_500m"] += n_500
 
+                    # Naive baseline: dist_remaining_m / 7 m/s (fallback de A1)
+                    naive_pred = dist_rem_m / 7.0
+                    naive_sum += (naive_pred - eta_target).abs().sum().item()
+                    naive_n   += eta_target.shape[0]
+
+                t3 = _time.perf_counter()
+                acc["bwd"] += t3 - t2
+                acc["total"] += t3 - t_batch_start
+
                 bs = eta_target.shape[0]
                 total_loss += loss.item() * bs
                 n += bs
+                batch_idx += 1
 
                 if hasattr(pbar, "set_postfix"):
-                    pbar.set_postfix(loss=loss.item())
+                    pbar.set_postfix(loss=f"{loss.item():.1f}")
 
-        t_epoch = time.time() - t_epoch
+                # ── log de performance cada N batches ────────────────────────
+                if batch_idx % _PERF_INTERVAL == 0:
+                    inv = 1.0 / _PERF_INTERVAL
+                    vram = torch.cuda.memory_allocated() / 1e9 if actual_device == "cuda" else 0.0
+                    record = {
+                        "ts": _time.time(),
+                        "phase": phase,
+                        "epoch": epoch,
+                        "batch_end": batch_idx,
+                        "t_fetch_ms":  acc["fetch"]  * 1000 * inv,
+                        "t_todev_ms":  acc["todev"]  * 1000 * inv,
+                        "t_fwd_ms":    acc["fwd"]    * 1000 * inv,
+                        "t_bwd_ms":    acc["bwd"]    * 1000 * inv,
+                        "t_total_ms":  acc["total"]  * 1000 * inv,
+                        "its_per_sec": _PERF_INTERVAL / acc["total"] if acc["total"] > 0 else 0,
+                        "vram_gb":     vram,
+                        "loss":        loss.item(),
+                    }
+                    _log_perf(record)
+                    acc = {"fetch": 0.0, "todev": 0.0, "fwd": 0.0, "bwd": 0.0, "total": 0.0}
+
+                t_batch_start = _time.perf_counter()
+
+        t_epoch = _time.perf_counter() - t_epoch
         if actual_device == "cuda":
             torch.cuda.synchronize()
             peak_mem_gb = torch.cuda.max_memory_allocated() / 1e9
@@ -404,18 +490,19 @@ def train_phase3(
             by_bucket["under_500m_ratio"] = (
                 bucket_sums["under_500m"] / n_500 if n_500 > 0 else 0.0
             )
+            by_bucket["naive_mae"] = naive_sum / naive_n if naive_n > 0 else 0.0
             return (total_loss / n if n > 0 else float("inf")), by_bucket
         return total_loss / n if n > 0 else float("inf")
 
-    print(f"\n{'Epoch':>5}  {'Train MAE':>11}  {'Val MAE':>11}  {'0-500m':>9}  {'500m-2km':>9}  {'2km+':>9}  {'Under<500m':>11}  {'LR':>9}  {'Best':>5}")
-    print("-" * 95)
+    print(f"\n{'Epoch':>5}  {'Train MAE':>11}  {'Val MAE':>11}  {'Naive':>9}  {'0-500m':>9}  {'500m-2km':>9}  {'2km+':>9}  {'Under<500m':>11}  {'LR':>9}  {'Best':>5}")
+    print("-" * 107)
 
     for epoch in range(start_epoch, epochs + 1):
-        train_mae = _run_epoch(train_loader, train_mode=True)
+        train_mae = _run_epoch(train_loader, train_mode=True, epoch=epoch)
         val_mae = float("inf")
         val_by_bucket = {}
         if val_loader is not None:
-            val_mae, val_by_bucket = _run_epoch(val_loader, train_mode=False)
+            val_mae, val_by_bucket = _run_epoch(val_loader, train_mode=False, epoch=epoch)
             scheduler.step(val_mae)
         else:
             scheduler.step(train_mae)
@@ -443,8 +530,9 @@ def train_phase3(
         b1_str    = f"{val_by_bucket.get('500m_2km', 0.0):9.1f}" if has_val else "      N/A"
         b2_str    = f"{val_by_bucket.get('2km_plus', 0.0):9.1f}" if has_val else "      N/A"
         under_str = f"{val_by_bucket.get('under_500m_ratio', 0.0)*100:9.1f}%" if has_val else "        N/A"
+        naive_str = f"{val_by_bucket.get('naive_mae', 0.0):9.1f}" if has_val else "      N/A"
         best_str  = "  ★" if is_best else ""
-        print(f"{epoch:>5}  {train_mae:11.1f}  {val_str}  {b0_str}  {b1_str}  {b2_str}  {under_str}  {current_lr:9.2e}{best_str}")
+        print(f"{epoch:>5}  {train_mae:11.1f}  {val_str}  {naive_str}  {b0_str}  {b1_str}  {b2_str}  {under_str}  {current_lr:9.2e}{best_str}")
 
         history.append({
             "epoch": epoch,
@@ -458,6 +546,10 @@ def train_phase3(
             print(f"\nEarly stopping en epoch {epoch} (sin mejora por {patience} épocas).")
             break
 
+    # Restaurar comportamiento de sleep normal
+    if _sys.platform == "win32":
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+
     training_time_s = time.time() - t_start
     print(f"\nMejor epoch: {best_epoch} | Mejor val MAE: {best_val_mae:.1f}s ({best_val_mae/60:.2f} min)")
 
@@ -466,7 +558,7 @@ def train_phase3(
     logger.info(f"  Epochs completed: {epoch}/{epochs}")
     logger.info(f"  Best epoch: {best_epoch} (val_mae={best_val_mae:.1f}s)")
     logger.info(f"  Time per epoch: {training_time_s/epoch:.2f}s avg")
-    logger.info(f"  Samples trained: {len(train_ds):,} × {epoch} = {len(train_ds)*epoch:,}")
+    logger.info(f"  Samples trained: {train_ds.approx_batches:,} × {epoch} = {train_ds.approx_batches*epoch:,}")
     print(f"Tiempo entrenamiento: {training_time_s/60:.1f} min")
 
     # Cargar mejor checkpoint
@@ -477,6 +569,9 @@ def train_phase3(
 
     # Exportar ONNX
     _export_a3_onnx(model, onnx_path, actual_device)
+
+    import shutil as _shutil
+    from datetime import datetime as _dt
 
     metrics = {
         "model": "A3ETAModel",
@@ -490,14 +585,27 @@ def train_phase3(
         "device": actual_device,
         "batch_size": batch_size,
         "lr_initial": lr,
+        "use_fleet": use_fleet,
+        "d_model": d_model,
+        "max_groups": max_groups,
         "model_path": str(best_ckpt_path),
         "onnx_path": str(onnx_path),
-        "n_train": len(train_ds),
-        "n_val": len(val_ds) if has_val else 0,
+        "n_train": train_ds.approx_batches,
+        "n_val": val_ds.approx_batches if has_val else 0,
         "history": history,
     }
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
+
+    # Copia archivada con timestamp para no perder runs anteriores
+    ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+    fleet_tag = "fleet" if use_fleet else "nofleet"
+    groups_tag = f"g{max_groups}" if max_groups else "gfull"
+    mae_tag = f"mae{int(best_val_mae)}s" if has_val else "noval"
+    run_tag = f"{fleet_tag}_{groups_tag}_ep{best_epoch}_{mae_tag}_{ts}"
+    archived_metrics = output_dir / f"eta_a3_{run_tag}_metrics.json"
+    _shutil.copy2(metrics_path, archived_metrics)
+    logger.info(f"[train_phase3] Métricas archivadas: {archived_metrics.name}")
 
     return metrics
 

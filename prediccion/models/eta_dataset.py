@@ -86,6 +86,8 @@ class ETADataset(IterableDataset):
         shuffle: bool = True,
         yield_batch_size: int = 2048,
         use_fleet: bool = True,
+        max_groups: int | None = None,
+        fleet_same_dir_cap: int | None = None,
     ):
         import pyarrow.parquet as pq
 
@@ -95,10 +97,13 @@ class ETADataset(IterableDataset):
         self._shuffle = shuffle
         self._yield_batch_size = yield_batch_size
         self._use_fleet = use_fleet
+        self._fleet_same_dir_cap = fleet_same_dir_cap  # si es int, filtra same_dir y capea
 
         pf = pq.ParquetFile(self._path)
-        self._n_groups: int = pf.metadata.num_row_groups
-        self._approx_len: int = pf.metadata.num_rows
+        total_groups = pf.metadata.num_row_groups
+        self._n_groups: int = min(total_groups, max_groups) if max_groups is not None else total_groups
+        rows_per_group = pf.metadata.num_rows / total_groups if total_groups > 0 else 0
+        self._approx_len: int = int(rows_per_group * self._n_groups)
         schema_names = set(pf.schema_arrow.names)
         skip = {"fleet_flat", "n_fleet"} if not use_fleet else set()
         self._read_cols: list[str] = _BASE_COLS + [
@@ -113,6 +118,10 @@ class ETADataset(IterableDataset):
     def __len__(self) -> int:
         import math
         return math.ceil(self._approx_len / self._yield_batch_size)
+
+    @property
+    def approx_batches(self) -> int:
+        return len(self)
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
         import pyarrow.parquet as pq
@@ -192,8 +201,18 @@ class ETADataset(IterableDataset):
         if "fleet_flat" in df:
             fleet_all = _fsl_to_numpy(tbl["fleet_flat"], N_FLEET * 5).reshape(-1, N_FLEET, 5).copy()
             n_fleet_all = df["n_fleet"].astype(np.int32)
+
+            if self._fleet_same_dir_cap is not None:
+                cap = self._fleet_same_dir_cap
+                # col 4 = is_same_direction. Ordenar same_dir (1.0) primero, luego tomar cap primeros.
+                # argsort descendente por col4: los 1.0 quedan al principio, los 0.0 (opuesto + padding) al final
+                order = np.argsort(-fleet_all[:, :, 4], axis=1)          # (N, N_FLEET)
+                fleet_all = fleet_all[np.arange(len(fleet_all))[:, None], order, :][:, :cap, :].copy()
+                n_fleet_all = np.minimum((fleet_all[:, :, 4] == 1.0).sum(axis=1).astype(np.int32), cap)
         else:
-            fleet_all = np.zeros((len(eta_arr), N_FLEET, 5), dtype=np.float32)
+            # use_fleet=False: shape (N, 0, 5) activa el branch n_fleet==0 en FleetEncoder
+            # y evita que el transformer procese 60 tokens de padding por nada
+            fleet_all = np.zeros((len(eta_arr), 0, 5), dtype=np.float32)
             n_fleet_all = np.zeros(len(eta_arr), dtype=np.int32)
 
         # Limpiar cualquier NaN/inf residual antes de mandar a la GPU
@@ -201,8 +220,9 @@ class ETADataset(IterableDataset):
         np.nan_to_num(fleet_all, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
 
         # Máscaras vectorizadas (sin loop por fila)
-        traj_mask_all  = np.arange(10)[None, :]      >= traj_len_all[:, None]   # (N, 10)
-        fleet_mask_all = np.arange(N_FLEET)[None, :] >= n_fleet_all[:, None]    # (N, N_FLEET)
+        traj_mask_all  = np.arange(10)[None, :]                >= traj_len_all[:, None]  # (N, 10)
+        actual_fleet_dim = fleet_all.shape[1]  # 0 cuando use_fleet=False, N_FLEET cuando True
+        fleet_mask_all = np.arange(actual_fleet_dim)[None, :] >= n_fleet_all[:, None]    # (N, fleet_dim)
 
         logger.debug(
             f"[ETADataset] group {g_idx}: {len(valid)}/{len(eta_arr)} valid, "
