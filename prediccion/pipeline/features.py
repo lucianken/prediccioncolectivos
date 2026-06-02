@@ -111,7 +111,7 @@ def make_training_rows_eta(
             dist_remaining_m = f.dist_along_shape_m - p.dist_along_shape_m
             observed_eta_s = f.ts - p.ts
 
-            if dist_remaining_m < 50.0 or observed_eta_s <= 0:
+            if dist_remaining_m < 100.0 or observed_eta_s <= 0:
                 continue
 
             rows.append({

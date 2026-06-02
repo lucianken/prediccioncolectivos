@@ -503,7 +503,9 @@ Con modelo unificado (todas las líneas):
 1. `prediccion/pipeline/features.py`: cambiar `dist_remaining_m <= 0` por `dist_remaining_m < 50.0` en la condición de skip al generar pares.
 2. `prediccion/models/eta_dataset.py`: cambiar `dist_rem_arr > 0` por `dist_rem_arr >= 50.0` en el mask del dataset (safety net para parquets existentes).
 
-**Regla de diseño:** nunca generar pares de entrenamiento con `dist_remaining_m < 50m`. En producción, si un bus está a menos de 50m del punto del usuario, el ETA ya es 0 o irrelevante.
+**Regla de diseño:** nunca generar pares de entrenamiento con `dist_remaining_m < 100m`. Umbral actualizado de 50m a 100m: a esa distancia la incertidumbre de GPS (~10m) y la resolución temporal (30s × 7m/s = 210m por ping) hacen que cualquier predicción sea no confiable.
+
+**Comportamiento en producción sub-100m:** cuando la distancia proyectada del bus al punto del usuario es menor a 100m, la app **no llama al modelo** — muestra directamente "llegando". A esa distancia (~10-15 segundos de viaje) la predicción es irrelevante y el GPS no tiene resolución suficiente para ser confiable.
 
 ---
 
@@ -600,8 +602,6 @@ El dataset contiene, para cada punto de cada shape, todos los timestamps en que 
 Se codifica el **flag `has_active_bus`** (bool). Sin él, el modelo ve `distance_remaining=0` en dos situaciones opuestas: "no hay bus visible" y "el bus está exactamente en el target". Mismo valor, semántica completamente distinta. Lo mismo con `speed=0`: bus parado en parada vs sin bus activo. Esa ambigüedad no se puede resolver sola. El flag la elimina con 1 bit.
 
 Lo que aprende el modelo: los **pesos relativos** entre features. Cuánto confiar en `distance_remaining` cuando `has_active_bus=True`, cuánto confiar en el contexto temporal y el fleet_state cuando es `False`. El entrenamiento lo resuelve solo — no hace falta decirle que la posición real es más confiable que el prior temporal.
-
-Regla general: se codifica la **estructura de la información** (qué está presente, qué no, qué es cero genuino vs ausente). Se deja que el modelo aprenda los **pesos relativos**.
 
 **Input unificado:**
 
