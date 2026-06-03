@@ -68,6 +68,7 @@ def make_training_rows_eta(
         time_enc = encode_time(p.ts)
         seg_idx = get_segment_index(p.dist_along_shape_m)
         dist_along_norm = p.dist_along_shape_m / shape_length_m
+        ts_age_s = float(min(p.frame_ts - p.ts, 600))
 
         # 1. Historia de trayectoria → traj_flat (30,) float32-compatible, paddeado
         K = 10
@@ -126,6 +127,7 @@ def make_training_rows_eta(
                 "has_active_bus": True,
                 "observed_eta_s": float(observed_eta_s),
                 "time_since_start": time_since_start,
+                "ts_age_s": ts_age_s,
                 "traj_flat": traj_flat,
                 "traj_len": traj_actual_len,
                 "fleet_flat": fleet_flat,

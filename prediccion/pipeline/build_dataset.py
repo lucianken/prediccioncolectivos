@@ -56,6 +56,7 @@ def _make_eta_schema():
         pa.field("has_active_bus",    pa.bool_()),
         pa.field("observed_eta_s",    pa.float32()),
         pa.field("time_since_start",  pa.float32()),
+        pa.field("ts_age_s",          pa.float32()),
         pa.field("traj_flat",         pa.list_(pa.float32(), 30)),
         pa.field("traj_len",          pa.int8()),
         pa.field("fleet_flat",        pa.list_(pa.float32(), N_FLEET * 5)),
@@ -221,6 +222,7 @@ def _process_daily_file(
         for vid, fields in state.items():
             obs = dict(fields)
             obs["ts"] = obs.get("ts", ts)
+            obs["frame_ts"] = ts
             day_vehicle_obs.setdefault(vid, []).append(obs)
 
             # Reconstruir estado de la flota

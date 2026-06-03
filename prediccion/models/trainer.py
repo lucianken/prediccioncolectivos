@@ -381,6 +381,7 @@ def train_phase3(
                 dist_rem     = batch["dist_remaining_norm"].to(actual_device)
                 dist_rem_m   = batch["dist_remaining_m"].to(actual_device)
                 tss          = batch["time_since_start"].to(actual_device)
+                ts_age       = batch["ts_age_s"].to(actual_device)
                 has_bus      = batch["has_active_bus"].to(actual_device)
                 eta_target   = batch["eta_seconds"].to(actual_device)
                 # No synchronize aquí — .to() es async, medir sin frenar el pipeline
@@ -394,7 +395,7 @@ def train_phase3(
                 with autocast(device_type=actual_device, dtype=amp_dtype, enabled=use_amp):
                     pred = model(
                         traj, traj_mask, fleet, fleet_mask,
-                        h_sin, h_cos, dow, dist_rem, tss, has_bus,
+                        h_sin, h_cos, dow, dist_rem, tss, ts_age, has_bus,
                     )
                     loss = criterion(pred, eta_target, dist_rem_m)
                 # No synchronize — forward es async hasta que necesitemos el valor
@@ -628,12 +629,13 @@ def _export_a3_onnx(model, onnx_path: Path, device: str) -> None:
         torch.zeros(1, 1,     device=device, dtype=torch.int64),  # dow (batch, 1) → squeeze → (batch,)
         torch.zeros(1, 1,     device=device),   # dist_remaining_norm
         torch.zeros(1, 1,     device=device),   # time_since_start
+        torch.zeros(1, 1,     device=device),   # ts_age_s
         torch.zeros(1, 1,     device=device),   # has_active_bus
     )
     input_names = [
         "trajectory", "trajectory_mask", "fleet", "fleet_mask",
         "hour_sin", "hour_cos", "dow",
-        "dist_remaining_norm", "time_since_start", "has_active_bus",
+        "dist_remaining_norm", "time_since_start", "ts_age_s", "has_active_bus",
     ]
 
     try:

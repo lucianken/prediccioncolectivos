@@ -20,6 +20,7 @@ def sample_a3_inputs():
         "dow": torch.randint(0, 7, (BATCH,)),
         "dist_remaining_norm": torch.rand(BATCH, 1),
         "time_since_start": torch.randn(BATCH, 1),
+        "ts_age_s": torch.zeros(BATCH, 1),
         "has_active_bus": torch.ones(BATCH, 1),
     }
 

@@ -72,6 +72,7 @@ class ETATrainingRow(TypedDict):
     has_active_bus: bool
     observed_eta_s: float
     time_since_start: float
+    ts_age_s: float              # segundos desde último GPS report, cap 600s
     traj_flat: list[float]       # 30 elementos (10 puntos × 3), paddeado con ceros
     traj_len: int                # longitud real (1–10)
     fleet_flat: list[float]      # N_FLEET*5 elementos, paddeado con ceros

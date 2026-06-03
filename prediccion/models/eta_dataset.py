@@ -61,7 +61,7 @@ _BASE_COLS = [
     "has_active_bus", "observed_eta_s",
 ]
 _OPTIONAL_COLS = [
-    "time_since_start", "traj_flat", "traj_len", "fleet_flat", "n_fleet",
+    "time_since_start", "ts_age_s", "traj_flat", "traj_len", "fleet_flat", "n_fleet",
 ]
 
 
@@ -177,6 +177,8 @@ class ETADataset(IterableDataset):
 
         tss_arr = (df["time_since_start"].astype(np.float32) / 3600.0) if "time_since_start" in df \
             else np.zeros(len(eta_arr), dtype=np.float32)  # normalizar a horas (0-3.3h)
+        ts_age_arr = (df["ts_age_s"].astype(np.float32) / 600.0) if "ts_age_s" in df \
+            else np.zeros(len(eta_arr), dtype=np.float32)  # normalizar a 0-1 (cap=600s)
 
         ramal_ids    = df["ramal_id"]
         shape_lengths = self._shape_lengths
@@ -251,6 +253,7 @@ class ETADataset(IterableDataset):
                 "dist_remaining_m":    torch.from_numpy(np.ascontiguousarray(dist_rem_arr[sl, None])),   # (b, 1)
                 "dist_remaining_norm": torch.from_numpy(np.ascontiguousarray((dist_rem_arr[sl] / shape_len_arr[sl])[:, None])),  # (b, 1)
                 "time_since_start":    torch.from_numpy(np.ascontiguousarray(tss_arr[sl, None])),        # (b, 1)
+                "ts_age_s":            torch.from_numpy(np.ascontiguousarray(ts_age_arr[sl, None])),     # (b, 1)
                 "has_active_bus":      torch.from_numpy(np.ascontiguousarray(has_bus_arr[sl, None])),    # (b, 1)
                 "eta_seconds":         torch.from_numpy(np.ascontiguousarray(eta_clipped[sl, None])),    # (b, 1)
             }
@@ -296,6 +299,7 @@ def collate_eta(batch: list[dict]) -> dict[str, torch.Tensor]:
         "dist_remaining_m":    torch.stack([item["dist_remaining_m"]   for item in batch]),
         "dist_remaining_norm": torch.stack([item["dist_remaining_norm"] for item in batch]),
         "time_since_start":    torch.stack([item["time_since_start"]   for item in batch]),
+        "ts_age_s":            torch.stack([item["ts_age_s"]           for item in batch]),
         "has_active_bus":      torch.stack([item["has_active_bus"]     for item in batch]),
         "eta_seconds":         torch.stack([item["eta_seconds"]        for item in batch]),
     }

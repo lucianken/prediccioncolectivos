@@ -96,7 +96,7 @@ class TimeEncoder(nn.Module):
 class A3ETAModel(nn.Module):
     def __init__(self, d_model: int = 128, hidden_dims: tuple = (256, 128, 64)):
         """
-        Concatena: trajectory(d_model) + fleet(d_model) + time(16) + dist(1) + time_since_start(1) + has_bus(1)
+        Concatena: trajectory(d_model) + fleet(d_model) + time(16) + dist(1) + time_since_start(1) + ts_age_s(1) + has_bus(1)
         MLP: Linear(concat_dim → 256) → GELU → Dropout(0.1) → Linear(256 → 128) → GELU → Linear(128 → 64) → GELU → Linear(64 → 1) → Softplus
         """
         super().__init__()
@@ -104,7 +104,7 @@ class A3ETAModel(nn.Module):
         self.fleet_enc = FleetEncoder(d_model=d_model, nhead=4, num_layers=3)
         self.time_enc = TimeEncoder(dow_embed_dim=8, out_dim=16)
 
-        concat_dim = d_model + d_model + 16 + 1 + 1 + 1  # = 2 * d_model + 19
+        concat_dim = d_model + d_model + 16 + 1 + 1 + 1 + 1  # = 2 * d_model + 20
 
         layers = []
         in_dim = concat_dim
@@ -131,6 +131,7 @@ class A3ETAModel(nn.Module):
         dow: torch.Tensor,                  # (batch,) int64
         dist_remaining_norm: torch.Tensor,  # (batch, 1)
         time_since_start: torch.Tensor,     # (batch, 1)
+        ts_age_s: torch.Tensor,             # (batch, 1)
         has_active_bus: torch.Tensor,       # (batch, 1)
     ) -> torch.Tensor:
         """Returns: (batch, 1) — ETA en segundos, siempre positivo (Softplus)."""
@@ -144,7 +145,8 @@ class A3ETAModel(nn.Module):
             time_emb,
             dist_remaining_norm,
             time_since_start,
+            ts_age_s,
             has_active_bus,
-        ], dim=-1)  # (batch, 143)
+        ], dim=-1)
 
         return self.mlp(combined)  # (batch, 1)

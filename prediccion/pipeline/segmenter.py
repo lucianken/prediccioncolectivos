@@ -11,6 +11,7 @@ class TripPoint:
     odo: int                          # odómetro del viaje (metros)
     dist_along_shape_m: float = -1.0  # -1 = no proyectado aún
     perp_error_m: float = -1.0        # -1 = no proyectado aún
+    frame_ts: int = 0                 # frame["t"] global del ciclo de captura
 
 
 @dataclass
@@ -69,6 +70,7 @@ def segment_vehicle_history(
             lon=lon,
             speed=speed,
             odo=odo,
+            frame_ts=obs.get("frame_ts", ts),
         )
 
         if current_trip is None:
