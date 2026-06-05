@@ -1,8 +1,133 @@
 # Plan ML/DL: Identificación de Ramal y Predicción de ETA
 
-**Última actualización:** 2026-03-29
-**Estado:** Research / Diseño — en espera de datos suficientes
-**Prerequisito:** grabador-posiciones corriendo, mínimo 3 meses de grabación
+**Última actualización:** 2026-06-03
+**Estado:** Fase 3 activa — A3ETAModel entrenado y funcionando, línea 39
+**Líneas en parquet:** 39
+
+---
+
+## Estado actual (2026-06-03)
+
+### Pipeline implementado
+- `segmenter → projector → build_dataset → eta_train.parquet` funcionando end-to-end
+- Parquet línea 39: **71.5M filas train / 16.5M val**, 313 + 73 row groups
+- Naive baseline: **672s** (valor de referencia para medir mejoras)
+
+### Features del modelo (A3ETAModel)
+| Feature | Descripción |
+|---------|-------------|
+| `dist_remaining_m / shape_length` | Distancia normalizada al target |
+| `hour_sin / hour_cos` | Hora del día (encoding cíclico, Buenos Aires UTC-3) |
+| `dow` | Día de semana (embedding 0-6) |
+| `time_since_start` | Segundos en el viaje actual / 3600 |
+| `ts_age_s` | Staleness GPS del vehículo, `min(frame_t - vehicle_ts, 600) / 600` |
+| `has_active_bus` | Bool: hay bus visible o es predicción por headway |
+| `traj_flat (10×3)` | Historia de posición: (dist_norm, speed/30, dt/30) × 10 pts |
+| `fleet_flat (60×5)` | Flota: (lat_norm, lon_norm, speed, direction_id, is_same_dir) × 60 |
+
+### Modelos entrenados
+
+| Archivo | Config | Val MAE | Epochs | Notas |
+|---------|--------|---------|--------|-------|
+| `eta_a3_nofleet_gfull_ep10_mae79s_20260602_212440_metrics.json` | no-fleet, d64, 10ep | **79.2s** | 10/10 | parquet con umbral 50m |
+| `eta_a3_nofleet_gfull_ep14_mae75s_20260603_004827_metrics.json` | no-fleet, d64, 15ep | **75.9s** | 14/15 | parquet con umbral 100m + ts_age_s |
+
+**Modelo en producción:** `eta_a3_best.pt` + `eta_a3_final.onnx` = epoch 14 del segundo run (75.9s val MAE).
+
+### Mejoras implementadas desde el diseño inicial
+1. **Umbral dist_remaining ≥ 100m** (era 50m): elimina pares de corto alcance con ruido GPS desproporcionado
+2. **Feature `ts_age_s`**: staleness del GPS del vehículo respecto al frame global. Mediana ~10s, cap en 600s. Ver commit `d49e7c2`.
+3. **Pinball loss asimétrica**: penaliza subestimación 4x en distancias <500m (perder el colectivo es peor que esperar de más). Under<500m ratio ~22% = modelo sobreestima 78% del tiempo en distancia corta. ✓
+4. **LR scheduler**: baja automáticamente lr cuando no mejora (6e-4 → 3e-4 observado en epoch 6).
+
+### Experimento fleet — bloqueado por costo computacional
+
+Fleet con `--fleet-same-dir-cap 20` tomó **6235s por epoch** (vs 505s sin fleet) = ~12× más lento. Causa: FleetEncoder backward a través de 3 capas de transformer con batch=8192 domina el cómputo GPU. I/O no es el cuello de botella (fetch_ms=1.4ms).
+
+**Opciones para desbloquear fleet:**
+- **Reducir FleetEncoder a 1 capa** (cambio mínimo en `a3_eta.py`, sin regenerar parquet) — ~3× más rápido
+- **Reemplazar transformer por mean pooling** — mucho más rápido, pérdida mínima de capacidad
+- **Reducir N_FLEET en parquet de 60 a 20** (regenerar parquet) — reduce activaciones en backward
+
+### Requerimiento de inferencia — ventana de 5 minutos
+
+Para obtener calidad real en la predicción, el sistema de inferencia debe mantener un **buffer rolling de los últimos 5 minutos de posiciones por vehículo** (no solo el estado puntual actual). Con ciclo real de ~60s por vehículo, 5 min = ~5 pings reales → `traj_len=5`, mucho mejor que el `traj_len=1` del stub actual.
+
+**Diseño:** `fleet_cache.py` pasa de `{vehicle_id: LiveVehicle}` a `{vehicle_id: deque(maxlen=10, LiveVehicle)}`. Cada entry tiene `ts, lat, lon, speed, dist_along_shape_m` (pre-proyectado). En inferencia: el último elemento es estado actual, los anteriores son la trayectoria.
+
+El buffer de 5 min también resuelve el "last bus departed": vehículos que ya pasaron la posición del usuario siguen en el buffer y permiten calcular cuándo fue el último bus del ramal.
+
+### Feature `time_since_last_bus_s` — análisis de viabilidad
+
+**Contexto:** El caso "no hay bus visible" se resuelve sin nuevo training pasando `dist_remaining = distancia_usuario_desde_terminal`, velocidad=0, traj=zeros. El modelo ya aprendió ETAs con distancias grandes desde el training existente (buses al inicio del viaje). El único dato genuinamente nuevo que A3 puede explotar y A1 no tiene es cuánto tiempo pasó desde que el último bus del ramal pasó por la posición del usuario.
+
+**Por qué vale la pena:** A1 dice "los martes a las 8am el headway es 9 minutos". Con `time_since_last_bus_s` el modelo puede decir "el headway histórico es 9 min, el último bus pasó hace 2 minutos, el próximo llega en ~7 min". Eso es información en tiempo real que mejora la predicción de modo concreto y medible — especialmente en horas pico donde el headway varía por congestión.
+
+**Costo de implementación:** bajo, condicionado a tener el buffer rolling de 5 min (necesario de todas formas para trajectory). El buffer ya contiene los vehículos que recientemente pasaron la posición del usuario — `time_since_last_bus` es una resta de timestamps.
+
+**En training:** para generar ejemplos con esta feature, para cada par `(t_i, t_{i+1})` de buses consecutivos pasando por la posición P, `time_since_last_bus = query_time - t_i`. La data ya existe en los viajes proyectados — es gratis extraerla.
+
+**Recomendación:** implementar junto con el buffer rolling de 5 min. No requiere nuevo pipeline de training separado — se agrega como feature adicional en las filas existentes (cuando `has_active_bus=True`, `time_since_last_bus` refleja cuánto antes llegó el bus anterior al mismo ramal por esa posición, también útil).
+
+### Pendiente / próximos pasos (ordenados por prioridad)
+
+1. **Resolver bottleneck fleet** — elegir entre las 3 opciones arriba y correr fleet
+2. **Agregar línea 42 al parquet** — más datos, mejora representaciones generales
+3. **Implementar has_active_bus=0.0** — training con ejemplos de "no hay bus visible" (ver sección de diseño más abajo)
+4. **Integrar A3 ONNX en producción** con buffer rolling de 5 min (`predictor.py` tiene el stub)
+5. **Fine-tuning mensual automático** (Fase 4)
+
+---
+
+## Experimentos offline
+
+### Experimento 1 — Umbral "llegando" y distribución de error (2026-06-05, definitivo)
+
+**Objetivo:** determinar qué umbral usar en la UI para mostrar "llegando".
+
+**Modelo:** `eta_a3_nofleet_gfull_ep24_mae72s_20260605` — no-fleet, d_model=64, PyTorch CUDA directo.
+**Script:** `experiments/arriving_threshold_analysis.py`
+**Resultados raw:** `data/ml/experiments/arriving_threshold_20260605_092742.json`
+**Tiempo de inferencia:** 110s en GPU (RTX 3080) sobre 16.5M filas (73 grupos, filtro obs_eta ≤ 7200s, dist_rem ≥ 100m).
+
+**Error por bucket de distancia:**
+
+| Bucket | N | MAE | P50 | P90 | Bias | Under% |
+|--------|---|-----|-----|-----|------|--------|
+| 100–250m | 291K | 67.7s | 48s | 103s | +24.9s | 15% |
+| 250–500m | 597K | 64.9s | 47s | 108s | +21.8s | 23% |
+| 500m–1km | 1.15M | 66.9s | 46s | 123s | +7.9s | 35% |
+| 1km–2km | 2.15M | 82.1s | 57s | 165s | −3.7s | 45% |
+| 2km–5km | 5.22M | 121.8s | 87s | 258s | −4.2s | 48% |
+| 5km+ | 7.1M | 204.2s | 148s | 446s | −11.6s | 51% |
+
+Patrón de bias: el modelo **sobreestima** a distancias cortas (<1km) y **subestima levemente** a distancias largas (>1km). Consistente con el pinball loss asimétrico (q>0.5 cuando dist<1km).
+
+**Error por bucket de ETA predicho:**
+
+| ETA predicho | N | MAE | P50 |
+|---|---|---|---|
+| <60s | 698 | 39s | 27s |
+| 60–120s | 266K | 43.6s | 37s |
+| 120–180s | 633K | 53s | 44s |
+| 3–5 min | 1.17M | 62.5s | 46s |
+| 5–10 min | 2.47M | 82.3s | 59s |
+| 10min+ | 11.98M | 173s | 121s |
+
+**Grid search umbral "llegando"** (definición real: `obs_eta < 90s`, flag: `pred_eta < T OR dist_rem < D`):
+
+Nota: F1 trata precision y recall como iguales, pero **F2 es más apropiado** — perder el colectivo (falso negativo) es peor que una falsa alarma (falso positivo). Con F2 (beta=2, recall pesa doble):
+
+| time_t | dist_t | Precision | Recall | F1 | F2 |
+|--------|--------|-----------|--------|----|----|
+| 150s | 300m | 51.0% | 89.0% | 0.649 | **0.775** ← mejor F2 |
+| 150s | 250m | 52.6% | 86.4% | 0.654 | 0.766 |
+| 150s | 200m | 53.5% | 84.0% | 0.654 | 0.754 |
+| 120s | 300m | 60.5% | 74.9% | **0.669** ← mejor F1 | 0.714 |
+
+**Recomendación UI:** mostrar "llegando" cuando `pred_eta < 150s OR dist_remaining < 300m`.
+- Precision 51% (1 de 2 alarmas es falsa — el bus tarda un poco más de 90s)
+- Recall 89% (casi nunca se pierde un bus que realmente estaba llegando)
 
 ---
 
@@ -473,7 +598,7 @@ La resolución temporal de la API es 30 segundos. A velocidades urbanas:
 **Implicaciones de diseño:**
 - **Output continuo, no discretizado**: el modelo predice ETA a un punto específico (`distance_to_target_m` como float), no a waypoints fijos cada 500m. El target real (parada del usuario proyectada sobre el shape) nunca coincide exactamente con un waypoint fijo — el output continuo elimina el error de interpolación.
 - **Resolución temporal de 30s define el granulado mínimo observable**: a 30 km/h un vehículo se mueve ~250m por ciclo. El modelo trabaja con posiciones y velocidades observadas a esa resolución — no hay agregación geográfica adicional.
-- **No modelar paradas individuales**: a 30s de resolución no sabemos si el vehículo estuvo 10s o 25s en una parada — solo vemos que en ese ciclo se movió X metros. El modelo aprende el tiempo de parada implícitamente.
+- **No modelar paradas individuales**: a 30s de resolución no sabemos si el vehículo estuvo 10s o 25s en una parada — solo vemos que en ese ciclo se movió X metros. El modelo aprende el tiempo de parada implícitamente. Ver nota sobre arquitectura alternativa stop-to-stop más abajo.
 - **Speed reportada = promedio del período**: si el colectivo estuvo 20s parado y 10s moviéndose a 30 km/h, la API reporta speed = 10 km/h. El modelo aprende estos patrones estadísticamente.
 - **Dataset x40 gratis**: cada viaje de 20 minutos genera ~40 ejemplos de entrenamiento, uno por ciclo de 30s. En cada ciclo, el tiempo real hasta que el bus llegó al target es un label válido y observable. No requiere cambio en la arquitectura — solo construir el dataset tomando todos los puntos del viaje como ejemplos independientes, no solo el punto inicial. Un viaje que antes aportaba 1 fila al dataset ahora aporta ~40.
 
@@ -482,6 +607,26 @@ La resolución temporal de la API es 30 segundos. A velocidades urbanas:
 Con modelo unificado (todas las líneas):
 - 3 meses: ~21M ejemplos de entrenamiento — más que suficiente
 - Comparación: con modelo por línea necesitarías 3 meses por línea, ahora los 3 meses sirven para todo
+
+### Arquitectura alternativa — modelo stop-to-stop
+
+**Idea:** en vez de predecir ETA a cualquier punto del shape, predecir de parada a parada. El target es discreto: "el bus está en parada A, ¿cuánto tarda en llegar a parada B?"
+
+**Ventajas:**
+- Problema discreto y repetible: el mismo segmento A→B se repite exactamente igual miles de veces, el modelo aprende distribuciones específicas por segmento
+- Menos pares de entrenamiento pero más limpios — sin la varianza de targets arbitrarios
+- El "menos pares" es ventaja, no desventaja: con datos acumulándose indefinidamente, no hay escasez de observaciones por segmento
+- Captura tiempo de parada por segmento (implícito en el tiempo observado A→B)
+- Los segmentos compartidos entre líneas (ej: 39 y 42 por Corrientes) podrían entrenar con datos combinados → ventaja sobre el modelo 1D actual que los trata como shapes separados
+- Predicción inversa natural: "estoy arriba, ¿cuándo llego a Y?" es el mismo problema con roles invertidos
+
+**Desventajas:**
+- Requiere inferir cuándo el bus pasó cada parada desde GPS con resolución 60s — error de ~30s en el timestamp de pasaje
+- No se puede evitar ese error sin interpolación; con interpolación se introduce ruido adicional. Sin interpolación, se acepta el error como ruido del sistema (el modelo lo aprende estadísticamente)
+- Solo sirve cuando el usuario está en una parada conocida — no generaliza a posición arbitraria
+- Requiere stops confiables en OSM (tenemos datos pero calidad variable)
+
+**Cuándo explorar:** cuando la calidad de stops OSM esté validada y haya 6+ meses de datos. No antes.
 
 ---
 
@@ -914,14 +1059,14 @@ Esta es la hoja de ruta ordenada por balance de esfuerzo vs reducción de error.
 
 ### Tabla resumen de fases
 
-| Fase | Datos necesarios | Esfuerzo | MAE ETA | Ramal resuelto |
-|------|-----------------|----------|---------|----------------|
-| 0 (hoy) | — | ✅ Listo | — | ~65% (RamalEngine legacy, post-divergencia) |
-| 1 — Pipeline + baseline | 1 mes | 3 días | A1 como prior² | ~65% (sin cambio) |
-| 2 — Ramal lookup | 1-2 días/período | ✅ implementado | A1 como prior | **~100%** (líneas limpias) |
-| 3 — ETA con tráfico | 3-4 meses | 3 semanas | **~2 min** | ~100% |
-| 4 — Mantenimiento auto | post Fase 3 | 4 días | ~2 min (estable) | ~100% (estable) |
-| 5 — Transformer ETA | 6+ meses | 4 semanas | **~1 min** | ~100% |
+| Fase | Datos necesarios | Esfuerzo | MAE ETA | Ramal resuelto | Estado |
+|------|-----------------|----------|---------|----------------|--------|
+| 0 — Grabación | — | ✅ Listo | — | ~65% legacy | ✅ corriendo |
+| 1 — Pipeline + baseline | 1 mes | 3 días | A1 prior² | ~65% | ✅ completo |
+| 2 — Ramal lookup | 1-2 días/período | ✅ implementado | A1 prior | **~100%** | ✅ completo |
+| 3 — ETA con tráfico | 3-4 meses | 3 semanas | **~1.3 min** | ~100% | 🔄 en progreso (no-fleet 75.9s, fleet bloqueado) |
+| 4 — Mantenimiento auto | post Fase 3 | 4 días | ~1.3 min estable | ~100% | ⏳ pendiente |
+| 5 — Transformer ETA | 6+ meses | 4 semanas | **<1 min** | ~100% | ⏳ pendiente |
 
 ²Fase 1 no produce una mejora de MAE sobre OBA cuando hay bus activo (OBA ya da ~1-2 min en tráfico normal). Su valor es el pipeline de datos y los headways históricos reales que habilitan Fases 2 y 3.
 
