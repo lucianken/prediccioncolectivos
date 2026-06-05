@@ -27,11 +27,16 @@ build/
 venv/
 env/
 
-# Modelos entrenados (binarios grandes)
+# Modelos entrenados (binarios grandes) — ignorar globalmente
 *.pkl
 *.onnx
 *.pt
 *.pth
+
+# Excepciones: data/ml/models/ sí se versiona (checkpoints y ONNX producción)
+!data/ml/models/*.pt
+!data/ml/models/*.onnx
+!data/ml/models/*.pkl
 
 # Parquet / ML data
 *.parquet

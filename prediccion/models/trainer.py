@@ -598,7 +598,7 @@ def train_phase3(
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
 
-    # Copia archivada con timestamp para no perder runs anteriores
+    # Copias archivadas con timestamp para no perder runs anteriores
     ts = _dt.now().strftime("%Y%m%d_%H%M%S")
     fleet_tag = "fleet" if use_fleet else "nofleet"
     groups_tag = f"g{max_groups}" if max_groups else "gfull"
@@ -607,6 +607,11 @@ def train_phase3(
     archived_metrics = output_dir / f"eta_a3_{run_tag}_metrics.json"
     _shutil.copy2(metrics_path, archived_metrics)
     logger.info(f"[train_phase3] Métricas archivadas: {archived_metrics.name}")
+    # Archivar el checkpoint .pt con nombre para que quede en git y no se sobreescriba
+    if best_ckpt_path.exists():
+        archived_ckpt = output_dir / f"eta_a3_{run_tag}.pt"
+        _shutil.copy2(best_ckpt_path, archived_ckpt)
+        logger.info(f"[train_phase3] Checkpoint archivado: {archived_ckpt.name}")
 
     return metrics
 
@@ -618,19 +623,20 @@ def _export_a3_onnx(model, onnx_path: Path, device: str) -> None:
     model.eval()
     onnx_path = Path(onnx_path)
 
-    # Inputs de ejemplo (batch=1, MVP: traj=1pt, fleet vacío)
+    # Inputs de ejemplo (batch=1, traj=10pts, fleet vacío)
+    # seq=10 para que las dimensiones de secuencia sean dinámicas en el ONNX exportado.
     ex = (
-        torch.zeros(1, 1, 3,  device=device),   # trajectory
-        torch.zeros(1, 1,     device=device, dtype=torch.bool),  # trajectory_mask
-        torch.zeros(1, 1, 5,  device=device),                      # fleet (1 bus de ejemplo)
-        torch.zeros(1, 1,     device=device, dtype=torch.bool),  # fleet_mask
-        torch.zeros(1, 1,     device=device),   # hour_sin
-        torch.zeros(1, 1,     device=device),   # hour_cos
-        torch.zeros(1, 1,     device=device, dtype=torch.int64),  # dow (batch, 1) → squeeze → (batch,)
-        torch.zeros(1, 1,     device=device),   # dist_remaining_norm
-        torch.zeros(1, 1,     device=device),   # time_since_start
-        torch.zeros(1, 1,     device=device),   # ts_age_s
-        torch.zeros(1, 1,     device=device),   # has_active_bus
+        torch.zeros(1, 10, 3,  device=device),   # trajectory
+        torch.zeros(1, 10,     device=device, dtype=torch.bool),  # trajectory_mask
+        torch.zeros(1, 0,  5,  device=device),   # fleet vacío — n_fleet=0 → FleetEncoder retorna ceros sin bias CLS
+        torch.zeros(1, 0,      device=device, dtype=torch.bool),  # fleet_mask
+        torch.zeros(1, 1,      device=device),   # hour_sin
+        torch.zeros(1, 1,      device=device),   # hour_cos
+        torch.zeros(1, 1,      device=device, dtype=torch.int64),  # dow
+        torch.zeros(1, 1,      device=device),   # dist_remaining_norm
+        torch.zeros(1, 1,      device=device),   # time_since_start
+        torch.zeros(1, 1,      device=device),   # ts_age_s
+        torch.zeros(1, 1,      device=device),   # has_active_bus
     )
     input_names = [
         "trajectory", "trajectory_mask", "fleet", "fleet_mask",
@@ -646,7 +652,12 @@ def _export_a3_onnx(model, onnx_path: Path, device: str) -> None:
             input_names=input_names,
             output_names=["eta_seconds"],
             opset_version=17,
-            dynamic_axes={name: {0: "batch"} for name in input_names + ["eta_seconds"]},
+            do_constant_folding=False,  # evita que el tracer bake seq_len en nodos Reshape
+            dynamic_axes={
+                **{name: {0: "batch"} for name in input_names + ["eta_seconds"]},
+                "trajectory":      {0: "batch", 1: "seq"},
+                "trajectory_mask": {0: "batch", 1: "seq"},
+            },
         )
         print(f"      ONNX exportado: {onnx_path}")
     except Exception as e:
