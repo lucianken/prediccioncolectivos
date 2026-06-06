@@ -62,7 +62,11 @@ _BASE_COLS = [
 ]
 _OPTIONAL_COLS = [
     "time_since_start", "ts_age_s", "traj_flat", "traj_len", "fleet_flat", "n_fleet",
+    "time_since_last_bus_s", "last_bus_found",
 ]
+
+import math as _math
+_LOG1P_3600 = _math.log1p(3600.0)
 
 
 class ETADataset(IterableDataset):
@@ -88,6 +92,7 @@ class ETADataset(IterableDataset):
         use_fleet: bool = True,
         max_groups: int | None = None,
         fleet_same_dir_cap: int | None = None,
+        schedule_dev_medians: "dict | Path | str | None" = None,
     ):
         import pyarrow.parquet as pq
 
@@ -109,6 +114,32 @@ class ETADataset(IterableDataset):
         self._read_cols: list[str] = _BASE_COLS + [
             c for c in _OPTIONAL_COLS if c in schema_names and c not in skip
         ]
+
+        # Pre-convertir medianas a numpy arrays indexados por bucket int (0-20) para lookup O(1)
+        self._sdn_medians: dict[str, np.ndarray] | None = None
+        if schedule_dev_medians is not None:
+            if isinstance(schedule_dev_medians, (str, Path)):
+                p = Path(schedule_dev_medians)
+                if p.exists():
+                    import json as _json
+                    with open(p, encoding="utf-8") as _f:
+                        schedule_dev_medians = _json.load(_f)
+                    logger.info(f"[ETADataset] schedule_dev_medians: {len(schedule_dev_medians)} ramales")
+                else:
+                    logger.warning(f"[ETADataset] schedule_dev_medians no encontrado: {p} — sdn=0")
+                    schedule_dev_medians = None
+            if schedule_dev_medians:
+                self._sdn_medians = {}
+                for rid, buckets in schedule_dev_medians.items():
+                    arr = np.full(21, np.nan, dtype=np.float64)
+                    for k, v in buckets.items():
+                        try:
+                            idx = int(k)  # formato nuevo: "0".."20"
+                        except ValueError:
+                            idx = round(float(k) * 20)  # formato viejo: "0.05" etc.
+                        if 0 <= idx <= 20:
+                            arr[idx] = v
+                    self._sdn_medians[rid] = arr
 
         logger.info(
             f"[ETADataset] {Path(parquet_path).name}: "
@@ -175,10 +206,36 @@ class ETADataset(IterableDataset):
         has_bus_arr  = df["has_active_bus"].astype(np.float32)
         eta_clipped  = np.clip(eta_arr, 1.0, self._max_eta)
 
-        tss_arr = (df["time_since_start"].astype(np.float32) / 3600.0) if "time_since_start" in df \
-            else np.zeros(len(eta_arr), dtype=np.float32)  # normalizar a horas (0-3.3h)
+        tss_raw = df["time_since_start"].astype(np.float32) if "time_since_start" in df \
+            else np.zeros(len(eta_arr), dtype=np.float32)
+        tss_arr = tss_raw / 3600.0  # normalizar a horas (0-3.3h)
         ts_age_arr = (df["ts_age_s"].astype(np.float32) / 600.0) if "ts_age_s" in df \
             else np.zeros(len(eta_arr), dtype=np.float32)  # normalizar a 0-1 (cap=600s)
+
+        # time_since_last_bus_s: log1p-normalizado a [0,1]; last_bus_found: 0/1
+        if "time_since_last_bus_s" in df:
+            tlb_arr = np.log1p(df["time_since_last_bus_s"].astype(np.float32)) / _LOG1P_3600
+            lbf_arr = df["last_bus_found"].astype(np.float32)
+        else:
+            tlb_arr = np.zeros(len(eta_arr), dtype=np.float32)
+            lbf_arr = np.zeros(len(eta_arr), dtype=np.float32)
+
+        # schedule_dev_norm: desviación del viaje respecto a la mediana histórica del ramal
+        # Se computa on-the-fly por row group desde las medianas pre-cargadas en __init__
+        if self._sdn_medians is not None:
+            bucket_idx = np.clip(np.round(dist_along_arr * 20).astype(np.int32), 0, 20)
+            sdn_arr = np.zeros(len(eta_arr), dtype=np.float32)
+            ramal_arr_obj = np.asarray(df["ramal_id"], dtype=object)
+            for rid in set(df["ramal_id"]):
+                if rid not in self._sdn_medians:
+                    continue
+                m = self._sdn_medians[rid]
+                mask = ramal_arr_obj == rid
+                expected = m[bucket_idx[mask]]
+                raw = (tss_raw[mask].astype(np.float64) - expected) / 600.0
+                sdn_arr[mask] = np.where(~np.isnan(expected), np.clip(raw, -3.0, 3.0), 0.0).astype(np.float32)
+        else:
+            sdn_arr = np.zeros(len(eta_arr), dtype=np.float32)
 
         ramal_ids    = df["ramal_id"]
         shape_lengths = self._shape_lengths
@@ -255,7 +312,10 @@ class ETADataset(IterableDataset):
                 "time_since_start":    torch.from_numpy(np.ascontiguousarray(tss_arr[sl, None])),        # (b, 1)
                 "ts_age_s":            torch.from_numpy(np.ascontiguousarray(ts_age_arr[sl, None])),     # (b, 1)
                 "has_active_bus":      torch.from_numpy(np.ascontiguousarray(has_bus_arr[sl, None])),    # (b, 1)
-                "eta_seconds":         torch.from_numpy(np.ascontiguousarray(eta_clipped[sl, None])),    # (b, 1)
+                "schedule_dev_norm":      torch.from_numpy(np.ascontiguousarray(sdn_arr[sl, None])),     # (b, 1)
+                "time_since_last_bus_s":  torch.from_numpy(np.ascontiguousarray(tlb_arr[sl, None])),    # (b, 1)
+                "last_bus_found":         torch.from_numpy(np.ascontiguousarray(lbf_arr[sl, None])),    # (b, 1)
+                "eta_seconds":            torch.from_numpy(np.ascontiguousarray(eta_clipped[sl, None])), # (b, 1)
             }
 
 

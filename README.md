@@ -80,9 +80,46 @@ el entrenamiento corre completamente local.
 
 ### Entrenar (local, RTX 3080)
 
-```bash
-python prediccion/train.py --phase 1 --ml-dir data\ml
+**Regenerar parquet + entrenar A1** (cuando cambia el schema o hay muchos días nuevos):
+
+```powershell
+# Borrar caché de días para forzar regeneración completa
+Remove-Item -Recurse -Force data\ml\training\days\39\
+
+# Regenera parquet y entrena A1 (lento: ~2-5 min por día de datos)
+python -m prediccion.train --phase 1 `
+  --data-dir Z:\grabaciones --ml-dir data\ml --lines 39
 ```
+
+**Entrenar A1 solo** (parquet ya existe y es válido):
+
+```powershell
+python -m prediccion.train --phase 1 --ml-dir data\ml --skip-build
+```
+
+**Regenerar parquet solo** (sin entrenar A1):
+
+```powershell
+Remove-Item -Recurse -Force data\ml\training\days\39\
+python -m prediccion.pipeline.build_dataset `
+  --data-dir Z:\grabaciones --ml-dir data\ml --lines 39
+```
+
+**Regenerar medianas de schedule_dev** (después de regenerar el parquet):
+
+```powershell
+Remove-Item -Force data\ml\schedule_dev_medians.json
+python -m prediccion.pipeline.build_schedule_dev_table
+```
+
+**Entrenar A3ETAModel** (no-fleet, config probada):
+
+```powershell
+python -m prediccion.train --phase 3 --ml-dir data/ml `
+  --no-fleet --d-model 64 --batch-size 8192 --lr 0.0006 --epochs 24 --patience 5
+```
+
+Flags útiles para A3: `--resume` (reanudar desde checkpoint), `--max-groups N` (subset rápido para probar), `--fleet-same-dir-cap 20` (habilitar fleet, ~12× más lento).
 
 ### Correr servidor de predicción
 

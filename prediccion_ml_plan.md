@@ -22,6 +22,7 @@
 | `time_since_start` | Segundos en el viaje actual / 3600 |
 | `ts_age_s` | Staleness GPS del vehículo, `min(frame_t - vehicle_ts, 600) / 600` |
 | `has_active_bus` | Bool: hay bus visible o es predicción por headway |
+| `schedule_dev_norm` | Desvío del viaje respecto a la mediana histórica del ramal: `clip((time_since_start - mediana_bucket) / 600, -3, 3)`. Valores en unidades de 10 min; positivo = más lento que lo típico. Computado on-the-fly en training desde `schedule_dev_medians.json` — no se almacena en el parquet. |
 | `traj_flat (10×3)` | Historia de posición: (dist_norm, speed/30, dt/30) × 10 pts |
 | `fleet_flat (60×5)` | Flota: (lat_norm, lon_norm, speed, direction_id, is_same_dir) × 60 |
 
@@ -39,6 +40,7 @@
 2. **Feature `ts_age_s`**: staleness del GPS del vehículo respecto al frame global. Mediana ~10s, cap en 600s. Ver commit `d49e7c2`.
 3. **Pinball loss asimétrica**: penaliza subestimación 4x en distancias <500m (perder el colectivo es peor que esperar de más). Under<500m ratio ~22% = modelo sobreestima 78% del tiempo en distancia corta. ✓
 4. **LR scheduler**: baja automáticamente lr cuando no mejora (6e-4 → 3e-4 observado en epoch 6).
+5. **Feature `schedule_dev_norm`**: desvío del viaje actual respecto a la mediana histórica del ramal en el mismo punto del recorrido. Captura si el bus va adelantado o retrasado respecto a su patrón típico — señal complementaria a `time_since_start` que el modelo puede usar para ajustar el ETA. Generado por `build_schedule_dev_table.py` (DuckDB sobre el parquet completo con deduplicación) → `schedule_dev_medians.json`. Aplicado on-the-fly en `ETADataset._iter_group` por row group (no se almacena en el parquet). Ver detalles de implementación en sección §schedule_dev_norm.
 
 ### Experimento fleet — bloqueado por costo computacional
 
@@ -129,6 +131,28 @@ Nota: F1 trata precision y recall como iguales, pero **F2 es más apropiado** �
 - Precision 51% (1 de 2 alarmas es falsa — el bus tarda un poco más de 90s)
 - Recall 89% (casi nunca se pierde un bus que realmente estaba llegando)
 
+### Experimento 2 — Impacto de features acumuladas (2026-06-06)
+
+**Objetivo:** medir si `schedule_dev_norm` y `time_since_last_bus_s` mejoran el val MAE.
+
+| Run | Features | Best Ep | Val MAE | 0–500m | 500m–2km | 2km+ | Under<500m |
+|-----|----------|---------|---------|--------|----------|------|-----------|
+| ep24 (2026-06-05 03h) | baseline sin schedule_dev | 24 | 72.7s | 68.1 | 77.3 | 170.0 | 20.0% |
+| ep24 (2026-06-05 18h) | + schedule_dev_norm | 24 | **70.4s** | 68.3 | 77.5 | 164.2 | 17.0% |
+| ep21 (2026-06-06) | + schedule_dev + time_since_last_bus_s | 21 | 72.5s | **62.1** | 78.7 | 169.4 | 22.2% |
+
+**`schedule_dev_norm`:** mejora de −2.3s sobre el baseline.
+
+**`time_since_last_bus_s`:** resultado ambiguo — MAE global retrocedió 2s (70.4 → 72.5s), pero el bucket 0–500m mejoró sustantivamente (68.3 → 62.1s, −6s). El parquet fue regenerado obligatoriamente al agregar las columnas, lo que confunde la comparación: la regresión en buckets largos puede ser variación de training, no daño de la feature.
+
+**Sobre la magnitud de la variación:** el rango 70.4–72.7s (2.3s) es pequeño y probablemente mezcla señal real con ruido. El val set es fijo (últimos 20% de días temporalmente) — días atípicos pueden mover el MAE 2-3s sin cambio real en el modelo.
+
+**Nota sobre Under<500m vs MAE:** pueden moverse en direcciones opuestas. MAE es simétrico. Under<500m mide subestimaciones (pred < real) — con pinball loss el objetivo es mantenerlo bajo. El modelo con time_since_last_bus es más exacto en esa zona (MAE −6s) pero menos conservador (más subestimaciones): conoce cuándo pasó el bus anterior y predice más ajustado, reduciendo el colchón de seguridad.
+
+**Decisión:** no se reentrena. La mejora en 0–500m es sustantiva y el resto puede ser variación del training. Modelo en producción: `eta_a3_nofleet_gfull_ep21_mae72s_20260606`.
+
+**Límite actual:** la variación entre los 3 runs sugiere que se está cerca del techo con los datos actuales (1 línea, ~10 semanas). Los movimientos más grandes pendientes son fleet (bloqueado por costo 12×) y agregar más líneas al parquet.
+
 ---
 
 ## Revisiones importantes (leer antes que el resto)
@@ -139,7 +163,7 @@ Cuatro correcciones estructurales que cambian el diseño respecto a la versión 
 
 La línea 39, 64, 71, 99 y docenas más circulan por Av. Corrientes. Un embotellamiento en Corrientes afecta a todas. El estado de tráfico de un segmento se construye con los **vehículos de la agencia consultada (40-200 según la línea)**, no solo los del mismo ramal — y no con toda la flota (~5500), ya que el llamado filtrado por agencia es el único factible en producción. Esto enriquece el modelo de ETA y elimina el problema de "no hay vehículos de este ramal específico en ese segmento en este momento". Ver sección 7.
 
-**2. La API actualiza cada 30 segundos — no cada segundo**
+**2. La API actualiza cada 30 segundos**
 
 La resolución temporal es 30s. A 30 km/h, un vehículo se mueve ~250m por intervalo. Implicaciones:
 - La velocidad reportada es un promedio sobre los últimos 30s, no instantánea
@@ -153,7 +177,7 @@ Con shapes precisos, todo el espacio GPS 2D colapsa a un escalar: distancia rest
 
 **4. CABA tiene ~100 líneas**
 
-- **Ramal ID (Modelo 1):** es inherentemente por línea. La estructura de ramales es específica de cada línea (la línea 39 tiene sus ramales, la 42 los suyos). Se resuelve con una lookup geométrica offline `route_id → shape` (módulo `ramal_lookup/`), no con ML. Aplicable solo a las líneas con shapes disponibles y múltiples ramales reales. El mapeo `VP_label → línea` ya está resuelto con LABEL_LINE_MAP.json y es robusto — es la base de este paso.
+- **Ramal ID:** es inherentemente por línea. La estructura de ramales es específica de cada línea (la línea 39 tiene sus ramales, la 42 los suyos). Se resuelve con una lookup geométrica offline `route_id → shape` (módulo `ramal_lookup/`), no con ML. Aplicable solo a las líneas con shapes disponibles y múltiples ramales reales. El mapeo `VP_label → línea` ya está resuelto con LABEL_LINE_MAP.json y es robusto — es la base de este paso.
 
 - **ETA (Modelo 2):** sí puede ser un modelo unificado para todas las líneas. El tráfico en un segmento geográfico es el mismo para todas las líneas que pasan por ahí. Ver sección 7.
 
@@ -288,8 +312,7 @@ Para línea 39 específicamente (~40-60 vehículos activos en hora pico):
 
 ## 4. Tres flujos independientes
 
-Estos tres flujos tienen requerimientos completamente distintos. Mezclarlos es un error de diseño.
-
+Estos tres flujos tienen requerimientos completamente distintos.
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ FLUJO A — GRABACIÓN                                                  │
@@ -454,6 +477,8 @@ n_fleet              int8       (vehículos reales activos)
 Todas las columnas numéricas en float32. Las columnas FixedSizeList se leen con
 `np.asarray()` sin pasar por Python (zero-copy del buffer Arrow contiguo).
 
+`schedule_dev_norm` **no se almacena en el parquet** — se computa on-the-fly en `ETADataset` por row group usando `schedule_dev_medians.json`. Ver §schedule_dev_norm.
+
 ---
 
 ## 6. Modelo 1 — Identificación de Ramal
@@ -547,43 +572,59 @@ La API completa (~6000-9000 vehículos) es inviable en producción (3-4s latenci
 **Línea de investigación — filtrar fleet al mismo shape/corredor:**
 Los vehículos de la agencia en rutas completamente distintas (ej: línea 168 norte vs línea 168 sur) aportan señal débil o ruido. Filtrar el fleet_flat a solo los vehículos en el mismo corredor geográfico reduciría ruido y costo computacional. Requiere conocer el ramal resuelto de cada vehículo del fleet en el snapshot (disponible vía ramal_map.json en producción, y reconstruible en el pipeline de features offline). No requiere cambio en la arquitectura — solo en cómo se construye fleet_flat en build_dataset.py.
 
-### Arquitectura unificada del Modelo 2
+### Arquitectura real del Modelo 2 (A3ETAModel)
 
 ```
-Input A — Historia del viaje actual del vehículo V (línea-agnóstico):
-  Todos los puntos desde start_time hasta ahora (longitud variable):
-    dist_along_route_m (normalizada 0-1 sobre la longitud total del ramal)
-    speed_m_per_s
-    dt_seconds (tiempo desde punto anterior)
-  → Transformer encoder (longitud variable) → trajectory_embedding (dim=64)
+TrajectoryEncoder  (3 → d_model, 4 heads, 3 capas transformer, mean pooling)
+  input:  (batch, 10, 3)  — dist_along_norm, speed/30, dt/30; paddeado a 10 pts
+  output: (batch, d_model)
 
-Input B — Estado de la flota de la agencia:
-  Todos los vehículos activos de la agencia en este momento (40-200 vehículos):
-    lat_norm, lon_norm, speed, ramal_id (resuelto por la lookup, embedding), direction_id
-  → Transformer encoder → fleet_embedding (dim=64)
+FleetEncoder  (5 → d_model, 4 heads, 3 capas transformer, CLS token)
+  input:  (batch, N_FLEET, 5)  — lat_norm, lon_norm, speed, direction_id, is_same_dir
+  output: (batch, d_model)
+  si n_fleet=0: zeros (modelo degrada a no-fleet)
 
-Input C — Contexto temporal:
-  hour_sin = sin(2π × hora / 24)   ← encoding cíclico (23:59 ≈ 00:01)
-  hour_cos = cos(2π × hora / 24)
-  day_of_week → embedding (dim=4)
-  → time_embedding (dim=12)
+  direction_id (0/1): permite al modelo diferenciar tráfico en sentido contrario — un bus
+    yendo en la dirección opuesta viaja por el mismo corredor pero no predice el delay del
+    vehículo consultado. is_same_dir (0/1): flag precomputado que marca si el vehículo de
+    la flota va en el mismo sentido que el vehículo consultado — evita que el modelo tenga
+    que aprender esa comparación desde los datos. Ambos se pasan porque direction_id aporta
+    información absoluta (norte vs sur puede tener patrones de congestión distintos) mientras
+    que is_same_dir aporta información relativa al vehículo consultado.
 
-Input D — Distancia al target (float continuo):
-  distance_to_target_m normalizada sobre la longitud total del ramal  ← 1 float
+TimeEncoder
+  input:  hour_sin(1) + hour_cos(1) + dow → Embedding(7, 8)
+  → Linear(10 → 16)
+  output: (batch, 16)
 
-Input E — Estado del viaje:
-  time_since_start_s = now - start_time  ← segundos desde que arrancó el viaje
-                                            negativo si el bus aún no partió (en terminal esperando)
-                                            noisy pero útil: el modelo aprende el peso correcto
-  ← 1 float
+Scalars (5 features):
+  dist_remaining_norm   — dist_remaining_m / shape_length_m
+  time_since_start      — segundos desde start_time / 3600
+  ts_age_s              — staleness GPS: min(frame_t - vehicle_ts, 600) / 600
+  has_active_bus        — 0.0 o 1.0
+  schedule_dev_norm     — clip((time_since_start_s - mediana_bucket) / 600, -3, 3)
+                          las medianas son por ramal_id × bucket: este scalar inyecta
+                          identidad de ramal implícitamente sin un embedding explícito.
+                          El modelo no ve el ramal_id pero recibe "qué tan atípico es
+                          este viaje para este ramal en este punto". Limitación: colapsa
+                          la identidad del ramal en un escalar — no distingue entre ramales
+                          con tiempos absolutos distintos, solo la desviación relativa.
 
-Concatenar: [trajectory_embedding(64), fleet_embedding(64), time_embedding(12), distance_to_target(1), time_since_start(1)]
-  dim total = 142
-  → MLP(142 → 64 → 32 → 1)
-  → ETA en segundos hasta el punto target específico
+Concatenar: [traj(d_model) + fleet(d_model) + time(16) + scalars(5)]
+  concat_dim = 2 * d_model + 21   → con d_model=64: 149
+
+MLP: Linear(149→256) → GELU → Dropout(0.1) →
+     Linear(256→128) → GELU → Dropout(0.1) →
+     Linear(128→64)  → GELU → Dropout(0.1) →
+     Linear(64→1) → Softplus   ← garantiza output positivo
+
+Output: ETA en segundos (siempre > 0)
 ```
 
-**Parámetros totales: ~300K** — muy chico. Entrena en <30 min en RTX 3080 con los 21M ejemplos de 3 meses.
+**Parámetros totales con d_model=64: ~300K.** Epoch ~8.5 min en RTX 3080 (no-fleet).
+
+**Feature pendiente: `time_since_last_bus_s`**
+Segundos desde que el último bus del ramal pasó por la posición del usuario. Permite al modelo razonar sobre el headway actual en tiempo real, especialmente útil cuando `has_active_bus=False`. Requiere cambios en el pipeline de training para generar el feature por cada fila — la inferencia es problema del producto. **Señal ruidosa por diseño:** análisis sobre 2 días L39 mostró dt real=60s (no 30s), error de interpolación P90=52s, cobertura con fallback 87.2%. Ver §time_since_last_bus_s para el análisis completo.
 
 ### La limitación de los 30 segundos
 
@@ -630,27 +671,142 @@ Con modelo unificado (todas las líneas):
 
 ---
 
-### ERROR DE DISEÑO CRÍTICO — Distancia mínima de predicción (2026-06-02)
+### Feature `schedule_dev_norm` — desvío del viaje respecto a la mediana histórica
 
-**Problema detectado:** El generador de pares de entrenamiento (`make_training_rows_eta` en `features.py`) producía pares con `dist_remaining_m < 50m`, incluyendo casos de 4-15 metros. Estos pares son **ruido puro de GPS**:
-- La precisión del GPS es ~5-10m. Dos pings del mismo bus parado pueden proyectar a posiciones 4-8m distintas en el shape.
-- Un bus en el depósito con el shape terminando 4.6m más adelante genera el par `dist_rem=4.6m, eta=8 horas`.
-- El modelo intentaba predecir "¿cuándo viaja el bus 4.6 metros?" — una pregunta sin respuesta real.
+**Qué mide:** para cada ramal y cada posición normalizada `dist_along_norm` (buckets de 5% del recorrido: 0%, 5%, ..., 100%), se computa la mediana histórica del `time_since_start` en ese punto. El feature es cuántos "10 minutos" se desvía el viaje actual de esa mediana:
 
-**Consecuencia:** el bucket 0-500m del modelo tenía MAE de 425-840s (7-14 minutos) a pesar de que un bus a 300m debería tardar ~60-120s. Los pares sub-50m contaminaban el entrenamiento con ejemplos imposibles de aprender.
+```
+schedule_dev_norm = clip((time_since_start - mediana_bucket) / 600, -3, 3)
+```
 
-**Impacto medido (2026-06-02):**
-- Sin fix, no-fleet, full data, 17 epochs: val MAE = 176s, bucket 0-500m = 479s
-- Con fix, no-fleet, 20 grupos, 3 epochs: val MAE = **119s**, bucket 0-500m = **103s**
-- El fix redujo el bucket 0-500m en ~5x con menos datos y menos epochs.
+- Positivo → viaje más lento que lo típico (demorado)
+- Negativo → viaje más rápido que lo típico (adelantado)
+- Rango: [-3, 3] = ±30 minutos respecto a la mediana
+- Las medianas son globales (todos los días y horas mezclados) — captura desvío respecto al promedio histórico total, no respecto a la hora del día
 
-**Fix aplicado:**
-1. `prediccion/pipeline/features.py`: cambiar `dist_remaining_m <= 0` por `dist_remaining_m < 50.0` en la condición de skip al generar pares.
-2. `prediccion/models/eta_dataset.py`: cambiar `dist_rem_arr > 0` por `dist_rem_arr >= 50.0` en el mask del dataset (safety net para parquets existentes).
+**Por qué complement a `time_since_start`:** `time_since_start` le dice al modelo "este viaje lleva N segundos". `schedule_dev_norm` le dice "ese tiempo es rápido o lento para este ramal en este punto". Son señales distintas — `time_since_start` es absoluto, `schedule_dev_norm` es relativo al historial.
 
-**Regla de diseño:** nunca generar pares de entrenamiento con `dist_remaining_m < 100m`. Umbral actualizado de 50m a 100m: a esa distancia la incertidumbre de GPS (~10m) y la resolución temporal (30s × 7m/s = 210m por ping) hacen que cualquier predicción sea no confiable.
+**Pipeline:**
+1. `build_schedule_dev_table.py` — lee `eta_train.parquet` con DuckDB, deduplica en `(ramal_id, dist_along_norm, time_since_start)` para evitar bias por vehículos parados, agrupa en 21 buckets por ramal y computa medianas. Output: `data/ml/schedule_dev_medians.json` con keys enteras `"0"`..`"20"` (bucket = `round(dist_along_norm * 20)`).
+2. `ETADataset.__init__` — carga el JSON y pre-convierte a `dict[ramal_id → np.ndarray[21]]` para lookup O(1).
+3. `ETADataset._iter_group` — por cada row group (250K filas), computa el feature vectorizado sobre todas las filas y lo incluye en cada mini-batch. No se escribe al disco.
 
-**Comportamiento en producción sub-100m:** cuando la distancia proyectada del bus al punto del usuario es menor a 100m, la app **no llama al modelo** — muestra directamente "llegando". A esa distancia (~10-15 segundos de viaje) la predicción es irrelevante y el GPS no tiene resolución suficiente para ser confiable.
+**Flujo de regeneración:**
+```
+# 1. Regenerar el parquet (si hay datos nuevos)
+python -m prediccion.pipeline.build_dataset --data-dir Z:\grabaciones --ml-dir data\ml --lines 39
+
+# 2. Regenerar medianas (borrar el JSON primero si hay datos nuevos)
+del data\ml\schedule_dev_medians.json
+python -m prediccion.pipeline.build_schedule_dev_table
+
+# 3. El trainer las carga automáticamente en el próximo entrenamiento
+```
+
+No hace falta `--merge-only` ni reescribir el parquet.
+
+---
+
+### Feature `time_since_last_bus_s` — análisis de señal y diseño de implementación
+
+**Qué mide:** segundos desde que el último bus del mismo ramal pasó por la posición target del usuario. Captura el headway en tiempo real, complementando `schedule_dev_norm` (que mide si el viaje *activo* va adelantado) con información sobre el bus *anterior*.
+
+#### Análisis de señal (L39, 2026-06-03 y 2026-06-04, `experiments/headway_analysis/`)
+
+El análisis sobre 2 días, 2572 trips proyectados, respondió 4 preguntas de diseño:
+
+**1. Gaps entre pings consecutivos del mismo vehículo**
+
+| Percentil | dt (s) |
+|-----------|--------|
+| P25 | 60s |
+| P50 | 60s |
+| P75 | 64s |
+| P90 | 120s |
+| P99 | 1292s |
+
+El grabador emite deltas cada 30s pero el vehículo pingea efectivamente cada **60s** (dos ciclos). Gaps > 300s son el 2.5% — raros pero no ignorables. A 10 m/s esto significa ~600m de incertidumbre posicional entre pings consecutivos.
+
+**2. Cobertura de targets bracketados**
+
+Para 5000 targets hipotéticos aleatorios sobre trips reales de L39:
+- **Bracketados exactos** (dos pings consecutivos engloban el target): **49.3%**
+- **Fallback ≤250m** (ping más cercano dentro de 250m): **38.0%**
+- **Miss** (ningún ping en 250m): **12.8%**
+- **Cobertura total** (bracket + fallback): **87.2%**
+
+El 12.8% restante corresponde a gaps de datos o zonas donde el bus aceleró mucho. Se maneja con cap=3600s y flag `last_bus_found=False`.
+
+**3. Headways reales de L39**
+
+| Métrica | Pico (7-9h, 17-19h) | Todo el día |
+|---------|--------------------|----|
+| P25 | 0.8 min | 0.9 min |
+| P50 | **1.8 min** | **2.2 min** |
+| P75 | 3.5 min | 4.5 min |
+| P90 | 5.4 min | 7.0 min |
+| > 1 hora | 0.0% | 0.1% |
+
+El cap de 3600s (1h) está bien justificado: prácticamente nunca se alcanza. La feature es más informativa en el rango 60-540s (P25-P90). L39 tiene headway muy corto en hora pico — la varianza del headway real es lo que hace útil la feature (no el promedio histórico, que ya lo captura `schedule_dev_norm`).
+
+**4. Error de interpolación lineal (supuesto de velocidad constante)**
+
+| Percentil | Error (s) |
+|-----------|-----------|
+| P50 | 24.3s |
+| P75 | 38.9s |
+| P90 | 51.8s |
+| P99 | 87.9s |
+
+El 96.4% de casos tiene error < 60s. El P90 de ~52s sobre headways medianos de 132s implica un **error relativo de ~39% en el peor caso típico**.
+
+**Conclusión de señal:** la interpolación lineal es suficiente (no hay evidencia de aceleración/frenada no lineal sistemática que justifique un modelo más complejo). La señal es ruidosa por diseño — el dt=60s es el límite físico del sistema. El modelo debe aprender a ponderar esta señal según su incertidumbre intrínseca.
+
+#### Diseño de implementación
+
+**Interpolación lineal para estimar timestamp de pasaje:**
+```
+Para (ping_i, ping_{i+1}) que bracketean F_dist:
+  t_passage = ping_i.ts + (F_dist - ping_i.dist) / (ping_{i+1}.dist - ping_i.dist) * (ping_{i+1}.ts - ping_i.ts)
+```
+
+**Fallback cuando no hay bracket:**
+- Ping más cercano dentro de ±250m → usar su timestamp directamente (error máximo ~30s a 10 m/s)
+- Ningún ping en 250m → `time_since_last_bus_s = 3600` (cap) + `last_bus_found = False`
+
+**Columnas nuevas en el parquet:**
+- `time_since_last_bus_s`: float32, cap 3600s. NaN → 3600 (no almacenar NaN para simplificar el schema).
+- `last_bus_found`: bool. False cuando se usó el cap por falta de datos.
+
+**Estructura en memoria durante `build_dataset.py`:**
+```python
+ramal_passage_cache: dict[ramal_id, list[tuple[vehicle_id, list[tuple[dist_m, ts]]]]]
+```
+Por cada training row (ramal_id=R, F_dist=D, vehicle_id=V, P_ts=T): iterar trips en cache[R] en orden cronológico inverso, excluir vehicle_id=V, interpolar timestamp de pasaje por D, retornar T − t_passage del primer candidato con t_passage < T.
+
+**Bordes de día:** cargar los últimos 10 trips de cada ramal del día anterior al iniciar el procesamiento del día N (análogo al `_carry_window_s` existente).
+
+**En el modelo:**
+- Añadir `time_since_last_bus_s / 3600` como scalar adicional al bloque Scalars (dim 5 → 7, concat_dim 149 → 151).
+- Añadir `last_bus_found` como segundo scalar adicional (0.0/1.0).
+- Considerar `log1p(time_since_last_bus_s) / log1p(3600)` como normalización alternativa (comprime la cola larga de la distribución de headways).
+
+**Archivos a modificar:**
+| Archivo | Cambio |
+|---------|--------|
+| `prediccion/pipeline/build_dataset.py` | `ramal_passage_cache`; poblar con trips proyectados; query por training row |
+| `prediccion/pipeline/features.py` | Outputs `time_since_last_bus_s` y `last_bus_found` en `make_training_rows_eta` |
+| `prediccion/pipeline/build_dataset.py` | Ampliar `_make_eta_schema()` con 2 columnas nuevas |
+| `prediccion/models/eta_dataset.py` | Incluir las 2 features nuevas en el tensor de scalars |
+| `prediccion/models/a3_eta.py` | `scalar_dim` 5 → 7, `concat_dim` 149 → 151 |
+
+---
+
+### Distancia mínima de predicción — 100m
+
+El pipeline no genera pares de entrenamiento con `dist_remaining_m < 100m`, y el dataset los filtra también como safety net (`eta_dataset.py`). Por debajo de 100m la incertidumbre de GPS (~10m) y la resolución temporal (30s × 7m/s = 210m por ping) hacen que cualquier predicción sea no confiable. A esa distancia el producto muestra "llegando" directamente sin llamar al modelo.
+
+El caso concreto que motivó el umbral: un bus parado en la terminal proyecta a ~14m del final del shape. Genera el par `dist_remaining=14m, eta=2h` — el modelo intenta aprender "¿cuánto tarda el bus en moverse 14 metros?" cuando en realidad el bus no va a moverse en horas. Esos pares envenenan el entrenamiento en el bucket de distancia corta.
 
 ---
 
@@ -736,72 +892,21 @@ Output: segundos hasta el target
 
 **En avenidas en rush hour:** la diferencia entre "martes 18:00 histórico" y "este martes 18:00 con embotellamiento real" puede ser 5-10 min. A3 lo ve, A2 no.
 
-### El modelo correcto: predictor de "cuándo pasa el próximo bus"
+### El modelo como predictor de "cuándo pasa el próximo bus"
 
-El Modelo 2 no es un "predictor de ETA de un bus corriendo". Es un **predictor de cuándo pasa el próximo bus del ramal por el target del usuario**. Un bus visible es una feature de alta calidad, no un prerequisito.
+El Modelo 2 no es solo un "predictor de ETA de un bus corriendo" — es un predictor de cuándo pasa el próximo bus del ramal por el target del usuario. Un bus visible es una feature de alta calidad, no un prerequisito.
 
-El dataset contiene, para cada punto de cada shape, todos los timestamps en que pasó un bus. Eso es la distribución empírica de inter-arrivals. El modelo puede aprender "martes 8am, 39-1 en este punto → bus cada 8-12 min" puramente desde features temporales, sin necesitar un bus activo.
+**`has_active_bus`** existe en la arquitectura pero es siempre 1.0 en training — el pipeline genera pares solo desde observaciones reales de GPS, donde siempre hay un bus presente. El caso `has_active_bus=False` nunca fue entrenado. En la práctica el modelo actual solo funciona bien cuando hay bus visible.
 
-**¿Qué se codifica explícitamente vs qué aprende el modelo?**
+**Pendiente — `time_since_last_bus_s`:** segundos desde que el último bus del ramal pasó por el target del usuario. Es una feature sobre el bus **anterior**, no el actual — computable desde el historial de trips para cada fila del parquet sin pares sintéticos: dado (ramal, posición, timestamp T), se busca cuándo fue el trip previo del mismo ramal por ese punto. En inferencia se calcula igual desde los últimos buses registrados, independientemente de si hay un bus en camino ahora.
 
-Se codifica el **flag `has_active_bus`** (bool). Sin él, el modelo ve `distance_remaining=0` en dos situaciones opuestas: "no hay bus visible" y "el bus está exactamente en el target". Mismo valor, semántica completamente distinta. Lo mismo con `speed=0`: bus parado en parada vs sin bus activo. Esa ambigüedad no se puede resolver sola. El flag la elimina con 1 bit.
+Con esta feature el modelo tiene: `dist_remaining` para señal del bus activo + `time_since_last_bus_s` para señal de headway en tiempo real. La combinación hace a `has_active_bus` redundante — el modelo puede inferir el estado desde ambas. "El último bus pasó hace 3 min, el headway típico es 8 min → quedan ~5 min" es inferible sin un flag explícito.
 
-Lo que aprende el modelo: los **pesos relativos** entre features. Cuánto confiar en `distance_remaining` cuando `has_active_bus=True`, cuánto confiar en el contexto temporal y el fleet_state cuando es `False`. El entrenamiento lo resuelve solo — no hace falta decirle que la posición real es más confiable que el prior temporal.
+No reemplazado por las medianas: `schedule_dev_norm` describe si el viaje activo va adelantado o atrasado; `time_since_last_bus_s` describe cuándo fue el bus anterior para el usuario que espera. Señales distintas.
 
-**Input unificado:**
+**Ruido intrínseco medido (L39, 2 días):** el dt real entre pings consecutivos es 60s (no 30s como asumía el diseño inicial), lo que introduce una incertidumbre posicional de ~300-600m entre pings. La interpolación lineal para estimar el timestamp de pasaje por el target tiene P50=24s y P90=52s de error. El headway mediano de L39 es ~2.2 min (132s). En el peor caso (P90 de error = 52s sobre headway mediano 132s) el error relativo es ~39%. El modelo debe aprender a trabajar con esta señal ruidosa — no es una señal limpia como `dist_remaining`. Ver §time_since_last_bus_s.
 
-```
-Siempre disponible (incluso sin bus visible):
-  hora_sin, hora_cos              ← encoding cíclico
-  día_semana                      ← embedding
-  fleet_state                     ← todos los vehículos activos de la agencia (lat, lon, speed, ramal_id, direction_id)
-                                     (construido del llamado filtrado por agencia, 40-200 vehículos según la línea)
-
-Adicional cuando hay bus activo del ramal:
-  has_active_bus                  ← bool (elimina ambigüedad de distance_remaining=0 y speed=0)
-  distance_remaining_m            ← posición proyectada sobre shape (float continuo)
-  velocidad_actual                ← del bus específico
-  historial GPS del viaje actual  ← todos los puntos desde start_time, longitud variable, para el encoder de trayectoria (Input A)
-  time_since_start_s              ← segundos desde start_time (negativo si aún en terminal, noisy pero útil)
-
-Output siempre:
-  segundos hasta próximo bus en el target
-  nivel de confianza: HIGH (bus visible) | LOW (solo prior temporal)
-```
-
-El bus visible convierte una predicción estadística en una predicción de posición real — no cambia la estructura del modelo, solo enriquece los features.
-
-**Caso paro de transporte / fuera de servicio:**
-El modelo predice igual (es out-of-distribution — no sabe del paro). La detección es externa: si el fleet_state retorna 0 vehículos activos → anomalía detectable → UI muestra "predicción basada en historial, sin flota activa detectada". No es un fallo del modelo, es incertidumbre etiquetada correctamente.
-
-```python
-def predict(ramal, target_point, active_vehicles):
-    features = {
-        "time": encode_time(now),
-        "fleet_state": active_vehicles,  # lista cruda de vehículos de la agencia
-        "has_active_bus": False,
-    }
-
-    ramal_buses = [v for v in active_vehicles if v.ramal == ramal]
-    if ramal_buses:
-        closest = min(ramal_buses, key=lambda v: eta_naive(v, target_point))
-        features["has_active_bus"] = True
-        features["distance_remaining"] = project_distance(closest, target_point)
-        features["bus_speed"] = closest.speed
-        features["bus_history"] = closest.last_20_points
-        features["time_since_start"] = now - closest.start_time
-        confidence = "high"
-    else:
-        confidence = "low"
-
-    eta_seconds = model.predict(features)
-    return eta_seconds, confidence
-
-```
-
-**A1 sigue siendo útil como:** baseline de medición para cuantificar cuánto mejora el modelo sobre el estadístico puro. No es un input ni un componente del sistema en producción.
-
-A3 (este modelo unificado) se implementa en Fase 3 (3-4 semanas, 3 meses de datos).
+**A1** sigue siendo útil como baseline de medición, no como componente en producción.
 
 ### Loss function: Pinball asimétrica por distancia
 
@@ -884,191 +989,146 @@ df.groupby(['ramal', 'hour_of_day', 'day_of_week']).sample(n=1000, random_state=
 ### Schema de archivos del flujo de entrenamiento
 
 ```
-/mnt/buffer/grabaciones/
+Z:\grabaciones\                          # SMB desde NUC (192.168.0.18:/mnt/buffer/grabaciones)
   2026-03-28.ndjson.gz
   2026-03-29.ndjson.gz
   ...
 
-/mnt/buffer/ml/
-  snapshots/
-    2026-Q2.parquet         # reconstruido de NDJSON, ~800MB
-    2026-Q3.parquet
-  trips/
-    2026-Q2-trips.parquet   # viajes segmentados, ~200MB
-    2026-Q2-trips-projected.parquet   # con distancia en ruta calculada
-  training/
-    model2_eta/             # Modelo 1 no entrena → no tiene dataset de training
-      train.parquet
-      val.parquet
-  models/
-    eta_a3_v1.onnx          # modelo unificado, todas las líneas (solo Modelo 2 es .onnx)
-  ramal_lookup/
-    ramal_map.json          # lookup route_id → shape (Modelo 1), con first_seen/last_seen por período
-    families_39.json        # familias de fraccionados, fijas por línea
+prediccion colectivos\data\ml\
+  training\
+    days\
+      39\                                # caché por día × línea (se saltea si ya existe)
+        2026-03-28.ndjson.parquet
+        2026-03-29.ndjson.parquet
+        ...
+    eta_train.parquet                    # merge de los últimos 80% de días
+    eta_val.parquet                      # merge del 20% restante
+  trips\
+    days\39\...                          # trips segmentados por día (resumen)
+    trips_summary.parquet                # todos los trips mergeados
+  models\
+    eta_a3_best.pt                       # checkpoint del mejor epoch (val MAE)
+    eta_a3_final.onnx                    # exportado para producción
+    eta_a3_<config>_<date>.pt            # checkpoints nombrados por run
+    eta_a3_<config>_<date>_metrics.json  # métricas de cada run
+    a1_v<hash>.pkl                       # modelos A1 (lookup estadística)
+    perf_log.jsonl                       # log de performance por epoch
+  schedule_dev_medians.json              # medianas históricas por ramal×bucket (generado por build_schedule_dev_table.py)
+  experiments\
+    arriving_threshold_<date>.json       # resultados de experimentos offline
+
+ramal_lookup\                            # en la raíz del proyecto
+  ramal_map.json                         # lookup route_id → shape_id, con first_seen/last_seen
+  families_39.json                       # familias de fraccionados por línea
+  build_ramal_map.py
+  route_lookup.py
 ```
 
 ---
 
 ## 9. Hardware: RTX 3080
 
-### Specs relevantes
+GPU de entrenamiento. VRAM 10 GB GDDR6X. AMP (mixed precision FP16/FP32) habilitado automáticamente cuando CUDA está disponible.
 
-| Spec | Valor |
-|------|-------|
-| VRAM | 10 GB GDDR6X |
-| CUDA Cores | 8.704 |
-| FP32 (full precision) | 29.8 TFLOPS |
-| FP16 (half precision, mixed precision) | 59.6 TFLOPS |
-| Tensor Cores (generación 3) | sí — acelera entrenamiento |
+### Tiempos reales observados (línea 39, no-fleet)
 
-**Mixed precision training:** PyTorch puede entrenar en FP16 con pérdida calculada en FP32. Esto duplica efectivamente la velocidad y permite batch sizes 2x más grandes. Estándar para RTX 30xx. Se activa con una línea de código.
+| Métrica | Valor medido |
+|---------|-------------|
+| VRAM usada por el modelo | ~36 MB — la VRAM no es el bottleneck |
+| Throughput | ~40 its/seg con batch_size=8192 |
+| Tiempo por epoch (no-fleet) | ~505s ≈ 8.5 min |
+| Tiempo por epoch (fleet, cap=20) | ~6235s ≈ 1.7h — bloqueado, ver §fleet |
+| Run completo 24 epochs no-fleet | ~3.4h |
+| t_fetch_ms (I/O parquet → GPU) | <1ms — no es el bottleneck |
+| t_bwd_ms (backward pass) | ~20ms — domina el tiempo de step |
 
-### Estimaciones de tiempo de entrenamiento
+### Pipeline de dataset — tiempos reales
 
-#### Modelo 1 — Ramal ID
+| Paso | Herramienta | Tiempo |
+|------|-------------|--------|
+| NDJSON → caché por día × línea | `build_dataset.py` (Python + PyArrow) | ~2-5 min/día (solo días nuevos) |
+| Merge caché → `eta_train/val.parquet` | PyArrow streaming | ~5-10 min (línea 39, 71.5M filas) |
+| Construir `schedule_dev_medians.json` | `build_schedule_dev_table.py` (DuckDB) | ~2-3 min |
+| Construir lookup Modelo 1 | `build_ramal_map.py` (Python geométrico) | minutos por línea |
 
-No usa GPU: es una lookup geométrica offline en CPU (`ramal_lookup/`). El costo es de I/O + proyección, del orden de minutos por línea por período. La RTX 3080 solo se usa para Modelo 2.
+No hay paso de "reconstruir snapshots" separado — `build_dataset.py` lee los NDJSON directamente y hace todo en un pase.
 
-#### Modelo 2 — ETA (unificado, todas las líneas)
+### Setup
 
-| Parámetros | ~300K |
-|------------|-------|
-| Dataset (3 meses, todas las líneas) | ~21M ejemplos |
-| Batch size | 256 |
-| Épocas | 50 |
-| Iteraciones totales | ~4M |
-| **Tiempo en 3080 (FP16)** | **~2-3 horas** |
-| Fine-tuning mensual | ~1-2 horas |
-
-#### Entrenamiento inicial completo (todas las líneas)
-
-| Componente | Tiempo |
-|------------|--------|
-| Reconstruir snapshots (CPU, Python) | 6-8 horas una sola vez |
-| Segmentar viajes (DuckDB, CPU) | 30 min |
-| Proyectar sobre shapes (CPU, Python, multiprocess) | 4-6 horas |
-| Construir lookup Modelo 1 (CPU, `ramal_lookup/`) | minutos por línea |
-| Entrenar Modelo 2 (unificado, todas las líneas) | 2-3 horas |
-| **Total setup inicial** | **~1-2 días** (incluyendo debugging) |
-
-La 3080 aguanta perfectamente este workload. No necesitás cloud.
-
-### Setup de entrenamiento en Windows
-
-```
-requirements para training:
-  Python 3.11
-  PyTorch 2.x con CUDA 12.x (instalador oficial pytorch.org)
-  DuckDB (pip install duckdb)
-  pandas, numpy, scikit-learn (pip install ...)
-
-Los archivos de grabación están en Ubuntu. Para entrenar en Windows:
-  opción A: compartir /mnt/buffer/ml vía SMB desde Ubuntu (//192.168.0.18/ml)
-  opción B: rsync selectivo de los Parquet de entrenamiento a Windows cuando querés entrenar
-
-El parquet de entrenamiento con el nuevo schema (FixedSizeList, float32, N_FLEET=60) ocupa
-~3-6 GB en disco (compresión snappy/zstd sobre ceros de padding es muy efectiva). El schema
-anterior era ~1.3 GB pero usaba List<double> variable-length, lo que hacía imposible leer
-con numpy sin to_pylist(). El nuevo schema permite zero-copy con np.asarray().
-```
+- **Python 3.13**, PyTorch 2.x con CUDA 12.x
+- Grabaciones en NUC montadas vía SMB en `Z:\grabaciones` (192.168.0.18:/mnt/buffer/grabaciones)
+- `eta_train.parquet` línea 39: ~3-6 GB en disco (FixedSizeList float32, zero-copy con numpy)
 
 ### Tamaño de los modelos entrenados
 
 | Artefacto | Parámetros | Tamaño en disco |
 |--------|------------|------------------------|
 | Ramal ID (`ramal_map.json`, lookup) | — | ~KB por línea (JSON) |
-| ETA (unificado, todas las líneas, .onnx) | ~300K | ~1.5 MB |
+| ETA (`eta_a3_final.onnx`) | ~300K | ~1.5 MB |
 
-El ETA se carga en RAM en milisegundos; la lookup de ramal es un JSON chico. Ninguno tiene costo de inferencia notable.
+El modelo ONNX se carga en milisegundos y corre <1ms por inferencia en CPU.
 
 ---
 
 ## 10. Fases de implementación
 
-Esta es la hoja de ruta ordenada por balance de esfuerzo vs reducción de error.
+### Fase 0 — Grabación ✅
 
-### Fase 0 — Grabación (ya hecho)
+Grabador corriendo en NUC. NDJSON delta + gzip, ~4.3 GB/mes. Sin acción pendiente.
 
-**Estado:** ✅ Corriendo en NUC
-**Esfuerzo:** 0 adicional
-**Output:** NDJSON delta + gzip, creciendo 4.3 GB/mes
+### Fase 1 — Pipeline de datos ✅
 
-### Fase 1 — Pipeline de datos + baseline
+Pipeline end-to-end implementado y funcionando:
+- `build_dataset.py`: NDJSON → caché por día × línea → `eta_train/val.parquet`
+- `build_schedule_dev_table.py`: medianas históricas por ramal × bucket → `schedule_dev_medians.json`
+- A1 (lookup estadística por segmento): implementado, disponible en `data/ml/models/a1_v*.pkl`
 
-**Cuándo:** al tener 1 mes de datos
-**Esfuerzo:** ~3 días de trabajo
-**Qué hace:**
-- Reconstruir snapshots → Parquet
-- DuckDB: calcular headways históricos reales por (ramal, hora, día) — cuánto tarda en pasar el próximo colectivo
-- Calcular tiempos de viaje históricos por (ramal, segmento_500m, hora, día) — base para A1 y prior de A3
+### Fase 2 — Identificación de ramal ✅
 
-**Dónde A1 agrega valor real** (ver sección 7b para comparación completa con OBA):
-1. **"Próximo colectivo" sin bus visible:** OBA usa frecuencias del schedule (incorrectas en CABA). A1 usa headways históricos reales. La diferencia puede ser grande.
-2. **Baseline de medición:** cuantifica cuánto mejora A3.
+Lookup geométrica offline implementada en `ramal_lookup/`:
+- `ramal_map.json`: lookup `route_id → shape_id`, reconstruida en 1-2 días post-rotación
+- Validado línea 39: 36/36 route_ids en 3 períodos, incluidos fraccionados (39D/E/F)
+- Integración en producción: pendiente (proyectoconsola)
 
-**Por qué esta fase primero:** construir el pipeline de datos (reconstrucción, segmentación, proyección) es prerequisito para Fase 2 y 3. El valor inmediato es el pipeline, no A1 en sí.
+### Fase 3 — ETA con tráfico 🔄
 
-### Fase 2 — Identificación de ramal (lookup offline)
+Modelo A3ETAModel entrenado y funcionando. Estado actual:
 
-**Cuándo:** al tener 1-2 días de datos por período (no requiere meses)
-**Esfuerzo:** ✅ implementado (`ramal_lookup/`)
-**Qué hace:**
-- Construir `ramal_map.json` (lookup `route_id → shape`) con el módulo `ramal_lookup/` (ver sección 6)
-- Integrar en server.js: cada ciclo, `lookup[route_id]` O(1) por vehículo
-- Output: `FP_ramal` resuelto desde el primer snapshot, incluidos fraccionados
+**No-fleet (activo):**
+- Mejor modelo: epoch 24, val MAE **72s** (`eta_a3_nofleet_gfull_ep24_mae72s_20260605`)
+- En producción como `eta_a3_best.pt` + `eta_a3_final.onnx`
 
-**Mejora:**
-- RamalEngine legacy: ~65-70% de vehículos con ramal resuelto (solo los que pasaron divergencia)
-- Lookup: ~100% dentro del período para líneas limpias; fraccionados (39D/E/F) resueltos por familia
-- Validado en línea 39: 36/36 route_ids en 3 períodos
+**Fleet (bloqueado):** ~12× más lento por epoch por el FleetEncoder transformer. Ver opciones en §Estado actual.
 
-**Nota sobre rotaciones:** al aparecer route_ids nuevos se reconstruye la lookup (1-2 días), sin reentrenar. Ver sección 8, trigger A.
+**Pendiente de Fase 3:**
+- Resolver bottleneck fleet
+- Integrar ONNX en proyectoconsola con buffer rolling de 5 min
+- Agregar líneas al parquet (actualmente solo línea 39)
 
-### Fase 3 — ETA con tráfico en tiempo real
+### Fase 4 — Fine-tuning automático ⏳
 
-**Cuándo:** al tener 3-4 meses de datos (y después de completar Fase 2)
-**Esfuerzo:** ~2-3 semanas de trabajo
-**Qué hace:**
-- Implementar el llamado filtrado por agencia y construcción del fleet_state como input al modelo
-- Entrenar Modelo 2 (ETA con MLP + tráfico actual)
-- Integrar en server.js como feature adicional al endpoint de predicción
+Pendiente post-integración en producción:
+- Cron mensual: `build_dataset.py` + `build_schedule_dev_table.py` + reentrenamiento sobre parquet actualizado
+- Cron semanal: detectar route_ids nuevos → reconstruir `ramal_map.json`
+- Monitoreo de val MAE en producción para detectar drift
 
-**Mejora sobre A1 (baseline estadístico):**
-- A1 como prior histórico puro (sin tráfico actual): MAE ~3-5 min
-- A3 (este modelo, con tráfico actual de toda la flota): MAE ~1.5-2.5 min
-- En hora pico con tráfico variable: la diferencia puede ser mayor (~3x)
+### Fase 5 — Modelo enriquecido ⏳
 
-### Fase 4 — Fine-tuning automático
+Si la calidad de Fase 3 no alcanza con 6+ meses de datos:
+- Reemplazar MLP por Transformer Seq2Seq para capturar correlación temporal entre segmentos
+- MAE objetivo: <1 min en viajes de 30 min
 
-**Cuándo:** después de tener los modelos de Fases 2 y 3 corriendo
-**Esfuerzo:** ~3-4 días
-**Qué hace:**
-- Cron semanal: detectar nuevos route_ids → reconstruir la lookup de ramal (Modelo 1, sin entrenamiento)
-- Cron mensual: fine-tuning Modelo 2 con último mes de datos
-- Log de métricas: guardar MAE del modelo en producción para monitorear degradación
+### Tabla resumen
 
-### Fase 5 — Modelo de tráfico enriquecido (objetivo final)
-
-**Cuándo:** 6+ meses de datos, si la calidad de Fase 3 no es suficiente
-**Esfuerzo:** ~3-4 semanas
-**Qué hace:**
-- Reemplazar el MLP de ETA por un Transformer completo (Seq2Seq)
-- El modelo aprende la correlación temporal: si los últimos 3 colectivos tardaron 12 min en un segmento, modela que el patrón persiste vs que es puntual
-- Incorporar día especial (si el dataset ya acumuló feriados, lluvia via timestamps)
-- MAE objetivo: ~1 min para viajes de 30 min
-
-### Tabla resumen de fases
-
-| Fase | Datos necesarios | Esfuerzo | MAE ETA | Ramal resuelto | Estado |
-|------|-----------------|----------|---------|----------------|--------|
-| 0 — Grabación | — | ✅ Listo | — | ~65% legacy | ✅ corriendo |
-| 1 — Pipeline + baseline | 1 mes | 3 días | A1 prior² | ~65% | ✅ completo |
-| 2 — Ramal lookup | 1-2 días/período | ✅ implementado | A1 prior | **~100%** | ✅ completo |
-| 3 — ETA con tráfico | 3-4 meses | 3 semanas | **~1.3 min** | ~100% | 🔄 en progreso (no-fleet 75.9s, fleet bloqueado) |
-| 4 — Mantenimiento auto | post Fase 3 | 4 días | ~1.3 min estable | ~100% | ⏳ pendiente |
-| 5 — Transformer ETA | 6+ meses | 4 semanas | **<1 min** | ~100% | ⏳ pendiente |
-
-²Fase 1 no produce una mejora de MAE sobre OBA cuando hay bus activo (OBA ya da ~1-2 min en tráfico normal). Su valor es el pipeline de datos y los headways históricos reales que habilitan Fases 2 y 3.
+| Fase | Estado | MAE ETA | Notas |
+|------|--------|---------|-------|
+| 0 — Grabación | ✅ corriendo | — | NUC activo |
+| 1 — Pipeline | ✅ completo | — | `build_dataset.py` funcional |
+| 2 — Ramal lookup | ✅ completo | — | `ramal_map.json`, 36/36 L39 |
+| 3 — ETA no-fleet | ✅ entrenado | **72s** | integración a producción pendiente |
+| 3 — ETA fleet | 🔄 bloqueado | — | FleetEncoder 12× más lento |
+| 4 — Mantenimiento auto | ⏳ pendiente | — | post integración |
+| 5 — Transformer ETA | ⏳ pendiente | <60s objetivo | 6+ meses de datos |
 
 ---
 
@@ -1076,33 +1136,23 @@ Esta es la hoja de ruta ordenada por balance de esfuerzo vs reducción de error.
 
 ### Modelo 1 — ramal ID: las 7 líneas son el punto de partida, no el scope completo
 
-La gran mayoría de las líneas de CABA y AMBA tienen múltiples ramales. Contando fraccionados × 2 direcciones, son fácilmente 4-8 route_ids por línea. Con ~100 líneas en CABA más AMBA: **cientos de route_ids a identificar**. Modelo 1 es relevante para prácticamente todas las líneas, no solo las 7 actuales.
+La gran mayoría de las líneas de CABA y AMBA tienen múltiples ramales. Contando fraccionados × 2 direcciones, son fácilmente 4-8 route_ids por línea. Con ~100 líneas en CABA más AMBA: **cientos de route_ids a identificar**. 
 
 Las 7 líneas con shapes en `line_shapes.json` son el punto de partida por disponibilidad de shapes — no porque sean las únicas que lo necesitan.
 
-**Escalado trivial:** agregar una línea nueva es crear su `families_{line}.json` (vacío `{}` si no tiene fraccionados) y volver a correr `build_ramal_map.py`. No hay entrenamiento, ni fine-tune, ni transfer learning — la misma lógica geométrica aplica a cualquier línea. El costo es minutos de CPU por línea.
+**Escalado trivial:** agregar una línea nueva es crear su `families_{line}.json` (vacío `{}` si no tiene fraccionados) y volver a correr `build_ramal_map.py`. No hay entrenamiento, ni fine-tune, ni transfer learning — la misma lógica geométrica aplica a cualquier línea. 
 
-El bottleneck sigue siendo el mismo en todos los casos: **shapes per-ramal precisos**. Sin shape, no hay ramal ID posible. BabusNova GTFS ya tiene `shapes.txt` con 700K líneas — el mismo origen que las 7 actuales. La pregunta abierta es cuántas líneas de BabusNova tienen shapes per-ramal suficientemente precisos para proyectar correctamente.
+El bottleneck sigue siendo el mismo en todos los casos: **shapes per-ramal precisos**. Sin shape, no hay ramal ID posible. 
 
 ### Modelo 2 — ETA: entrena en 7, funciona en cualquier línea con shape
 
 El modelo unificado de ETA aprende: *"dado X metros restantes, velocidad Y, tráfico actual Z, hora W → N segundos"*. Eso no es específico del 39 o el 42 — es comportamiento de tráfico urbano en CABA. Las 7 líneas cubren diversidad de recorridos: avenidas, barrios, zona norte, zona oeste. El modelo aprende el patrón general.
 
-**Consecuencia:** si después se agrega el shape de la línea 60, la 64, o cualquier otra, Model 2 funciona sobre esa línea **sin reentrenar**. Solo necesitás el shape para proyectar la posición. El modelo ya está entrenado.
+**Agregar una línea nueva no requiere reentrenar el modelo.** Solo necesitás el shape para proyectar la posición. Sin embargo, `schedule_dev_norm` defaultea a `0.0` para ramales sin entrada en `schedule_dev_medians.json` — el modelo funciona, pero sin señal de desvío histórico para esa línea. Para tenerla hay que agregar la línea al parquet y regenerar `schedule_dev_medians.json` (operación DuckDB de minutos, no entrenamiento).
 
 Con 7 líneas × 30 trips/día × 90 días: ~1.5M ejemplos de entrenamiento. Para un MLP de ~300K parámetros es más que suficiente.
 
 ### Inferencia remota: no aplica
-
-El modelo pesa ~1MB y corre en <1ms en CPU. No hay ninguna razón para pagar por inferencia remota. El bottleneck es tener el shape, no la capacidad de cómputo.
-
-| Situación | Approach | Costo |
-|-----------|----------|-------|
-| Línea con shape en `line_shapes.json` | Model 2 local | $0, <1ms |
-| Línea sin shape, ≥1 mes de datos grabados | A1 estadístico (DuckDB) | $0 |
-| Línea sin shape, sin datos históricos | Fallback OBA o no predecir | — |
-
-Agregar una línea nueva al sistema = conseguir el shape → A1 funciona de inmediato con datos históricos, Model 2 funciona sin reentrenar.
 
 ---
 

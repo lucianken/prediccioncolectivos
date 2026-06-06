@@ -161,6 +161,7 @@ def train_phase3(
     resume: bool = False,
     max_groups: int | None = None,
     fleet_same_dir_cap: int | None = None,
+    scheduler_type: str = "plateau",
 ) -> dict[str, object]:
     """
     Entrena A3ETAModel con L1Loss + mixed precision + early stopping.
@@ -226,7 +227,8 @@ def train_phase3(
     print(f"      Fleet encoder: {'habilitado' if use_fleet else 'DESHABILITADO (--no-fleet)'}")
     if max_groups is not None:
         print(f"      WARN: --max-groups {max_groups} activo — subsampling para iteración rápida, no usar para modelo final")
-    train_ds = ETADataset(train_parquet, shape_lengths=shape_lengths, shuffle=True, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap)
+    sdn_path = ml_dir / "schedule_dev_medians.json"
+    train_ds = ETADataset(train_parquet, shape_lengths=shape_lengths, shuffle=True, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap, schedule_dev_medians=sdn_path)
     print(f"      Train: ~{train_ds.approx_batches * batch_size:,} muestras en ~{train_ds.approx_batches:,} batches ({train_ds._n_groups} row groups)")
 
     has_val = val_parquet.exists() and val_parquet.stat().st_size > 0
@@ -237,7 +239,7 @@ def train_phase3(
             print(f"      WARN: {exc}")
             has_val = False
     if has_val:
-        val_ds = ETADataset(val_parquet, shape_lengths=shape_lengths, shuffle=False, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap)
+        val_ds = ETADataset(val_parquet, shape_lengths=shape_lengths, shuffle=False, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap, schedule_dev_medians=sdn_path)
         print(f"      Val:   ~{val_ds.approx_batches * batch_size:,} muestras en ~{val_ds.approx_batches:,} batches ({val_ds._n_groups} row groups)")
     else:
         print("      WARN: eta_val.parquet no encontrado. No habrá val loss.")
@@ -275,9 +277,25 @@ def train_phase3(
     model = A3ETAModel(d_model=d_model).to(actual_device)
     logger.info(f"[train_phase3] Model initialized and moved to {actual_device}: {time.time()-t_model:.2f}s")
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=3
-    )
+    _onecycle = scheduler_type == "onecycle"
+    if _onecycle:
+        # OneCycleLR: warmup agresivo (30% epochs) → coseno descendente (70%)
+        # Steps per epoch ≈ número de batches; se calcula tras crear el DataLoader
+        _steps_per_epoch = len(train_loader)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=lr,
+            steps_per_epoch=_steps_per_epoch,
+            epochs=epochs,
+            pct_start=0.3,         # 30% warmup
+            anneal_strategy="cos",
+            div_factor=10,         # lr_inicio = max_lr / 10
+            final_div_factor=100,  # lr_final  = max_lr / 1000
+        )
+    else:
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.5, patience=3
+        )
     def criterion(pred, target, dist_m):
         # Pinball loss con q variable por distancia (ver prediccion_ml_plan.md §7b):
         #   dist > 1km  → q = 0.5 (L1 simétrica, aprende la mediana)
@@ -383,6 +401,9 @@ def train_phase3(
                 tss          = batch["time_since_start"].to(actual_device)
                 ts_age       = batch["ts_age_s"].to(actual_device)
                 has_bus      = batch["has_active_bus"].to(actual_device)
+                sdn          = batch["schedule_dev_norm"].to(actual_device)
+                tlb          = batch.get("time_since_last_bus_s", batch["has_active_bus"] * 0).to(actual_device)
+                lbf          = batch.get("last_bus_found",        batch["has_active_bus"] * 0).to(actual_device)
                 eta_target   = batch["eta_seconds"].to(actual_device)
                 # No synchronize aquí — .to() es async, medir sin frenar el pipeline
                 t1 = _time.perf_counter()
@@ -395,7 +416,7 @@ def train_phase3(
                 with autocast(device_type=actual_device, dtype=amp_dtype, enabled=use_amp):
                     pred = model(
                         traj, traj_mask, fleet, fleet_mask,
-                        h_sin, h_cos, dow, dist_rem, tss, ts_age, has_bus,
+                        h_sin, h_cos, dow, dist_rem, tss, ts_age, has_bus, sdn, tlb, lbf,
                     )
                     loss = criterion(pred, eta_target, dist_rem_m)
                 # No synchronize — forward es async hasta que necesitemos el valor
@@ -414,6 +435,8 @@ def train_phase3(
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                     scaler.step(optimizer)
                     scaler.update()
+                    if _onecycle:
+                        scheduler.step()
                 else:
                     errors = torch.abs(pred - eta_target)
                     signed = pred - eta_target  # positivo = sobreestimé
@@ -504,9 +527,11 @@ def train_phase3(
         val_by_bucket = {}
         if val_loader is not None:
             val_mae, val_by_bucket = _run_epoch(val_loader, train_mode=False, epoch=epoch)
-            scheduler.step(val_mae)
+            if not _onecycle:
+                scheduler.step(val_mae)
         else:
-            scheduler.step(train_mae)
+            if not _onecycle:
+                scheduler.step(train_mae)
 
         monitor = val_mae if has_val else train_mae
         is_best = monitor < best_val_mae
@@ -637,11 +662,15 @@ def _export_a3_onnx(model, onnx_path: Path, device: str) -> None:
         torch.zeros(1, 1,      device=device),   # time_since_start
         torch.zeros(1, 1,      device=device),   # ts_age_s
         torch.zeros(1, 1,      device=device),   # has_active_bus
+        torch.zeros(1, 1,      device=device),   # schedule_dev_norm
+        torch.zeros(1, 1,      device=device),   # time_since_last_bus_s
+        torch.zeros(1, 1,      device=device),   # last_bus_found
     )
     input_names = [
         "trajectory", "trajectory_mask", "fleet", "fleet_mask",
         "hour_sin", "hour_cos", "dow",
         "dist_remaining_norm", "time_since_start", "ts_age_s", "has_active_bus",
+        "schedule_dev_norm", "time_since_last_bus_s", "last_bus_found",
     ]
 
     try:

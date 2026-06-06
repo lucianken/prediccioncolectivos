@@ -1,3 +1,4 @@
+import bisect
 import math
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -10,6 +11,51 @@ if TYPE_CHECKING:
 TZ_BA = ZoneInfo("America/Argentina/Buenos_Aires")
 SEGMENT_SIZE_M = 500.0   # granulado para A1 lookup table
 N_FLEET = 60             # cap de vehículos de flota (ajustar con medir_fleet_max.py)
+
+_FALLBACK_M = 250.0      # radio de fallback para time_since_last_bus_s (metros)
+_CAP_S = 3600.0          # cap máximo de time_since_last_bus_s (segundos)
+
+
+def _find_prev_trip(cache: dict, ramal_id: str, vehicle_id: str, p_ts: int):
+    """
+    Retorna (dist_list, ts_list) del trip más reciente del ramal (excluyendo vehicle_id)
+    que tenga al menos un punto antes de p_ts. O (None, None) si no hay.
+    Cache entries: (vehicle_id, dist_list, ts_list, min_ts) — dist_list sorted ascending.
+    """
+    for entry in reversed(cache.get(ramal_id, [])):
+        vid, dl, tl, min_ts = entry
+        if vid == vehicle_id or min_ts >= p_ts:
+            continue
+        return dl, tl
+    return None, None
+
+
+def _interp_passage(dist_list: list, ts_list: list, f_dist: float, p_ts: int) -> tuple:
+    """
+    Estima cuándo el bus de (dist_list, ts_list) pasó por f_dist.
+    Retorna (time_since_last_bus_s, last_bus_found).
+    """
+    n = len(dist_list)
+    if n == 0:
+        return _CAP_S, False
+
+    idx = bisect.bisect_left(dist_list, f_dist)
+
+    # Bracket exacto: interpolación lineal
+    if 0 < idx < n:
+        d0, t0 = dist_list[idx - 1], ts_list[idx - 1]
+        d1, t1 = dist_list[idx], ts_list[idx]
+        if d1 > d0:
+            t_passage = t0 + (f_dist - d0) / (d1 - d0) * (t1 - t0)
+            if t_passage < p_ts:
+                return min(p_ts - t_passage, _CAP_S), True
+
+    # Fallback: ping más cercano dentro de _FALLBACK_M
+    for j in (idx - 1, idx):
+        if 0 <= j < n and abs(dist_list[j] - f_dist) <= _FALLBACK_M and ts_list[j] < p_ts:
+            return min(p_ts - ts_list[j], _CAP_S), True
+
+    return _CAP_S, False
 
 
 def encode_time(timestamp_unix: int) -> "TimeFeatures":
@@ -45,6 +91,7 @@ def make_training_rows_eta(
     ramal_id: str | None,
     shape_length_m: float,
     fleet_by_line_at_ts: dict[tuple[str, int], list[dict]] | None = None,
+    ramal_passage_cache: dict | None = None,
 ) -> "list[ETATrainingRow]":
     """
     Genera filas de entrenamiento enriquecidas para el modelo de ETA.
@@ -108,12 +155,23 @@ def make_training_rows_eta(
         # 3. Segundos desde el inicio del viaje
         time_since_start = float(p.ts - points[0].ts)
 
+        # 4. Previous bus lookup — O(k) once per P, reused for all F
+        prev_dist = prev_ts = None
+        use_rpc = ramal_passage_cache is not None and ramal_id
+        if use_rpc:
+            prev_dist, prev_ts = _find_prev_trip(ramal_passage_cache, ramal_id, trip.vehicle_id, p.ts)
+
         for f in points[i + 1:]:
             dist_remaining_m = f.dist_along_shape_m - p.dist_along_shape_m
             observed_eta_s = f.ts - p.ts
 
             if dist_remaining_m < 100.0 or observed_eta_s <= 0:
                 continue
+
+            if prev_dist is not None:
+                tlb_s, lbf = _interp_passage(prev_dist, prev_ts, f.dist_along_shape_m, p.ts)
+            else:
+                tlb_s, lbf = _CAP_S, False
 
             rows.append({
                 "ramal_id": ramal_id,
@@ -132,6 +190,8 @@ def make_training_rows_eta(
                 "traj_len": traj_actual_len,
                 "fleet_flat": fleet_flat,
                 "n_fleet": n_fleet,
+                "time_since_last_bus_s": float(tlb_s),
+                "last_bus_found": lbf,
             })
 
     return rows

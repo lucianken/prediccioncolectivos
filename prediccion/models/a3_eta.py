@@ -96,7 +96,7 @@ class TimeEncoder(nn.Module):
 class A3ETAModel(nn.Module):
     def __init__(self, d_model: int = 128, hidden_dims: tuple = (256, 128, 64)):
         """
-        Concatena: trajectory(d_model) + fleet(d_model) + time(16) + dist(1) + time_since_start(1) + ts_age_s(1) + has_bus(1)
+        Concatena: trajectory(d_model) + fleet(d_model) + time(16) + dist(1) + time_since_start(1) + ts_age_s(1) + has_bus(1) + schedule_dev_norm(1)
         MLP: Linear(concat_dim → 256) → GELU → Dropout(0.1) → Linear(256 → 128) → GELU → Linear(128 → 64) → GELU → Linear(64 → 1) → Softplus
         """
         super().__init__()
@@ -104,7 +104,7 @@ class A3ETAModel(nn.Module):
         self.fleet_enc = FleetEncoder(d_model=d_model, nhead=4, num_layers=3)
         self.time_enc = TimeEncoder(dow_embed_dim=8, out_dim=16)
 
-        concat_dim = d_model + d_model + 16 + 1 + 1 + 1 + 1  # = 2 * d_model + 20
+        concat_dim = d_model + d_model + 16 + 1 + 1 + 1 + 1 + 1 + 1 + 1  # = 2 * d_model + 23
 
         layers = []
         in_dim = concat_dim
@@ -122,22 +122,25 @@ class A3ETAModel(nn.Module):
 
     def forward(
         self,
-        trajectory: torch.Tensor,           # (batch, seq, 3)
-        trajectory_mask: torch.Tensor,      # (batch, seq) — True=padding
-        fleet: torch.Tensor,                # (batch, n_fleet, 5)
-        fleet_mask: torch.Tensor,           # (batch, n_fleet) — True=padding
-        hour_sin: torch.Tensor,             # (batch, 1)
-        hour_cos: torch.Tensor,             # (batch, 1)
-        dow: torch.Tensor,                  # (batch,) int64
-        dist_remaining_norm: torch.Tensor,  # (batch, 1)
-        time_since_start: torch.Tensor,     # (batch, 1)
-        ts_age_s: torch.Tensor,             # (batch, 1)
-        has_active_bus: torch.Tensor,       # (batch, 1)
+        trajectory: torch.Tensor,             # (batch, seq, 3)
+        trajectory_mask: torch.Tensor,        # (batch, seq) — True=padding
+        fleet: torch.Tensor,                  # (batch, n_fleet, 5)
+        fleet_mask: torch.Tensor,             # (batch, n_fleet) — True=padding
+        hour_sin: torch.Tensor,               # (batch, 1)
+        hour_cos: torch.Tensor,               # (batch, 1)
+        dow: torch.Tensor,                    # (batch,) int64
+        dist_remaining_norm: torch.Tensor,    # (batch, 1)
+        time_since_start: torch.Tensor,       # (batch, 1)
+        ts_age_s: torch.Tensor,               # (batch, 1)
+        has_active_bus: torch.Tensor,         # (batch, 1)
+        schedule_dev_norm: torch.Tensor,      # (batch, 1)
+        time_since_last_bus_s: torch.Tensor,  # (batch, 1) log1p-normalizado
+        last_bus_found: torch.Tensor,         # (batch, 1) 0/1
     ) -> torch.Tensor:
         """Returns: (batch, 1) — ETA en segundos, siempre positivo (Softplus)."""
-        traj_emb = self.trajectory_enc(trajectory, trajectory_mask)  # (batch, 64)
-        fleet_emb = self.fleet_enc(fleet, fleet_mask)                # (batch, 64)
-        time_emb = self.time_enc(hour_sin, hour_cos, dow)            # (batch, 12)
+        traj_emb = self.trajectory_enc(trajectory, trajectory_mask)  # (batch, d_model)
+        fleet_emb = self.fleet_enc(fleet, fleet_mask)                # (batch, d_model)
+        time_emb = self.time_enc(hour_sin, hour_cos, dow)            # (batch, 16)
 
         combined = torch.cat([
             traj_emb,
@@ -147,6 +150,9 @@ class A3ETAModel(nn.Module):
             time_since_start,
             ts_age_s,
             has_active_bus,
+            schedule_dev_norm,
+            time_since_last_bus_s,
+            last_bus_found,
         ], dim=-1)
 
         return self.mlp(combined)  # (batch, 1)

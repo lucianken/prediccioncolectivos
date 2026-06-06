@@ -58,6 +58,8 @@ def main():
                         help="Limitar a N row groups por epoch (para iteración rápida). Ej: --max-groups 30 ≈ 10%% del dato")
     parser.add_argument("--fleet-same-dir-cap", type=int, default=None,
                         help="Filtrar fleet a vehículos same_direction y capear a N. Ej: --fleet-same-dir-cap 20")
+    parser.add_argument("--scheduler", default="plateau", choices=["plateau", "onecycle"],
+                        help="plateau=ReduceLROnPlateau (default), onecycle=OneCycleLR (converge más rápido)")
     parser.add_argument(
         "--merge-only",
         action="store_true",
@@ -141,6 +143,7 @@ def _run_phase3(args):
         resume=getattr(args, "resume", False),
         max_groups=getattr(args, "max_groups", None),
         fleet_same_dir_cap=getattr(args, "fleet_same_dir_cap", None),
+        scheduler_type=getattr(args, "scheduler", "plateau"),
     )
     val_mae = metrics.get("val_mae_min")
     val_str = f"{val_mae:.2f} min" if val_mae is not None else "N/A"

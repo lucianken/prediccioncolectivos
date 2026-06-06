@@ -61,6 +61,8 @@ def _make_eta_schema():
         pa.field("traj_len",          pa.int8()),
         pa.field("fleet_flat",        pa.list_(pa.float32(), N_FLEET * 5)),
         pa.field("n_fleet",           pa.int8()),
+        pa.field("time_since_last_bus_s", pa.float32()),
+        pa.field("last_bus_found",    pa.bool_()),
     ])
 
 
@@ -171,6 +173,28 @@ def _compute_shape_lengths(shapes: dict) -> dict[str, float]:
     return lengths
 
 
+_MAX_CACHE_PER_RAMAL = 10   # trips máximos por ramal en ramal_passage_cache
+
+
+def _add_trip_to_cache(cache: dict, ramal_id: str, vehicle_id: str, pt) -> None:
+    """Agrega el trip proyectado al cache de pasajes. Trim a _MAX_CACHE_PER_RAMAL."""
+    valid = [
+        (p.dist_along_shape_m, p.ts)
+        for p in pt.points
+        if p.dist_along_shape_m >= 0 and p.perp_error_m < 150
+    ]
+    if len(valid) < 2:
+        return
+    valid.sort()  # sort by dist para bisect
+    dist_list = [d for d, _ in valid]
+    ts_list   = [t for _, t in valid]
+    min_ts    = min(ts_list)
+    entries = cache.setdefault(ramal_id, [])
+    entries.append((vehicle_id, dist_list, ts_list, min_ts))
+    if len(entries) > _MAX_CACHE_PER_RAMAL:
+        del entries[0]  # drop oldest
+
+
 def _process_daily_file(
     fp: Path,
     shapes: dict,
@@ -179,6 +203,7 @@ def _process_daily_file(
     interval_s: int,
     vehicle_obs_carry: dict,
     route_shape_map: dict[tuple[str, int], str] | None = None,
+    ramal_passage_cache: dict | None = None,
 ) -> tuple[dict[str, list], dict[str, list], dict]:
     """
     Procesa un archivo NDJSON.gz en un solo pase.
@@ -260,6 +285,9 @@ def _process_daily_file(
     eta_by_line: dict[str, list] = {}
     trips_by_line: dict[str, list] = {}
 
+    # Procesar en orden cronológico para que el cache de pasajes sea coherente
+    day_trips.sort(key=lambda t: t.start_time)
+
     for trip in day_trips:
         line_num = trip.line_number
         if line_num not in shapes:
@@ -300,7 +328,11 @@ def _process_daily_file(
             ramal_id,
             shape_lengths.get(ramal_id, 1.0) if ramal_id else 1.0,
             fleet_by_line_at_ts=fleet_by_line_at_ts,
+            ramal_passage_cache=ramal_passage_cache,
         )
+        # Añadir al cache DESPUÉS de generar filas (el bus no se busca a sí mismo)
+        if ramal_id and ramal_passage_cache is not None:
+            _add_trip_to_cache(ramal_passage_cache, ramal_id, pt.vehicle_id, pt)
         if rows:
             eta_by_line.setdefault(line_num, []).extend(rows)
 
@@ -367,7 +399,7 @@ def run_build_dataset(
     if merge_only:
         print("[2/4] Saltado (--merge-only)")
         print("[3/4] Saltado (--merge-only)")
-        print("[4/4] Merge de caché → train/val...")
+        print("[4/4] Merge de cache -> train/val...")
         sorted_days = _collect_cached_day_keys(training_dir, lines_to_process)
         if not sorted_days:
             print("WARN: No hay días cacheados", file=sys.stderr)
@@ -437,9 +469,16 @@ def run_build_dataset(
         print("ERROR: No se encontraron archivos NDJSON.gz", file=sys.stderr)
         sys.exit(1)
 
+    # Bloquear sleep en Windows durante el procesamiento (puede tardar horas)
+    import sys as _sys
+    if _sys.platform == "win32":
+        import ctypes as _ctypes
+        _ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
+
     # [3/4] Caché por día × línea
     print(f"[3/4] Procesando {len(daily_files)} días...")
     vehicle_obs_carry: dict[str, list[dict]] = {}
+    ramal_passage_cache: dict = {}  # carry entre días: últimos N trips por ramal
     total_new_days = 0
 
     for fp in daily_files:
@@ -453,11 +492,13 @@ def run_build_dataset(
         if not missing:
             print(f"      {fp.name}: [cached]")
             vehicle_obs_carry = {}
+            ramal_passage_cache = {}  # sin trips del día cacheado → fresh para el siguiente
             continue
 
         eta_by_line, trips_by_line, vehicle_obs_carry = _process_daily_file(
             fp, shapes, label_line_map, shape_lengths, interval_s, vehicle_obs_carry,
             route_shape_map=route_shape_map,
+            ramal_passage_cache=ramal_passage_cache,
         )
 
         for line_num in missing:
@@ -491,7 +532,7 @@ def run_build_dataset(
     print(f"      {total_new_days} días nuevos procesados")
 
     # [4/4] Merge → eta_train.parquet / eta_val.parquet
-    print("[4/4] Merge de caché → train/val...")
+    print("[4/4] Merge de cache -> train/val...")
 
     sorted_days = _collect_cached_day_keys(training_dir, lines_to_process)
 
@@ -517,6 +558,9 @@ def run_build_dataset(
         merged = pa.concat_tables(all_trip_tables)
         pq.write_table(merged, trips_dir / "trips_summary.parquet")
         print(f"      trips_summary.parquet: {len(merged)} trips")
+
+    if _sys.platform == "win32":
+        _ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)  # restaurar sleep
 
     print("Done.")
 
