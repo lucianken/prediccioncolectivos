@@ -1,0 +1,94 @@
+{
+  "description": "Lineas que desaparecieron del feed de la API (SUBE/GTFS-RT) en el periodo 2026-05-24 a 2026-06-02. Fuente: archivos NDJSON grabados en NUC, comparados contra LABEL_LINE_MAP.json (256 lineas mapeadas). Se espera recuperacion parcial para mediados de junio 2026.",
+  "analysis_date": "2026-06-02",
+  "method": "Comparacion dia a dia de VP_label sufijos presentes en eventos new/upd del NDJSON diferencial. 'appeared' = ausente el dia anterior, presente ese dia (reingreso o nuevo). 'disappeared' = presente el dia anterior, ausente ese dia.",
+
+  "lines_per_day": {
+    "2026-05-24": 217,
+    "2026-05-25": 211,
+    "2026-05-26": 216,
+    "2026-05-27": 214,
+    "2026-05-28": 197,
+    "2026-05-29": 190,
+    "2026-05-30": 181,
+    "2026-05-31": 169,
+    "2026-06-01": 173,
+    "2026-06-02": 171
+  },
+
+  "daily_changes": [
+    {
+      "transition": "2026-05-24 -> 2026-05-25",
+      "disappeared": ["91","101","108","150","271","430","722"],
+      "appeared": ["585"]
+    },
+    {
+      "transition": "2026-05-25 -> 2026-05-26",
+      "disappeared": ["21","133","185","236"],
+      "appeared": ["91","100","101","150","166","271","410","430","722"]
+    },
+    {
+      "transition": "2026-05-26 -> 2026-05-27",
+      "disappeared": ["114","140","166","271","621"],
+      "appeared": ["21","133","507"]
+    },
+    {
+      "transition": "2026-05-27 -> 2026-05-28",
+      "disappeared": ["19","41","44","76","91","96","100","115","135","136","150","172","174","176","182","184","507","624","635"],
+      "appeared": ["57","236"]
+    },
+    {
+      "transition": "2026-05-28 -> 2026-05-29",
+      "disappeared": ["21","28","57","143","163","177","197","410"],
+      "appeared": ["134"]
+    },
+    {
+      "transition": "2026-05-29 -> 2026-05-30",
+      "disappeared": ["65","133","134","151","153","194","219","253","300","321"],
+      "appeared": ["176"]
+    },
+    {
+      "transition": "2026-05-30 -> 2026-05-31",
+      "disappeared": ["61","62","74","101","159","164","176","195","203","298","372","585"],
+      "appeared": []
+    },
+    {
+      "transition": "2026-05-31 -> 2026-06-01",
+      "disappeared": ["12","236"],
+      "appeared": ["61","62","159","164","195","219"]
+    },
+    {
+      "transition": "2026-06-01 -> 2026-06-02",
+      "disappeared": ["61","124","178","195"],
+      "appeared": ["203","300"]
+    }
+  ],
+
+  "disappearance_order": {
+    "note": "Primera fecha en que cada linea desaparecio (puede haber fluctuado antes)",
+    "2026-05-25": ["91","101","108","150","271","430","722"],
+    "2026-05-26": ["21","133","185","236"],
+    "2026-05-27": ["114","140","166","271","621"],
+    "2026-05-28": ["19","41","44","76","96","115","135","136","172","174","182","184","507","624","635"],
+    "2026-05-29": ["28","57","143","163","177","197","410"],
+    "2026-05-30": ["65","134","151","153","194","219","253","300","321"],
+    "2026-05-31": ["61","62","74","159","164","195","203","298","372","585"],
+    "2026-06-01": ["12","236"],
+    "2026-06-02": ["124","178"]
+  },
+
+  "consecutively_absent_until_2026-06-02": {
+    "description": "Lineas que desaparecieron en algun momento y NO volvieron a aparecer en ningun dia posterior hasta el 2026-06-02 inclusive",
+    "total": 48,
+    "lines": ["12","19","21","28","41","44","61","62","65","74","76","91","96","101","108","114","115","124","133","135","136","140","143","150","151","153","163","172","174","177","178","182","184","185","194","197","253","271","298","321","372","410","430","507","585","621","624","635"]
+  },
+
+  "notes": [
+    "El 24/05 ya habia fluctuaciones normales (7 lineas caen, 1 sube) — parece ruido de fondo previo al colapso",
+    "La caida masiva arranco el 27->28/05 con 19 lineas de golpe, sin recuperacion",
+    "El piso fue el 31/05 con solo 169 lineas activas (vs 217 el 24/05, -22%)",
+    "Desde el 01/06 hay recuperacion lenta: +6 el 01/06, fluctuaciones el 02/06",
+    "48 lineas ausentes consecutivamente al 02/06 — se espera recuperacion para mediados de junio",
+    "65 lineas del LABEL_LINE_MAP nunca aparecieron en ningun dia del periodo (probablemente conurbano o inactivas antes del periodo)"
+  ]
+}

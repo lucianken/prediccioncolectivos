@@ -75,11 +75,14 @@ def estimate_year(raw_plate: str) -> int | None:
 
 
 def load_label_map() -> dict:
-    with open(LABEL_LINE_MAP_PATH, encoding="utf-8") as f:
-        return json.load(f)["map"]
+    """Carga LABEL_LINE_MAP.json v2 (keyed por línea, con vigencias)."""
+    sys.path.insert(0, str(SCRIPT_DIR.parent))
+    from prediccion.pipeline.shapes_io import load_label_line_data
+    return load_label_line_data(LABEL_LINE_MAP_PATH)
 
 
 def resolve_line(label: str, label_map: dict) -> tuple[str | None, str | None]:
+    """label_map acá es el índice {sufijo → {line, agencyName}} ya resuelto por fecha."""
     suffix = label.split("-")[-1]
     entry = label_map.get(suffix)
     if not entry:

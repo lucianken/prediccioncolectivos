@@ -108,7 +108,10 @@ Los resultados son numéricamente idénticos a los del loop punto-a-punto.
 
 ### reconstruct_line_snapshots (filtrado de flota)
 `reader.py` expone `reconstruct_line_snapshots(filepath, label_line_map, line)`
-que mantiene en `state` únicamente los vehículos de la línea de interés. Los
+que mantiene en `state` únicamente los vehículos de la línea de interés.
+(`label_line_map` es el dict `{sufijo → línea}` que devuelve
+`shapes_io.load_label_line_map` — desde 2026-07 el JSON es schema v2 con
+vigencias y el loader acepta `on_date` para resolverlo a la fecha del archivo.) Los
 consumidores de `ramal_lookup` (`scan_route_ids`, `scan_with_gps`,
 `build_lookup.py`) ya no necesitan filtrar por label en el loop interno.
 Elimina el 11% de CPU de `dict.get + str.split` sobre la flota completa.

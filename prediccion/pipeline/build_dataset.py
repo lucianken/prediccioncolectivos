@@ -32,7 +32,8 @@ from pathlib import Path
 from prediccion.pipeline.shapes_io import (
     load_shapes as _load_shapes,
     get_shape_points as _get_shape_points,
-    load_label_line_map as _load_label_line_map,
+    load_label_line_data as _load_label_line_data,
+    resolve_label_line_map as _resolve_label_line_map,
 )
 
 logger = logging.getLogger(__name__)
@@ -412,10 +413,14 @@ def run_build_dataset(
         print("Done.")
         return
 
-    # Mapa de sufijo VP_label → line_number (fuente autoritativa)
+    # Mapa de sufijo VP_label → line_number (fuente autoritativa, con vigencias v2).
+    # Se resuelve por fecha de cada archivo para respetar cambios de flota.
+    label_line_data = None
     if label_map_path and label_map_path.exists():
-        label_line_map = _load_label_line_map(label_map_path)
-        print(f"      LABEL_LINE_MAP: {len(label_line_map)} sufijos cargados")
+        label_line_data = _load_label_line_data(label_map_path)
+        n_union = len(_resolve_label_line_map(label_line_data))
+        print(f"      LABEL_LINE_MAP v2: {n_union} sufijos (unión de vigencias)")
+        label_line_map = {}  # se resuelve por día en el loop
     else:
         if label_map_path:
             print(f"WARN: {label_map_path} no encontrado, usando fallback desde shapes", file=sys.stderr)
@@ -494,6 +499,9 @@ def run_build_dataset(
             vehicle_obs_carry = {}
             ramal_passage_cache = {}  # sin trips del día cacheado → fresh para el siguiente
             continue
+
+        if label_line_data is not None:
+            label_line_map = _resolve_label_line_map(label_line_data, on_date=day_key)
 
         eta_by_line, trips_by_line, vehicle_obs_carry = _process_daily_file(
             fp, shapes, label_line_map, shape_lengths, interval_s, vehicle_obs_carry,

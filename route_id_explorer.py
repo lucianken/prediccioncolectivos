@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from prediccion.pipeline.reader import iter_daily_files, reconstruct_snapshots
-from prediccion.pipeline.shapes_io import load_label_line_map
+from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_map
 
 INTERVAL_S = 300          # muestra cada 5 min — suficiente para trackear route_ids
 ROTATION_MIN_NEW = 3      # mínimo de route_ids nuevos en un día para llamarlo rotación
@@ -47,7 +47,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("route_id_explorer_results.json"))
     args = parser.parse_args()
 
-    label_line_map = load_label_line_map(str(args.label_map))
+    label_line_data = load_label_line_data(str(args.label_map))
     target_lines = set(args.lines)
 
     daily_files = list(iter_daily_files(args.data_dir))
@@ -82,6 +82,9 @@ def main() -> None:
         day_str = fp.name[:10]
         all_dates.append(day_str)
         t0 = time.time()
+
+        # map vigente a la fecha del archivo (v2 con vigencias)
+        label_line_map = resolve_label_line_map(label_line_data, on_date=day_str)
 
         # route_ids activos hoy por línea
         day_active: dict[str, set] = {l: set() for l in target_lines}
