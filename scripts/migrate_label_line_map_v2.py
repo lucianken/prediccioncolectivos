@@ -1,5 +1,9 @@
 """Migracion one-off LABEL_LINE_MAP.json v1 -> v2 + CANDIDATES.json.
 
+NOTA HISTORICA: CANDIDATES.json fue absorbido despues por
+proyectoconsola/pending_label_work.json (ver scripts/consolidate_pending.py).
+Este script queda como registro de la migracion v1->v2 de 2026-07-11; no re-correr.
+
 v1: map[sufijo] = {agencyId, agencyName, lines[], line|null}
 v2: lines[linea] = {agencies: [{agencyId, agencyName, from, to}],
                     suffixes: [{suffix, agencyId, from, to}]}

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "description": "Mapa sufijo VP_label -> linea, con vigencias. Fechas inclusive (from = primer dia visto, to = ultimo dia visto; to=null: vigente). Sufijos ambiguos sin resolver: ver CANDIDATES.json.",
+  "description": "Mapa sufijo VP_label -> linea, con vigencias. Fechas inclusive (from = primer dia visto, to = ultimo dia visto; to=null: vigente). Sufijos sin resolver: proyectoconsola/pending_label_work.json (resolver con scripts/promote_pending.js).",
   "lines": {
     "1": {
       "agencies": [

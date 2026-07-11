@@ -114,11 +114,11 @@ def main() -> None:
             for s in e["suffixes"]:
                 v1[s["suffix"]] = {"line": line, "lines": [line],
                                    "agencyName": agency_names.get(s.get("agencyId"))}
-        candidates_path = V1_MAP.parent / "CANDIDATES.json"
-        if candidates_path.exists():
-            with open(candidates_path, encoding="utf-8") as f:
-                for sfx, c in json.load(f)["candidates"].items():
-                    v1.setdefault(sfx, {"line": None, "lines": c.get("lines", []),
+        pending_path = V1_MAP.parent.parent / "proyectoconsola" / "pending_label_work.json"
+        if pending_path.exists():
+            with open(pending_path, encoding="utf-8") as f:
+                for sfx, c in json.load(f).get("pending", {}).items():
+                    v1.setdefault(sfx, {"line": None, "lines": c.get("candidates", []),
                                         "agencyName": c.get("agencyName")})
     v1_suffixes = set(v1.keys())
     # linea -> sufijos v1 (solo resueltas) para el cross-check

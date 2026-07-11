@@ -27,7 +27,7 @@ En `c:\Users\LK\Documents\Dondeestaelbondi\.claude\skills\`:
 ## Estado (2026-07-11)
 
 - Grabador: corriendo, ~15 semanas de datos acumulados
-- **LABEL_LINE_MAP v2** (2026-07): schema por línea con vigencias `from`/`to`, por el cambio de flota AMBA de mayo-junio 2026 que reasignó sufijos (ej. 151: 4045 hasta 29/05 → 4852 desde 11/06). Ambiguos en `CANDIDATES.json`; sufijos nuevos a identificar en `proyectoconsola/PENDING_LABEL_WORK.md` (único archivo de pendientes). Loader date-aware: `shapes_io.load_label_line_map(path, on_date=...)`; el pipeline resuelve el map por fecha de cada NDJSON. Copia canónica en proyectoconsola/, espejo acá — mantener sincronizadas.
+- **LABEL_LINE_MAP v2** (2026-07): schema por línea con vigencias `from`/`to`, por el cambio de flota AMBA de mayo-junio 2026 que reasignó sufijos (ej. 151: 4045 hasta 29/05 → 4852 desde 11/06). Todo lo no resuelto (identificar + desambiguar) en `proyectoconsola/pending_label_work.json` (único archivo de trabajo; MD generado; resolver con `node scripts/promote_pending.js` que además sincroniza el espejo del map acá). Loader date-aware: `shapes_io.load_label_line_map(path, on_date=...)`; el pipeline resuelve el map por fecha de cada NDJSON. Tras un scan nuevo: `apply_scan_results.py` mergea al pending.
 - Shapes: 7 líneas (26, 39, 42, 92, 124, 151, 168)
 - Ramal ID: **lookup geométrica offline** (`ramal_lookup/`), no modelo ML. `route_id → shape` determinístico. Validado línea 39: 36/36 route_ids correctos.
 - A3ETAModel (ETA): Fase 3 activa. No-fleet ep24 = **72.7s val MAE** (mejor a la fecha). Fleet bloqueado por costo computacional (~12× más lento). Ver `prediccion_ml_plan.md` §pendiente.

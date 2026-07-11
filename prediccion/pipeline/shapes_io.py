@@ -72,7 +72,8 @@ def load_label_line_map(path: str | Path, on_date: str | None = None) -> dict[st
     Carga LABEL_LINE_MAP.json (schema v2) y retorna {sufijo_label → line_number}.
 
     El sufijo es la parte numérica al final del VP_label (ej: "5-1350" → "1350").
-    Los sufijos ambiguos viven en CANDIDATES.json y no entran acá.
+    Los sufijos sin resolver viven en proyectoconsola/pending_label_work.json
+    y no entran acá.
     Ver resolve_label_line_index para la semántica de on_date; en loops
     multi-día conviene load_label_line_data una vez y resolver por fecha.
     """
