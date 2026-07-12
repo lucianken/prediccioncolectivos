@@ -86,6 +86,36 @@ def test_reassigned_suffix_latest_wins_in_union():
     assert resolve_label_line_map(data, on_date="2026-06-15") == {"77": "20"}
 
 
+def test_v3_other_lines_excluded_by_default(tmp_path):
+    """v3: `lines` = AMBA, `other_lines` = homónimos del interior."""
+    v3 = {
+        "version": 3,
+        "lines": {
+            "12": {"agencies": [{"agencyId": "6", "agencyName": "T.A. CALLAO",
+                                 "from": "2026-03-28", "to": None}],
+                   "suffixes": [{"suffix": "621", "agencyId": "6",
+                                 "from": "2026-03-28", "to": None}]},
+        },
+        "other_lines": {
+            "12": {"agencies": [{"agencyId": "402", "agencyName": "EMPRESA TUCUMAN",
+                                 "from": "2026-03-28", "to": None}],
+                   "suffixes": [{"suffix": "3771", "agencyId": "402",
+                                 "from": "2026-03-28", "to": None}]},
+        },
+    }
+    p = tmp_path / "LABEL_LINE_MAP.json"
+    p.write_text(json.dumps(v3), encoding="utf-8")
+
+    # default: solo AMBA
+    assert load_label_line_map(p) == {"621": "12"}
+    # include_other: entra también el homónimo del interior
+    data = load_label_line_data(p)
+    full = resolve_label_line_map(data, include_other=True)
+    assert full == {"621": "12", "3771": "12"}
+    idx = resolve_label_line_index(data, include_other=True)
+    assert idx["3771"]["agencyName"] == "EMPRESA TUCUMAN"
+
+
 def test_v1_schema_rejected(tmp_path):
     p = tmp_path / "old.json"
     p.write_text(json.dumps({"map": {"45": {"line": "150"}}}), encoding="utf-8")

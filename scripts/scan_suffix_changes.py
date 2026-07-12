@@ -107,13 +107,18 @@ def main() -> None:
             v1[sfx] = {"line": info.get("line"), "lines": info.get("lines", []),
                        "agencyName": info.get("agencyName")}
     else:
+        # v3: sufijos conocidos = lines (AMBA) + other_lines (interior),
+        # para no reportar homonimos del interior como "nuevos"
         agency_names = {}
-        for line, e in map_data["lines"].items():
-            for a in e["agencies"]:
-                agency_names[a["agencyId"]] = a["agencyName"]
-            for s in e["suffixes"]:
-                v1[s["suffix"]] = {"line": line, "lines": [line],
-                                   "agencyName": agency_names.get(s.get("agencyId"))}
+        sections = [map_data["lines"]] + ([map_data["other_lines"]]
+                                          if "other_lines" in map_data else [])
+        for section in sections:
+            for line, e in section.items():
+                for a in e["agencies"]:
+                    agency_names[a["agencyId"]] = a["agencyName"]
+                for s in e["suffixes"]:
+                    v1[s["suffix"]] = {"line": line, "lines": [line],
+                                       "agencyName": agency_names.get(s.get("agencyId"))}
         pending_path = V1_MAP.parent.parent / "proyectoconsola" / "pending_label_work.json"
         if pending_path.exists():
             with open(pending_path, encoding="utf-8") as f:

@@ -64,18 +64,20 @@ def main() -> None:
     disappeared = report["disappeared_suffixes"]
     last_day = report["scan_range"]["last_day_scanned"]
 
-    # 1) fechas `to` en el map (ambas copias, misma data)
+    # 1) fechas `to` en el map (ambas copias, misma data; v3: lines + other_lines)
     map_data = load_json(MAP_PATHS[0])
+    sections = [map_data["lines"]] + ([map_data["other_lines"]] if "other_lines" in map_data else [])
     n_map = 0
-    for entry in map_data["lines"].values():
-        for s in entry["suffixes"]:
-            d = disappeared.get(s["suffix"])
-            if d and s["to"] is None:
-                s["to"] = d["last_seen"]
-                n_map += 1
+    for section in sections:
+        for entry in section.values():
+            for s in entry["suffixes"]:
+                d = disappeared.get(s["suffix"])
+                if d and s["to"] is None:
+                    s["to"] = d["last_seen"]
+                    n_map += 1
     for p in MAP_PATHS:
         save_json(p, map_data)
-    known_suffixes = {s["suffix"] for e in map_data["lines"].values() for s in e["suffixes"]}
+    known_suffixes = {s["suffix"] for sec in sections for e in sec.values() for s in e["suffixes"]}
     print(f"Fechas `to` aplicadas en LABEL_LINE_MAP: {n_map} (ambas copias)")
 
     # 2) merge en pending unificado
@@ -108,6 +110,7 @@ def main() -> None:
                 "candidates": candidates,
                 "agencyId": None,
                 "agencyName": None,
+                "scope": "unknown",  # clasificar AMBA/no con resolve_pending.js o agente
                 "from": v["first_seen"],
                 "to": to,
                 "evidence": {"route_hints": hints,
