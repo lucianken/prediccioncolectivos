@@ -62,12 +62,18 @@
           "agencyId": "4",
           "agencyName": "NUDO S.A.",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "agencyId": "14",
           "agencyName": "TRANSP. AUTOMOTORES 12 DE OCTUBRE S.A.C.",
           "from": "2026-03-28",
+          "to": null
+        },
+        {
+          "agencyId": "702",
+          "agencyName": "NUDO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -76,17 +82,17 @@
           "suffix": "1337",
           "agencyId": "14",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4050",
           "agencyId": "4",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4844",
-          "agencyId": "4",
+          "agencyId": "702",
           "from": "2026-06-11",
           "to": null
         }
@@ -116,6 +122,12 @@
           "agencyId": "11",
           "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "713",
+          "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -124,11 +136,11 @@
           "suffix": "62",
           "agencyId": "11",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4861",
-          "agencyId": "11",
+          "agencyId": "713",
           "from": "2026-06-11",
           "to": null
         }
@@ -158,6 +170,12 @@
           "agencyId": "6",
           "agencyName": "TRANSPORTES AUTOMOTORES CALLAO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "704",
+          "agencyName": "TRANSPORTES AUTOMOTORES CALLAO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -170,7 +188,7 @@
         },
         {
           "suffix": "4756",
-          "agencyId": "6",
+          "agencyId": "704",
           "from": "2026-06-11",
           "to": null
         }
@@ -218,6 +236,12 @@
           "agencyId": "82",
           "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "743",
+          "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -230,7 +254,7 @@
         },
         {
           "suffix": "4941",
-          "agencyId": "82",
+          "agencyId": "743",
           "from": "2026-06-11",
           "to": null
         }
@@ -260,6 +284,12 @@
           "agencyId": "16",
           "agencyName": "EMPRESA DE TRANSP. TTE. GRAL. ROCA S.A",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "716",
+          "agencyName": "EMPRESA DE TRANSP. TTE. GRAL. ROCA S.A",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -272,7 +302,7 @@
         },
         {
           "suffix": "4869",
-          "agencyId": "16",
+          "agencyId": "716",
           "from": "2026-06-11",
           "to": null
         }
@@ -329,6 +359,12 @@
           "agencyId": "7",
           "from": "2026-03-28",
           "to": null
+        },
+        {
+          "suffix": "4847",
+          "agencyId": "7",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -356,6 +392,12 @@
           "agencyId": "3",
           "agencyName": "D.O.T.A. S.A. DE TRANSPORTE AUTOMOTOR",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "701",
+          "agencyName": "D.O.T.A. S.A. DE TRANSPORTE AUTOMOTOR",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -368,7 +410,7 @@
         },
         {
           "suffix": "4841",
-          "agencyId": "3",
+          "agencyId": "701",
           "from": "2026-06-11",
           "to": null
         }
@@ -506,6 +548,12 @@
           "agencyId": "49",
           "agencyName": "AZUL S.A. DE TRANSPORTE AUTOMOTOR",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "719",
+          "agencyName": "AZUL S.A. DE TRANSPORTE AUTOMOTOR",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -518,7 +566,7 @@
         },
         {
           "suffix": "4877",
-          "agencyId": "49",
+          "agencyId": "719",
           "from": "2026-06-11",
           "to": null
         }
@@ -548,6 +596,12 @@
           "agencyId": "3",
           "agencyName": "D.O.T.A. S.A. DE TRANSPORTE AUTOMOTOR",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "700",
+          "agencyName": "D.O.T.A. S.A. DE TRANSPORTE AUTOMOTOR",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -560,7 +614,7 @@
         },
         {
           "suffix": "4839",
-          "agencyId": "3",
+          "agencyId": "700",
           "from": "2026-06-11",
           "to": null
         }
@@ -644,6 +698,12 @@
           "agencyId": "4",
           "agencyName": "NUDO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "702",
+          "agencyName": "NUDO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -652,11 +712,11 @@
           "suffix": "1323",
           "agencyId": "4",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4842",
-          "agencyId": "4",
+          "agencyId": "702",
           "from": "2026-06-11",
           "to": null
         }
@@ -668,6 +728,12 @@
           "agencyId": "68",
           "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "727",
+          "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -680,7 +746,7 @@
         },
         {
           "suffix": "4893",
-          "agencyId": "68",
+          "agencyId": "727",
           "from": "2026-06-11",
           "to": null
         }
@@ -728,6 +794,12 @@
           "agencyId": "10",
           "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "712",
+          "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -736,11 +808,11 @@
           "suffix": "88",
           "agencyId": "10",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4859",
-          "agencyId": "10",
+          "agencyId": "712",
           "from": "2026-06-11",
           "to": null
         }
@@ -752,6 +824,12 @@
           "agencyId": "70",
           "agencyName": "TRANSPORTES ATLANTIDA S.A.C.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "729",
+          "agencyName": "TRANSPORTES ATLANTIDA S.A.C.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -764,7 +842,7 @@
         },
         {
           "suffix": "4910",
-          "agencyId": "70",
+          "agencyId": "729",
           "from": "2026-06-11",
           "to": null
         }
@@ -812,6 +890,12 @@
           "agencyId": "25",
           "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "717",
+          "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -824,7 +908,7 @@
         },
         {
           "suffix": "4870",
-          "agencyId": "25",
+          "agencyId": "717",
           "from": "2026-06-11",
           "to": null
         }
@@ -836,6 +920,12 @@
           "agencyId": "25",
           "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "717",
+          "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -848,7 +938,7 @@
         },
         {
           "suffix": "4871",
-          "agencyId": "25",
+          "agencyId": "717",
           "from": "2026-06-11",
           "to": null
         }
@@ -896,6 +986,12 @@
           "agencyId": "9",
           "agencyName": "LA NUEVA METROPOL S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "708",
+          "agencyName": "LA NUEVA METROPOL S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -908,7 +1004,7 @@
         },
         {
           "suffix": "4851",
-          "agencyId": "9",
+          "agencyId": "708",
           "from": "2026-06-11",
           "to": null
         }
@@ -992,6 +1088,12 @@
           "agencyId": "68",
           "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "727",
+          "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1001,6 +1103,12 @@
           "agencyId": "68",
           "from": "2026-03-28",
           "to": "2026-05-30"
+        },
+        {
+          "suffix": "4894",
+          "agencyId": "727",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -1010,6 +1118,12 @@
           "agencyId": "10",
           "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "711",
+          "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1022,7 +1136,7 @@
         },
         {
           "suffix": "4857",
-          "agencyId": "10",
+          "agencyId": "711",
           "from": "2026-06-11",
           "to": null
         }
@@ -1042,6 +1156,24 @@
           "suffix": "90",
           "agencyId": "22",
           "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
+    "79": {
+      "agencies": [
+        {
+          "agencyId": "727",
+          "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "4895",
+          "agencyId": "727",
+          "from": "2026-06-11",
           "to": null
         }
       ]
@@ -1070,6 +1202,12 @@
           "agencyId": "7",
           "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "706",
+          "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1078,11 +1216,11 @@
           "suffix": "4047",
           "agencyId": "7",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4848",
-          "agencyId": "7",
+          "agencyId": "706",
           "from": "2026-06-11",
           "to": null
         }
@@ -1148,6 +1286,12 @@
           "agencyId": "79",
           "agencyName": "LINEA EXPRESO LINIERS S.A.I.Y C.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "741",
+          "agencyName": "LINEA EXPRESO LINIERS S.A.I.Y C.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1156,17 +1300,17 @@
           "suffix": "114",
           "agencyId": "79",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "394",
           "agencyId": "79",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4939",
-          "agencyId": "79",
+          "agencyId": "741",
           "from": "2026-06-11",
           "to": null
         }
@@ -1178,6 +1322,12 @@
           "agencyId": "10",
           "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "712",
+          "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1190,7 +1340,7 @@
         },
         {
           "suffix": "4860",
-          "agencyId": "10",
+          "agencyId": "712",
           "from": "2026-06-11",
           "to": null
         }
@@ -1200,7 +1350,7 @@
       "agencies": [
         {
           "agencyId": "89",
-          "agencyName": "EMP.DE TRANSP.MICROOMN.SAENZ PEÃ‘A S.R.L.",
+          "agencyName": "EMP.DE TRANSP.MICROOMN.SAENZ PEÑA S.R.L.",
           "from": "2026-03-28",
           "to": null
         }
@@ -1218,7 +1368,7 @@
       "agencies": [
         {
           "agencyId": "90",
-          "agencyName": "TRANSPORTES 1Âº SEPTIEMBRE S.A.",
+          "agencyName": "TRANSPORTES 1º SEPTIEMBRE S.A.",
           "from": "2026-03-28",
           "to": null
         }
@@ -1256,6 +1406,12 @@
           "agencyId": "60",
           "agencyName": "TRANSPORTE IDEAL SAN JUSTO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "723",
+          "agencyName": "TRANSPORTE IDEAL SAN JUSTO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1268,7 +1424,7 @@
         },
         {
           "suffix": "4888",
-          "agencyId": "60",
+          "agencyId": "723",
           "from": "2026-06-11",
           "to": null
         }
@@ -1316,6 +1472,12 @@
           "agencyId": "7",
           "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "707",
+          "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1328,7 +1490,7 @@
         },
         {
           "suffix": "4849",
-          "agencyId": "7",
+          "agencyId": "707",
           "from": "2026-06-11",
           "to": null
         }
@@ -1340,6 +1502,12 @@
           "agencyId": "3",
           "agencyName": "D.O.T.A. S.A. DE TRANSPORTE AUTOMOTOR",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "701",
+          "agencyName": "D.O.T.A. S.A. DE TRANSPORTE AUTOMOTOR",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1352,7 +1520,7 @@
         },
         {
           "suffix": "4840",
-          "agencyId": "3",
+          "agencyId": "701",
           "from": "2026-06-11",
           "to": null
         }
@@ -1436,6 +1604,12 @@
           "agencyId": "4",
           "agencyName": "NUDO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "702",
+          "agencyName": "NUDO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1444,11 +1618,11 @@
           "suffix": "1325",
           "agencyId": "4",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4843",
-          "agencyId": "4",
+          "agencyId": "702",
           "from": "2026-06-11",
           "to": null
         }
@@ -1460,6 +1634,12 @@
           "agencyId": "16",
           "agencyName": "EMPRESA DE TRANSP. TTE. GRAL. ROCA S.A",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "715",
+          "agencyName": "EMPRESA DE TRANSP. TTE. GRAL. ROCA S.A",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1472,7 +1652,7 @@
         },
         {
           "suffix": "4868",
-          "agencyId": "16",
+          "agencyId": "715",
           "from": "2026-06-11",
           "to": null
         }
@@ -1556,6 +1736,12 @@
           "agencyId": "25",
           "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "718",
+          "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1568,7 +1754,7 @@
         },
         {
           "suffix": "4872",
-          "agencyId": "25",
+          "agencyId": "718",
           "from": "2026-06-11",
           "to": null
         }
@@ -1580,6 +1766,12 @@
           "agencyId": "7",
           "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "706",
+          "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1592,7 +1784,7 @@
         },
         {
           "suffix": "4846",
-          "agencyId": "7",
+          "agencyId": "706",
           "from": "2026-06-11",
           "to": null
         }
@@ -1676,6 +1868,12 @@
           "agencyId": "6",
           "agencyName": "TRANSPORTES AUTOMOTORES CALLAO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "705",
+          "agencyName": "TRANSPORTES AUTOMOTORES CALLAO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1688,7 +1886,7 @@
         },
         {
           "suffix": "4757",
-          "agencyId": "6",
+          "agencyId": "705",
           "from": "2026-06-11",
           "to": null
         }
@@ -1754,6 +1952,12 @@
           "agencyId": "25",
           "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "718",
+          "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1762,11 +1966,11 @@
           "suffix": "1153",
           "agencyId": "25",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4873",
-          "agencyId": "25",
+          "agencyId": "718",
           "from": "2026-06-11",
           "to": null
         }
@@ -1814,6 +2018,12 @@
           "agencyId": "82",
           "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "743",
+          "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1826,7 +2036,7 @@
         },
         {
           "suffix": "4944",
-          "agencyId": "82",
+          "agencyId": "743",
           "from": "2026-06-11",
           "to": null
         }
@@ -1838,6 +2048,12 @@
           "agencyId": "7",
           "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "707",
+          "agencyName": "TRANSPORTES AUTOMOTORES RIACHUELO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1850,7 +2066,7 @@
         },
         {
           "suffix": "4850",
-          "agencyId": "7",
+          "agencyId": "707",
           "from": "2026-06-11",
           "to": null
         }
@@ -1862,6 +2078,12 @@
           "agencyId": "10",
           "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "712",
+          "agencyName": "TRANSPORTES LOPE DE VEGA S.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1874,7 +2096,7 @@
         },
         {
           "suffix": "4858",
-          "agencyId": "10",
+          "agencyId": "712",
           "from": "2026-06-11",
           "to": null
         }
@@ -1886,6 +2108,12 @@
           "agencyId": "77",
           "agencyName": "SARGENTO CABRAL S.A.DE TRANSPORTE",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "739",
+          "agencyName": "SARGENTO CABRAL S.A.DE TRANSPORTE",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1895,6 +2123,12 @@
           "agencyId": "77",
           "from": "2026-03-28",
           "to": "2026-05-27"
+        },
+        {
+          "suffix": "4936",
+          "agencyId": "739",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -1904,6 +2138,12 @@
           "agencyId": "82",
           "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "743",
+          "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1916,7 +2156,7 @@
         },
         {
           "suffix": "4943",
-          "agencyId": "82",
+          "agencyId": "743",
           "from": "2026-06-11",
           "to": null
         }
@@ -1928,6 +2168,12 @@
           "agencyId": "25",
           "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "718",
+          "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -1940,7 +2186,7 @@
         },
         {
           "suffix": "4874",
-          "agencyId": "25",
+          "agencyId": "718",
           "from": "2026-06-11",
           "to": null
         }
@@ -1982,12 +2228,42 @@
         }
       ]
     },
+    "148": {
+      "agencies": [
+        {
+          "agencyId": "63",
+          "agencyName": "EL NUEVO HALCON S.A.",
+          "from": "2026-06-11",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "718",
+          "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "4876",
+          "agencyId": "718",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ]
+    },
     "150": {
       "agencies": [
         {
           "agencyId": "4",
           "agencyName": "NUDO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "703",
+          "agencyName": "NUDO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2000,7 +2276,7 @@
         },
         {
           "suffix": "4845",
-          "agencyId": "4",
+          "agencyId": "703",
           "from": "2026-06-11",
           "to": null
         }
@@ -2012,6 +2288,12 @@
           "agencyId": "9",
           "agencyName": "LA NUEVA METROPOL S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "708",
+          "agencyName": "LA NUEVA METROPOL S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2024,7 +2306,7 @@
         },
         {
           "suffix": "4852",
-          "agencyId": "9",
+          "agencyId": "708",
           "from": "2026-06-11",
           "to": null
         }
@@ -2054,6 +2336,12 @@
           "agencyId": "82",
           "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "743",
+          "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2063,6 +2351,12 @@
           "agencyId": "82",
           "from": "2026-03-28",
           "to": "2026-05-29"
+        },
+        {
+          "suffix": "4942",
+          "agencyId": "743",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -2108,6 +2402,12 @@
           "agencyId": "72",
           "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "731",
+          "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2120,7 +2420,7 @@
         },
         {
           "suffix": "4914",
-          "agencyId": "72",
+          "agencyId": "731",
           "from": "2026-06-11",
           "to": null
         }
@@ -2168,6 +2468,12 @@
           "agencyId": "77",
           "agencyName": "SARGENTO CABRAL S.A.DE TRANSPORTE",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "739",
+          "agencyName": "SARGENTO CABRAL S.A.DE TRANSPORTE",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2177,6 +2483,12 @@
           "agencyId": "77",
           "from": "2026-03-28",
           "to": "2026-05-28"
+        },
+        {
+          "suffix": "4937",
+          "agencyId": "739",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -2186,6 +2498,12 @@
           "agencyId": "11",
           "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "713",
+          "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2198,7 +2516,7 @@
         },
         {
           "suffix": "4862",
-          "agencyId": "11",
+          "agencyId": "713",
           "from": "2026-06-11",
           "to": null
         }
@@ -2210,6 +2528,12 @@
           "agencyId": "54",
           "agencyName": "EMPRESA LINEA 216 S.A.T.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "721",
+          "agencyName": "EMPRESA LINEA 216 S.A.T.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2222,7 +2546,7 @@
         },
         {
           "suffix": "4879",
-          "agencyId": "54",
+          "agencyId": "721",
           "from": "2026-06-11",
           "to": null
         }
@@ -2268,8 +2592,14 @@
       "agencies": [
         {
           "agencyId": "74",
-          "agencyName": "LA CABAÃ’A S.A.",
+          "agencyName": "LA CABAÑA S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "733",
+          "agencyName": "LA CABAÑA S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2282,7 +2612,7 @@
         },
         {
           "suffix": "4921",
-          "agencyId": "74",
+          "agencyId": "733",
           "from": "2026-06-11",
           "to": null
         }
@@ -2292,8 +2622,14 @@
       "agencies": [
         {
           "agencyId": "74",
-          "agencyName": "LA CABAÃ‘A S.A.",
+          "agencyName": "LA CABAÑA S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "733",
+          "agencyName": "LA CABAÑA S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2303,6 +2639,12 @@
           "agencyId": "74",
           "from": "2026-03-28",
           "to": "2026-06-03"
+        },
+        {
+          "suffix": "4922",
+          "agencyId": "733",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -2312,6 +2654,12 @@
           "agencyId": "65",
           "agencyName": "EXPRESO GENERAL SARMIENTO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "725",
+          "agencyName": "EXPRESO GENERAL SARMIENTO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2330,7 +2678,7 @@
         },
         {
           "suffix": "4891",
-          "agencyId": "65",
+          "agencyId": "725",
           "from": "2026-06-11",
           "to": null
         }
@@ -2342,6 +2690,12 @@
           "agencyId": "68",
           "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "727",
+          "agencyName": "SAN VICENTE S.A. DE TRANSPORTES",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2351,6 +2705,12 @@
           "agencyId": "68",
           "from": "2026-03-28",
           "to": "2026-05-28"
+        },
+        {
+          "suffix": "4896",
+          "agencyId": "727",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -2358,8 +2718,14 @@
       "agencies": [
         {
           "agencyId": "75",
-          "agencyName": "COMPAÃ‘IA MICROOMNIBUS LA COLORADA SACI",
+          "agencyName": "COMPAÑIA MICROOMNIBUS LA COLORADA SACI",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "735",
+          "agencyName": "COMPAÑIA MICROOMNIBUS LA COLORADA SACI",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2390,7 +2756,7 @@
         },
         {
           "suffix": "4928",
-          "agencyId": "75",
+          "agencyId": "735",
           "from": "2026-06-11",
           "to": null
         }
@@ -2420,6 +2786,12 @@
           "agencyId": "76",
           "agencyName": "LA VECINAL DE MATANZA SACI. DE MICROOMNIBUS",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "737",
+          "agencyName": "LA VECINAL DE MATANZA SACI. DE MICROOMNIBUS",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2428,11 +2800,11 @@
           "suffix": "137",
           "agencyId": "76",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4933",
-          "agencyId": "76",
+          "agencyId": "737",
           "from": "2026-06-11",
           "to": null
         }
@@ -2462,6 +2834,12 @@
           "agencyId": "77",
           "agencyName": "SARGENTO CABRAL S.A.DE TRANSPORTE",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "739",
+          "agencyName": "SARGENTO CABRAL S.A.DE TRANSPORTE",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2477,6 +2855,12 @@
           "agencyId": "77",
           "from": "2026-03-28",
           "to": "2026-05-27"
+        },
+        {
+          "suffix": "4935",
+          "agencyId": "739",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -2486,6 +2870,12 @@
           "agencyId": "82",
           "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "743",
+          "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2498,7 +2888,7 @@
         },
         {
           "suffix": "4945",
-          "agencyId": "82",
+          "agencyId": "743",
           "from": "2026-06-11",
           "to": null
         }
@@ -2510,6 +2900,12 @@
           "agencyId": "60",
           "agencyName": "TRANSPORTE IDEAL SAN JUSTO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "723",
+          "agencyName": "TRANSPORTE IDEAL SAN JUSTO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2519,6 +2915,12 @@
           "agencyId": "60",
           "from": "2026-03-28",
           "to": "2026-05-25"
+        },
+        {
+          "suffix": "4889",
+          "agencyId": "723",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -2564,6 +2966,12 @@
           "agencyId": "9",
           "agencyName": "LA NUEVA METROPOL S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "709",
+          "agencyName": "LA NUEVA METROPOL S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2576,7 +2984,7 @@
         },
         {
           "suffix": "4854",
-          "agencyId": "9",
+          "agencyId": "709",
           "from": "2026-06-11",
           "to": null
         }
@@ -2588,6 +2996,12 @@
           "agencyId": "9",
           "agencyName": "LA NUEVA METROPOL S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "709",
+          "agencyName": "LA NUEVA METROPOL S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2600,7 +3014,7 @@
         },
         {
           "suffix": "4853",
-          "agencyId": "9",
+          "agencyId": "709",
           "from": "2026-06-11",
           "to": null
         }
@@ -2612,6 +3026,12 @@
           "agencyId": "25",
           "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "718",
+          "agencyName": "LA CENTRAL DE VICENTE LOPEZ S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2624,7 +3044,7 @@
         },
         {
           "suffix": "4875",
-          "agencyId": "25",
+          "agencyId": "718",
           "from": "2026-06-11",
           "to": null
         }
@@ -2654,6 +3074,12 @@
           "agencyId": "49",
           "agencyName": "AZUL S.A. DE TRANSPORTE AUTOMOTOR",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "720",
+          "agencyName": "AZUL S.A. DE TRANSPORTE AUTOMOTOR",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2666,7 +3092,7 @@
         },
         {
           "suffix": "4878",
-          "agencyId": "49",
+          "agencyId": "720",
           "from": "2026-06-11",
           "to": null
         }
@@ -2756,12 +3182,36 @@
         }
       ]
     },
+    "218": {
+      "agencies": [
+        {
+          "agencyId": "171",
+          "agencyName": "ALMAFUERTE EMPRESA DE TRANSPORTE S.A.C.I. E I",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "173",
+          "agencyId": "171",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
     "219": {
       "agencies": [
         {
           "agencyId": "72",
           "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "732",
+          "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2798,7 +3248,7 @@
           "agencyId": "9",
           "agencyName": "LA NUEVA METROPOL S.A.",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "agencyId": "138",
@@ -2811,9 +3261,27 @@
           "agencyName": "MICRO OMNIBUS TIGRE S.A.",
           "from": "2026-03-28",
           "to": null
+        },
+        {
+          "agencyId": "710",
+          "agencyName": "LA NUEVA METROPOL S.A.",
+          "from": "2026-06-11",
+          "to": null
+        },
+        {
+          "agencyId": "131",
+          "agencyName": "LA CENTRAL DE ESCOBAR SA",
+          "from": "2026-03-28",
+          "to": null
         }
       ],
       "suffixes": [
+        {
+          "suffix": "339",
+          "agencyId": "131",
+          "from": "2026-03-28",
+          "to": null
+        },
         {
           "suffix": "344",
           "agencyId": "146",
@@ -2864,6 +3332,12 @@
           "agencyId": "54",
           "agencyName": "EMPRESA LINEA 216 S.A.T.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "722",
+          "agencyName": "EMPRESA LINEA 216 S.A.T.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -2879,6 +3353,30 @@
           "agencyId": "54",
           "from": "2026-03-28",
           "to": "2026-05-31"
+        },
+        {
+          "suffix": "4881",
+          "agencyId": "722",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ]
+    },
+    "237": {
+      "agencies": [
+        {
+          "agencyId": "98",
+          "agencyName": "COMPAÑIA ISLEÑA S.R.L.",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "619",
+          "agencyId": "98",
+          "from": "2026-03-28",
+          "to": null
         }
       ]
     },
@@ -2904,13 +3402,13 @@
       "agencies": [
         {
           "agencyId": "102",
-          "agencyName": "COMPAÃ‘ÃA DE OMNIBUS 25 DE MAYO LINEA 278",
+          "agencyName": "COMPAÑÍA DE OMNIBUS 25 DE MAYO LINEA 278",
           "from": "2026-03-28",
           "to": null
         },
         {
           "agencyId": "127",
-          "agencyName": "EXPRESO VILLA GALICIAÂ  SAN JOSE S.A.",
+          "agencyName": "EXPRESO VILLA GALICIA SAN JOSE S.A.",
           "from": "2026-03-28",
           "to": null
         }
@@ -2925,6 +3423,42 @@
         {
           "suffix": "380",
           "agencyId": "127",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
+    "242": {
+      "agencies": [
+        {
+          "agencyId": "734",
+          "agencyName": "LA CABAÑA S.A.",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "4923",
+          "agencyId": "734",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ]
+    },
+    "244": {
+      "agencies": [
+        {
+          "agencyId": "115",
+          "agencyName": "EMPRESA DEL OESTE SAT",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "220",
+          "agencyId": "115",
           "from": "2026-03-28",
           "to": null
         }
@@ -2990,6 +3524,12 @@
           "agencyId": "82",
           "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "744",
+          "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3024,7 +3564,7 @@
       "agencies": [
         {
           "agencyId": "127",
-          "agencyName": "EXPRESO VILLA GALICIAÂ  SAN JOSE S.A.",
+          "agencyName": "EXPRESO VILLA GALICIA SAN JOSE S.A.",
           "from": "2026-03-28",
           "to": null
         }
@@ -3060,14 +3600,26 @@
       "agencies": [
         {
           "agencyId": "127",
-          "agencyName": "EXPRESO VILLA GALICIAÂ  SAN JOSE S.A.",
+          "agencyName": "EXPRESO VILLA GALICIA SAN JOSE S.A.",
           "from": "2026-03-28",
           "to": null
         }
       ],
       "suffixes": [
         {
+          "suffix": "252",
+          "agencyId": "127",
+          "from": "2026-03-28",
+          "to": null
+        },
+        {
           "suffix": "253",
+          "agencyId": "127",
+          "from": "2026-03-28",
+          "to": null
+        },
+        {
+          "suffix": "338",
           "agencyId": "127",
           "from": "2026-03-28",
           "to": null
@@ -3080,6 +3632,12 @@
           "agencyId": "54",
           "agencyName": "EMPRESA LINEA 216 S.A.T.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "722",
+          "agencyName": "EMPRESA LINEA 216 S.A.T.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3098,6 +3656,12 @@
           "agencyId": "11",
           "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "714",
+          "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3110,7 +3674,7 @@
         },
         {
           "suffix": "4865",
-          "agencyId": "11",
+          "agencyId": "714",
           "from": "2026-06-11",
           "to": null
         }
@@ -3156,7 +3720,7 @@
       "agencies": [
         {
           "agencyId": "98",
-          "agencyName": "COMPAÃ‘IA ISLEÃ‘A S.R.L.",
+          "agencyName": "COMPAÑIA ISLEÑA S.R.L.",
           "from": "2026-03-28",
           "to": null
         }
@@ -3204,7 +3768,7 @@
       "agencies": [
         {
           "agencyId": "102",
-          "agencyName": "COMPAÃ‘ÃA DE OMNIBUS 25 DE MAYO LINEA 278",
+          "agencyName": "COMPAÑÍA DE OMNIBUS 25 DE MAYO LINEA 278",
           "from": "2026-03-28",
           "to": null
         }
@@ -3222,7 +3786,7 @@
       "agencies": [
         {
           "agencyId": "102",
-          "agencyName": "COMPAÃ‘ÃA DE OMNIBUS 25 DE MAYO LINEA 278",
+          "agencyName": "COMPAÑÍA DE OMNIBUS 25 DE MAYO LINEA 278",
           "from": "2026-03-28",
           "to": null
         }
@@ -3294,7 +3858,7 @@
       "agencies": [
         {
           "agencyId": "101",
-          "agencyName": "COMPAÃ’IA NOROESTE S.A.T.",
+          "agencyName": "COMPAÑIA NOROESTE S.A.T.",
           "from": "2026-03-28",
           "to": null
         }
@@ -3323,6 +3887,12 @@
           "agencyId": "131",
           "from": "2026-03-28",
           "to": null
+        },
+        {
+          "suffix": "341",
+          "agencyId": "131",
+          "from": "2026-03-28",
+          "to": null
         }
       ]
     },
@@ -3330,13 +3900,13 @@
       "agencies": [
         {
           "agencyId": "102",
-          "agencyName": "COMPAÃ‘ÃA DE OMNIBUS 25 DE MAYO LINEA 278",
+          "agencyName": "COMPAÑÍA DE OMNIBUS 25 DE MAYO LINEA 278",
           "from": "2026-03-28",
           "to": null
         },
         {
           "agencyId": "127",
-          "agencyName": "EXPRESO VILLA GALICIAÂ  SAN JOSE S.A.",
+          "agencyName": "EXPRESO VILLA GALICIA SAN JOSE S.A.",
           "from": "2026-03-28",
           "to": null
         }
@@ -3360,7 +3930,7 @@
       "agencies": [
         {
           "agencyId": "144",
-          "agencyName": "MICRO OMNIBUS OÂ´HIGGINS S.A.T.",
+          "agencyName": "MICRO OMNIBUS O´HIGGINS S.A.T.",
           "from": "2026-03-28",
           "to": null
         }
@@ -3378,8 +3948,14 @@
       "agencies": [
         {
           "agencyId": "74",
-          "agencyName": "LA CABAÃ‘A S.A.",
+          "agencyName": "LA CABAÑA S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "734",
+          "agencyName": "LA CABAÑA S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3389,6 +3965,12 @@
           "agencyId": "74",
           "from": "2026-03-28",
           "to": "2026-06-12"
+        },
+        {
+          "suffix": "4924",
+          "agencyId": "734",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -3398,6 +3980,12 @@
           "agencyId": "11",
           "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "714",
+          "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3416,6 +4004,12 @@
           "agencyId": "72",
           "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "732",
+          "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3468,7 +4062,7 @@
       "agencies": [
         {
           "agencyId": "98",
-          "agencyName": "COMPAÃ‘IA ISLEÃ‘A S.R.L.",
+          "agencyName": "COMPAÑIA ISLEÑA S.R.L.",
           "from": "2026-03-28",
           "to": null
         }
@@ -3576,8 +4170,14 @@
       "agencies": [
         {
           "agencyId": "74",
-          "agencyName": "LA CABAÃ‘A S.A.",
+          "agencyName": "LA CABAÑA S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "734",
+          "agencyName": "LA CABAÑA S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3587,6 +4187,12 @@
           "agencyId": "74",
           "from": "2026-03-28",
           "to": "2026-06-03"
+        },
+        {
+          "suffix": "4926",
+          "agencyId": "734",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -3614,6 +4220,12 @@
           "agencyId": "82",
           "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "744",
+          "agencyName": "MICROOMNIBUS SAAVEDRA S.A.T.A.C.I.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3648,7 +4260,7 @@
       "agencies": [
         {
           "agencyId": "102",
-          "agencyName": "COMPAÃ‘ÃA DE OMNIBUS 25 DE MAYO LINEA 278",
+          "agencyName": "COMPAÑÍA DE OMNIBUS 25 DE MAYO LINEA 278",
           "from": "2026-03-28",
           "to": null
         }
@@ -3732,7 +4344,7 @@
       "agencies": [
         {
           "agencyId": "172",
-          "agencyName": "COMPAÃ‘IAÂ  DE TRANSPORTE VECINAL S.A.",
+          "agencyName": "COMPAÑIA DE TRANSPORTE VECINAL S.A.",
           "from": "2026-03-28",
           "to": null
         }
@@ -3818,6 +4430,30 @@
         }
       ]
     },
+    "343": {
+      "agencies": [
+        {
+          "agencyId": "101",
+          "agencyName": "COMPAÑIA NOROESTE S.A.T.",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "191",
+          "agencyId": "101",
+          "from": "2026-03-28",
+          "to": null
+        },
+        {
+          "suffix": "192",
+          "agencyId": "101",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
     "350": {
       "agencies": [
         {
@@ -3884,6 +4520,12 @@
           "agencyId": "9",
           "agencyName": "LA NUEVA METROPOL S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "710",
+          "agencyName": "LA NUEVA METROPOL S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3893,6 +4535,12 @@
           "agencyId": "9",
           "from": "2026-03-28",
           "to": "2026-06-22"
+        },
+        {
+          "suffix": "4855",
+          "agencyId": "710",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -3926,6 +4574,12 @@
           "agencyId": "72",
           "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "732",
+          "agencyName": "MICRO OMNIBUS QUILMES S.A.C.I. Y F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3944,6 +4598,12 @@
           "agencyId": "11",
           "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "714",
+          "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -3952,17 +4612,17 @@
           "suffix": "407",
           "agencyId": "11",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "409",
           "agencyId": "11",
           "from": "2026-03-28",
-          "to": null
+          "to": "2026-06-10"
         },
         {
           "suffix": "4866",
-          "agencyId": "11",
+          "agencyId": "714",
           "from": "2026-06-11",
           "to": null
         }
@@ -3981,6 +4641,24 @@
         {
           "suffix": "176",
           "agencyId": "171",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
+    "379": {
+      "agencies": [
+        {
+          "agencyId": "125",
+          "agencyName": "EXPRESO PARQUE EL LUCERO S.A. DE TRANSPORTES",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "248",
+          "agencyId": "125",
           "from": "2026-03-28",
           "to": null
         }
@@ -4028,6 +4706,12 @@
           "agencyId": "11",
           "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "714",
+          "agencyName": "GENERAL TOMAS GUIDO S.A.C.I.F.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4037,6 +4721,12 @@
           "agencyId": "11",
           "from": "2026-03-28",
           "to": null
+        },
+        {
+          "suffix": "4867",
+          "agencyId": "714",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -4044,7 +4734,7 @@
       "agencies": [
         {
           "agencyId": "172",
-          "agencyName": "COMPAÃ‘IAÂ  DE TRANSPORTE VECINAL S.A.",
+          "agencyName": "COMPAÑIA DE TRANSPORTE VECINAL S.A.",
           "from": "2026-03-28",
           "to": null
         }
@@ -4053,6 +4743,24 @@
         {
           "suffix": "634",
           "agencyId": "172",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
+    "390": {
+      "agencies": [
+        {
+          "agencyId": "115",
+          "agencyName": "EMPRESA DEL OESTE SAT",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "224",
+          "agencyId": "115",
           "from": "2026-03-28",
           "to": null
         }
@@ -4124,6 +4832,12 @@
           "agencyId": "54",
           "agencyName": "EMPRESA LINEA 216 S.A.T.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "722",
+          "agencyName": "EMPRESA LINEA 216 S.A.T.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4132,6 +4846,12 @@
           "suffix": "235",
           "agencyId": "54",
           "from": "2026-03-28",
+          "to": null
+        },
+        {
+          "suffix": "4883",
+          "agencyId": "722",
+          "from": "2026-06-11",
           "to": null
         }
       ]
@@ -4196,6 +4916,12 @@
           "agencyId": "70",
           "agencyName": "TRANSPORTES ATLANTIDA S.A.C.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "730",
+          "agencyName": "TRANSPORTES ATLANTIDA S.A.C.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4243,6 +4969,12 @@
           "to": null
         },
         {
+          "suffix": "359",
+          "agencyId": "161",
+          "from": "2026-03-28",
+          "to": null
+        },
+        {
           "suffix": "519",
           "agencyId": "161",
           "from": "2026-03-28",
@@ -4256,6 +4988,12 @@
           "agencyId": "70",
           "agencyName": "TRANSPORTES ATLANTIDA S.A.C.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "730",
+          "agencyName": "TRANSPORTES ATLANTIDA S.A.C.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4264,6 +5002,12 @@
           "suffix": "393",
           "agencyId": "70",
           "from": "2026-03-28",
+          "to": null
+        },
+        {
+          "suffix": "4912",
+          "agencyId": "730",
+          "from": "2026-06-11",
           "to": null
         }
       ]
@@ -4322,12 +5066,36 @@
         }
       ]
     },
+    "441": {
+      "agencies": [
+        {
+          "agencyId": "722",
+          "agencyName": "EMPRESA LINEA 216 S.A.T.",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "4884",
+          "agencyId": "722",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ]
+    },
     "443": {
       "agencies": [
         {
           "agencyId": "54",
           "agencyName": "EMPRESA LINEA 216 S.A.T.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "722",
+          "agencyName": "EMPRESA LINEA 216 S.A.T.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4358,6 +5126,42 @@
         }
       ]
     },
+    "461": {
+      "agencies": [
+        {
+          "agencyId": "115",
+          "agencyName": "EMPRESA DEL OESTE SAT",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "225",
+          "agencyId": "115",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
+    "462": {
+      "agencies": [
+        {
+          "agencyId": "115",
+          "agencyName": "EMPRESA DEL OESTE SAT",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "226",
+          "agencyId": "115",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
     "463": {
       "agencies": [
         {
@@ -4370,6 +5174,12 @@
       "suffixes": [
         {
           "suffix": "227",
+          "agencyId": "115",
+          "from": "2026-03-28",
+          "to": null
+        },
+        {
+          "suffix": "438",
           "agencyId": "115",
           "from": "2026-03-28",
           "to": null
@@ -4469,6 +5279,12 @@
           "agencyId": "110",
           "from": "2026-03-28",
           "to": null
+        },
+        {
+          "suffix": "1144",
+          "agencyId": "110",
+          "from": "2026-03-28",
+          "to": null
         }
       ]
     },
@@ -4544,6 +5360,24 @@
         }
       ]
     },
+    "526": {
+      "agencies": [
+        {
+          "agencyId": "140",
+          "agencyName": "MICRO OMNIBUS ESTE S.A",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "276",
+          "agencyId": "140",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
     "540": {
       "agencies": [
         {
@@ -4577,10 +5411,39 @@
           "to": null
         }
       ],
+      "suffixes": []
+    },
+    "543": {
+      "agencies": [
+        {
+          "agencyId": "203",
+          "agencyName": "YITOS S.A.",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
       "suffixes": [
         {
-          "suffix": "251",
+          "suffix": "270",
           "agencyId": "203",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
+    "548": {
+      "agencies": [
+        {
+          "agencyId": "322",
+          "agencyName": "AUTOBUSES BUENOS AIRES SRL",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "1264",
+          "agencyId": "322",
           "from": "2026-03-28",
           "to": null
         }
@@ -4604,11 +5467,47 @@
         }
       ]
     },
+    "550": {
+      "agencies": [
+        {
+          "agencyId": "322",
+          "agencyName": "AUTOBUSES BUENOS AIRES SRL",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "929",
+          "agencyId": "322",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
+    "552": {
+      "agencies": [
+        {
+          "agencyId": "322",
+          "agencyName": "AUTOBUSES BUENOS AIRES SRL",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "930",
+          "agencyId": "322",
+          "from": "2026-03-28",
+          "to": null
+        }
+      ]
+    },
     "564": {
       "agencies": [
         {
           "agencyId": "127",
-          "agencyName": "EXPRESO VILLA GALICIAÂ  SAN JOSE S.A.",
+          "agencyName": "EXPRESO VILLA GALICIA SAN JOSE S.A.",
           "from": "2026-03-28",
           "to": null
         }
@@ -4644,12 +5543,18 @@
       "agencies": [
         {
           "agencyId": "102",
-          "agencyName": "COMPAÃ‘ÃA DE OMNIBUS 25 DE MAYO LINEA 278",
+          "agencyName": "COMPAÑÍA DE OMNIBUS 25 DE MAYO LINEA 278",
           "from": "2026-03-28",
           "to": null
         }
       ],
       "suffixes": [
+        {
+          "suffix": "194",
+          "agencyId": "102",
+          "from": "2026-03-28",
+          "to": null
+        },
         {
           "suffix": "630",
           "agencyId": "102",
@@ -4682,6 +5587,12 @@
           "agencyId": "60",
           "agencyName": "TRANSPORTE IDEAL SAN JUSTO S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "724",
+          "agencyName": "TRANSPORTE IDEAL SAN JUSTO S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4691,6 +5602,12 @@
           "agencyId": "60",
           "from": "2026-03-28",
           "to": "2026-05-26"
+        },
+        {
+          "suffix": "4890",
+          "agencyId": "724",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -4716,8 +5633,14 @@
       "agencies": [
         {
           "agencyId": "74",
-          "agencyName": "LA CABAÃ‘A S.A.",
+          "agencyName": "LA CABAÑA S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "734",
+          "agencyName": "LA CABAÑA S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4727,6 +5650,12 @@
           "agencyId": "74",
           "from": "2026-03-28",
           "to": "2026-05-27"
+        },
+        {
+          "suffix": "4925",
+          "agencyId": "734",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -4748,12 +5677,54 @@
         }
       ]
     },
+    "630": {
+      "agencies": [
+        {
+          "agencyId": "738",
+          "agencyName": "LA VECINAL DE MATANZA SACI. DE MICROOMNIBUS",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "4934",
+          "agencyId": "738",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ]
+    },
+    "634": {
+      "agencies": [
+        {
+          "agencyId": "722",
+          "agencyName": "EMPRESA LINEA 216 S.A.T.",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "4880",
+          "agencyId": "722",
+          "from": "2026-06-11",
+          "to": null
+        }
+      ]
+    },
     "635": {
       "agencies": [
         {
           "agencyId": "74",
-          "agencyName": "LA CABAÃ‘A S.A.",
+          "agencyName": "LA CABAÑA S.A.",
           "from": "2026-03-28",
+          "to": "2026-06-10"
+        },
+        {
+          "agencyId": "734",
+          "agencyName": "LA CABAÑA S.A.",
+          "from": "2026-06-11",
           "to": null
         }
       ],
@@ -4763,6 +5734,12 @@
           "agencyId": "74",
           "from": "2026-03-28",
           "to": "2026-05-27"
+        },
+        {
+          "suffix": "4927",
+          "agencyId": "734",
+          "from": "2026-06-11",
+          "to": null
         }
       ]
     },
@@ -4770,7 +5747,7 @@
       "agencies": [
         {
           "agencyId": "98",
-          "agencyName": "COMPAÃ‘IA ISLEÃ‘A S.R.L.",
+          "agencyName": "COMPAÑIA ISLEÑA S.R.L.",
           "from": "2026-03-28",
           "to": null
         }
@@ -4814,6 +5791,12 @@
       "suffixes": [
         {
           "suffix": "294",
+          "agencyId": "146",
+          "from": "2026-03-28",
+          "to": null
+        },
+        {
+          "suffix": "342",
           "agencyId": "146",
           "from": "2026-03-28",
           "to": null
