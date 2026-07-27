@@ -40,6 +40,21 @@ logger = logging.getLogger(__name__)
 
 _CARRY_WINDOW_S = 900  # 15 min de observaciones carry-forward entre días
 
+# Días con cobertura incompleta por caídas del grabador. No son días de baja
+# actividad: son días donde faltan horas enteras, así que los headways y los
+# trips quedan truncados y contaminan el training. El filtro de "hoy" de más
+# abajo sólo cubre el día en curso; estos son huecos históricos y hay que
+# listarlos a mano. Agregar acá cada corte nuevo.
+#
+#   2026-07-25  grabador muere 08:32 (corte de luz; DNS roto en el container)
+#   2026-07-26  sin archivo — el container corría pero ningún fetch resolvía
+#   2026-07-27  recuperado recién 17:01, sólo las últimas horas del día
+EXCLUDED_DAYS = frozenset({
+    "2026-07-25",
+    "2026-07-26",
+    "2026-07-27",
+})
+
 
 def _make_eta_schema():
     """Schema Arrow con tipos correctos: FixedSizeList en lugar de List<double>."""
@@ -467,6 +482,13 @@ def run_build_dataset(
     daily_files = [f for f in all_daily_files if f.name != today_name]
     if len(all_daily_files) != len(daily_files):
         print(f"      Excluido {today_name} (día parcial)")
+
+    # Filtrar días con cobertura incompleta por caídas del grabador
+    skipped = [f for f in daily_files if f.name[:10] in EXCLUDED_DAYS]
+    if skipped:
+        daily_files = [f for f in daily_files if f.name[:10] not in EXCLUDED_DAYS]
+        print(f"      Excluidos {len(skipped)} días parciales: "
+              f"{', '.join(f.name[:10] for f in skipped)}")
     if max_days is not None:
         daily_files = daily_files[:max_days]
         print(f"      Limitado a {max_days} días (--max-days)")

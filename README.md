@@ -164,11 +164,42 @@ data/                      # Ignorado por git
     models/                # Modelos entrenados
 ```
 
+## Días parciales / caídas del grabador
+
+El dataset asume que cada `YYYY-MM-DD.ndjson.gz` cubre el día completo. Un día
+con horas faltantes no es un día de baja actividad: los trips quedan cortados a
+la mitad y los headways salen inflados, así que hay que sacarlo del training.
+
+Hay dos filtros, y cubren cosas distintas:
+
+- **El día en curso** se excluye solo, por nombre de archivo, en `build_dataset.py`.
+  Es automático porque el archivo de hoy siempre está a medio escribir.
+- **Los huecos históricos** van a mano en `EXCLUDED_DAYS`, arriba de todo en
+  `prediccion/pipeline/build_dataset.py`. No hay detección automática: cuando el
+  grabador se cae, el archivo truncado se ve igual que uno normal.
+
+Después de cualquier caída del grabador, agregá los días afectados a
+`EXCLUDED_DAYS` con un comentario de qué pasó, y borrá el caché de esos días
+para que se regenere sin ellos:
+
+```powershell
+Remove-Item -Recurse data\ml\training\days, data\ml\trips\days
+```
+
+`python3 stats.py` en el NUC marca días parciales sólo para el promedio de MB/día
+— ese cálculo es independiente y no afecta al training.
+
 ## Monitoreo del grabador
 
 ```bash
 ssh laek@192.168.0.18
-cd ~/prediccion-colectivos
+cd ~/grabador-posiciones
 docker compose logs --tail 20 grabador
 python3 stats.py
 ```
+
+El grabador sale con código 1 tras 20 fetches consecutivos fallidos (~10 min)
+para que `restart: always` recree el container. Esto existe porque `restart: always`
+**no** reacciona al HEALTHCHECK: un container `unhealthy` se queda vivo para
+siempre. Sin esa salida, un DNS roto adentro del container pasa desapercibido
+(el 25-27/07/2026 costó 53h de datos).
