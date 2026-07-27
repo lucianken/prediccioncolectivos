@@ -48,6 +48,7 @@ GAP_THRESHOLD = 600         # segundos: gap > 10 min → forzar keyframe
 DISK_MIN_GB = 2.0           # parar escritura si hay menos de esto en /data
 DISK_CHECK_EVERY = 100      # ciclos entre chequeos de disco
 MAX_CONSEC_ERRORS = 10      # a partir de aquí loguear CRITICAL
+FATAL_CONSEC_ERRORS = 20    # a partir de aquí salir(1) para que Docker reinicie el container
 
 # Bounding box CABA + GBA (lat sur, lat norte, lon oeste, lon este)
 LAT_MIN, LAT_MAX = -35.1, -34.3
@@ -218,6 +219,18 @@ def run(max_cycles: int | None = None) -> None:
             consecutive_errors += 1
             level = logging.CRITICAL if consecutive_errors >= MAX_CONSEC_ERRORS else logging.WARNING
             log.log(level, f"Error fetch (consec={consecutive_errors}): {e}")
+            if consecutive_errors >= FATAL_CONSEC_ERRORS:
+                # Un fallo persistente suele ser del entorno del container (DNS roto
+                # tras un corte de luz, red caída). Salir deja que `restart: always`
+                # recree el container y regenere su /etc/resolv.conf. Al reiniciar
+                # se detecta el gap y se fuerza un keyframe, así que no se corrompe
+                # el delta.
+                log.critical(
+                    f"{consecutive_errors} errores consecutivos de fetch "
+                    f"(~{consecutive_errors * CYCLE_INTERVAL // 60} min). "
+                    f"Saliendo para forzar reinicio del container."
+                )
+                sys.exit(1)
             _sleep_remainder(t0)
             if max_cycles is not None and cycle_count >= max_cycles:
                 break
