@@ -1,0 +1,1423 @@
+{
+  "cobertura": {
+    "dias": [
+      "2026-07-18",
+      "2026-07-21",
+      "2026-07-22",
+      "2026-07-23"
+    ],
+    "lineas": [
+      "39",
+      "42"
+    ],
+    "vehiculos": 146,
+    "viajes": 7384,
+    "intervalos": 244002,
+    "horas_bondi": 4238.3,
+    "km_recorridos": 60240.3
+  },
+  "odometro_qc": {
+    "vehiculos_evaluados": 141,
+    "pct_unidades_sanas": 86.5,
+    "ratio_mediana_unidades_sanas": 1.0025
+  },
+  "comparacion_distancias": {
+    "haversine": {
+      "n_intervalos": 238375,
+      "km_metodo": 56591.8,
+      "km_shape_mismos_intervalos": 60240.3,
+      "sesgo_agregado_pct": -6.06,
+      "ratio_p10": 0.77,
+      "ratio_mediana": 0.998,
+      "ratio_p90": 1.0
+    },
+    "odometro_crudo": {
+      "n_intervalos": 238115,
+      "km_metodo": 58879.9,
+      "km_shape_mismos_intervalos": 60142.2,
+      "sesgo_agregado_pct": -2.1,
+      "ratio_p10": 0.84,
+      "ratio_mediana": 1.002,
+      "ratio_p90": 1.116
+    },
+    "odometro_qc": {
+      "n_intervalos": 203105,
+      "km_metodo": 51123.3,
+      "km_shape_mismos_intervalos": 51242.8,
+      "sesgo_agregado_pct": -0.23,
+      "ratio_p10": 0.899,
+      "ratio_mediana": 1.003,
+      "ratio_p90": 1.104
+    }
+  },
+  "factor_calibracion_spot_no_aplicado": 1.1098,
+  "velocidad_comercial_shape": [
+    {
+      "line": "39",
+      "is_weekday": false,
+      "km": 8204.74,
+      "horas": 531.06,
+      "v_comercial_kmh": 15.45,
+      "pct_muestras_frenado": 37.75,
+      "v_sin_frenadas_kmh": 16.35,
+      "n_intervalos": 30815.0
+    },
+    {
+      "line": "39",
+      "is_weekday": true,
+      "km": 32387.75,
+      "horas": 2331.63,
+      "v_comercial_kmh": 13.89,
+      "pct_muestras_frenado": 39.7,
+      "v_sin_frenadas_kmh": 14.93,
+      "n_intervalos": 133994.0
+    },
+    {
+      "line": "42",
+      "is_weekday": false,
+      "km": 4029.44,
+      "horas": 234.06,
+      "v_comercial_kmh": 17.22,
+      "pct_muestras_frenado": 37.64,
+      "v_sin_frenadas_kmh": 19.35,
+      "n_intervalos": 13571.0
+    },
+    {
+      "line": "42",
+      "is_weekday": true,
+      "km": 15618.4,
+      "horas": 1043.65,
+      "v_comercial_kmh": 14.97,
+      "pct_muestras_frenado": 40.08,
+      "v_sin_frenadas_kmh": 17.44,
+      "n_intervalos": 59995.0
+    }
+  ],
+  "velocidad_comercial_haversine": [
+    {
+      "line": "39",
+      "is_weekday": false,
+      "km": 7791.73,
+      "horas": 535.98,
+      "v_comercial_kmh": 14.54,
+      "pct_muestras_frenado": 37.7,
+      "v_sin_frenadas_kmh": 15.3,
+      "n_intervalos": 31099.0
+    },
+    {
+      "line": "39",
+      "is_weekday": true,
+      "km": 30930.3,
+      "horas": 2349.61,
+      "v_comercial_kmh": 13.16,
+      "pct_muestras_frenado": 39.65,
+      "v_sin_frenadas_kmh": 14.06,
+      "n_intervalos": 135028.0
+    },
+    {
+      "line": "42",
+      "is_weekday": false,
+      "km": 3966.87,
+      "horas": 242.48,
+      "v_comercial_kmh": 16.36,
+      "pct_muestras_frenado": 36.64,
+      "v_sin_frenadas_kmh": 18.26,
+      "n_intervalos": 14056.0
+    },
+    {
+      "line": "42",
+      "is_weekday": true,
+      "km": 16046.15,
+      "horas": 1110.19,
+      "v_comercial_kmh": 14.45,
+      "pct_muestras_frenado": 38.88,
+      "v_sin_frenadas_kmh": 16.68,
+      "n_intervalos": 63819.0
+    }
+  ],
+  "excedencia": [
+    {
+      "v_kmh": 0,
+      "pct_tiempo_spot": 60.572,
+      "pct_dist_spot": 100.0,
+      "pct_tiempo_medio": 99.137,
+      "pct_dist_medio": 100.0
+    },
+    {
+      "v_kmh": 2,
+      "pct_tiempo_spot": 58.82,
+      "pct_dist_spot": 99.865,
+      "pct_tiempo_medio": 93.178,
+      "pct_dist_medio": 99.692
+    },
+    {
+      "v_kmh": 4,
+      "pct_tiempo_spot": 53.204,
+      "pct_dist_spot": 98.653,
+      "pct_tiempo_medio": 88.147,
+      "pct_dist_medio": 98.642
+    },
+    {
+      "v_kmh": 6,
+      "pct_tiempo_spot": 51.968,
+      "pct_dist_spot": 98.181,
+      "pct_tiempo_medio": 81.975,
+      "pct_dist_medio": 96.504
+    },
+    {
+      "v_kmh": 8,
+      "pct_tiempo_spot": 49.317,
+      "pct_dist_spot": 96.78,
+      "pct_tiempo_medio": 74.728,
+      "pct_dist_medio": 93.002
+    },
+    {
+      "v_kmh": 10,
+      "pct_tiempo_spot": 46.59,
+      "pct_dist_spot": 94.908,
+      "pct_tiempo_medio": 66.732,
+      "pct_dist_medio": 88.055
+    },
+    {
+      "v_kmh": 12,
+      "pct_tiempo_spot": 43.716,
+      "pct_dist_spot": 92.494,
+      "pct_tiempo_medio": 58.035,
+      "pct_dist_medio": 81.471
+    },
+    {
+      "v_kmh": 14,
+      "pct_tiempo_spot": 40.998,
+      "pct_dist_spot": 89.799,
+      "pct_tiempo_medio": 48.711,
+      "pct_dist_medio": 73.146
+    },
+    {
+      "v_kmh": 16,
+      "pct_tiempo_spot": 37.866,
+      "pct_dist_spot": 86.235,
+      "pct_tiempo_medio": 39.688,
+      "pct_dist_medio": 63.847
+    },
+    {
+      "v_kmh": 18,
+      "pct_tiempo_spot": 33.341,
+      "pct_dist_spot": 80.156,
+      "pct_tiempo_medio": 31.678,
+      "pct_dist_medio": 54.5
+    },
+    {
+      "v_kmh": 20,
+      "pct_tiempo_spot": 31.686,
+      "pct_dist_spot": 77.756,
+      "pct_tiempo_medio": 24.852,
+      "pct_dist_medio": 45.594
+    },
+    {
+      "v_kmh": 22,
+      "pct_tiempo_spot": 27.239,
+      "pct_dist_spot": 70.402,
+      "pct_tiempo_medio": 18.978,
+      "pct_dist_medio": 37.127
+    },
+    {
+      "v_kmh": 24,
+      "pct_tiempo_spot": 25.826,
+      "pct_dist_spot": 67.922,
+      "pct_tiempo_medio": 14.054,
+      "pct_dist_medio": 29.354
+    },
+    {
+      "v_kmh": 26,
+      "pct_tiempo_spot": 22.786,
+      "pct_dist_spot": 62.024,
+      "pct_tiempo_medio": 10.311,
+      "pct_dist_medio": 22.932
+    },
+    {
+      "v_kmh": 28,
+      "pct_tiempo_spot": 19.756,
+      "pct_dist_spot": 55.782,
+      "pct_tiempo_medio": 7.496,
+      "pct_dist_medio": 17.717
+    },
+    {
+      "v_kmh": 30,
+      "pct_tiempo_spot": 15.521,
+      "pct_dist_spot": 46.418,
+      "pct_tiempo_medio": 5.462,
+      "pct_dist_medio": 13.67
+    },
+    {
+      "v_kmh": 32,
+      "pct_tiempo_spot": 15.521,
+      "pct_dist_spot": 46.418,
+      "pct_tiempo_medio": 3.952,
+      "pct_dist_medio": 10.459
+    },
+    {
+      "v_kmh": 34,
+      "pct_tiempo_spot": 11.578,
+      "pct_dist_spot": 36.521,
+      "pct_tiempo_medio": 2.815,
+      "pct_dist_medio": 7.884
+    },
+    {
+      "v_kmh": 36,
+      "pct_tiempo_spot": 8.101,
+      "pct_dist_spot": 27.073,
+      "pct_tiempo_medio": 1.98,
+      "pct_dist_medio": 5.878
+    },
+    {
+      "v_kmh": 38,
+      "pct_tiempo_spot": 7.22,
+      "pct_dist_spot": 24.585,
+      "pct_tiempo_medio": 1.394,
+      "pct_dist_medio": 4.392
+    },
+    {
+      "v_kmh": 40,
+      "pct_tiempo_spot": 5.55,
+      "pct_dist_spot": 19.678,
+      "pct_tiempo_medio": 1.011,
+      "pct_dist_medio": 3.366
+    },
+    {
+      "v_kmh": 42,
+      "pct_tiempo_spot": 4.885,
+      "pct_dist_spot": 17.599,
+      "pct_tiempo_medio": 0.74,
+      "pct_dist_medio": 2.604
+    },
+    {
+      "v_kmh": 44,
+      "pct_tiempo_spot": 3.155,
+      "pct_dist_spot": 11.943,
+      "pct_tiempo_medio": 0.564,
+      "pct_dist_medio": 2.083
+    },
+    {
+      "v_kmh": 46,
+      "pct_tiempo_spot": 2.279,
+      "pct_dist_spot": 8.938,
+      "pct_tiempo_medio": 0.432,
+      "pct_dist_medio": 1.677
+    },
+    {
+      "v_kmh": 48,
+      "pct_tiempo_spot": 1.407,
+      "pct_dist_spot": 5.819,
+      "pct_tiempo_medio": 0.334,
+      "pct_dist_medio": 1.362
+    },
+    {
+      "v_kmh": 50,
+      "pct_tiempo_spot": 1.407,
+      "pct_dist_spot": 5.819,
+      "pct_tiempo_medio": 0.268,
+      "pct_dist_medio": 1.14
+    },
+    {
+      "v_kmh": 52,
+      "pct_tiempo_spot": 0.846,
+      "pct_dist_spot": 3.642,
+      "pct_tiempo_medio": 0.23,
+      "pct_dist_medio": 1.004
+    },
+    {
+      "v_kmh": 54,
+      "pct_tiempo_spot": 0.51,
+      "pct_dist_spot": 2.267,
+      "pct_tiempo_medio": 0.183,
+      "pct_dist_medio": 0.835
+    },
+    {
+      "v_kmh": 56,
+      "pct_tiempo_spot": 0.435,
+      "pct_dist_spot": 1.952,
+      "pct_tiempo_medio": 0.148,
+      "pct_dist_medio": 0.703
+    },
+    {
+      "v_kmh": 58,
+      "pct_tiempo_spot": 0.278,
+      "pct_dist_spot": 1.275,
+      "pct_tiempo_medio": 0.112,
+      "pct_dist_medio": 0.562
+    },
+    {
+      "v_kmh": 60,
+      "pct_tiempo_spot": 0.097,
+      "pct_dist_spot": 0.461,
+      "pct_tiempo_medio": 0.094,
+      "pct_dist_medio": 0.487
+    },
+    {
+      "v_kmh": 62,
+      "pct_tiempo_spot": 0.026,
+      "pct_dist_spot": 0.13,
+      "pct_tiempo_medio": 0.083,
+      "pct_dist_medio": 0.443
+    },
+    {
+      "v_kmh": 64,
+      "pct_tiempo_spot": 0.02,
+      "pct_dist_spot": 0.103,
+      "pct_tiempo_medio": 0.077,
+      "pct_dist_medio": 0.417
+    },
+    {
+      "v_kmh": 66,
+      "pct_tiempo_spot": 0.007,
+      "pct_dist_spot": 0.04,
+      "pct_tiempo_medio": 0.071,
+      "pct_dist_medio": 0.39
+    },
+    {
+      "v_kmh": 68,
+      "pct_tiempo_spot": 0.007,
+      "pct_dist_spot": 0.04,
+      "pct_tiempo_medio": 0.063,
+      "pct_dist_medio": 0.355
+    },
+    {
+      "v_kmh": 70,
+      "pct_tiempo_spot": 0.004,
+      "pct_dist_spot": 0.023,
+      "pct_tiempo_medio": 0.055,
+      "pct_dist_medio": 0.313
+    },
+    {
+      "v_kmh": 72,
+      "pct_tiempo_spot": 0.003,
+      "pct_dist_spot": 0.019,
+      "pct_tiempo_medio": 0.052,
+      "pct_dist_medio": 0.301
+    },
+    {
+      "v_kmh": 74,
+      "pct_tiempo_spot": 0.002,
+      "pct_dist_spot": 0.014,
+      "pct_tiempo_medio": 0.05,
+      "pct_dist_medio": 0.291
+    },
+    {
+      "v_kmh": 76,
+      "pct_tiempo_spot": 0.002,
+      "pct_dist_spot": 0.014,
+      "pct_tiempo_medio": 0.046,
+      "pct_dist_medio": 0.271
+    },
+    {
+      "v_kmh": 78,
+      "pct_tiempo_spot": 0.002,
+      "pct_dist_spot": 0.012,
+      "pct_tiempo_medio": 0.044,
+      "pct_dist_medio": 0.258
+    },
+    {
+      "v_kmh": 80,
+      "pct_tiempo_spot": 0.001,
+      "pct_dist_spot": 0.006,
+      "pct_tiempo_medio": 0.041,
+      "pct_dist_medio": 0.242
+    }
+  ],
+  "contrafactico_global": [
+    {
+      "cap_kmh": 50,
+      "pct_tiempo_sobre_cap_spot": 1.41,
+      "pct_tiempo_sobre_cap_medio": 0.27,
+      "sobrecosto_bajo_pct": 0.06,
+      "sobrecosto_alto_pct": 0.12
+    },
+    {
+      "cap_kmh": 40,
+      "pct_tiempo_sobre_cap_spot": 5.55,
+      "pct_tiempo_sobre_cap_medio": 1.01,
+      "sobrecosto_bajo_pct": 0.21,
+      "sobrecosto_alto_pct": 0.9
+    },
+    {
+      "cap_kmh": 30,
+      "pct_tiempo_sobre_cap_spot": 15.52,
+      "pct_tiempo_sobre_cap_medio": 5.46,
+      "sobrecosto_bajo_pct": 1.17,
+      "sobrecosto_alto_pct": 4.76
+    },
+    {
+      "cap_kmh": 25,
+      "pct_tiempo_sobre_cap_spot": 24.16,
+      "pct_tiempo_sobre_cap_medio": 12.09,
+      "sobrecosto_bajo_pct": 3.07,
+      "sobrecosto_alto_pct": 9.79
+    },
+    {
+      "cap_kmh": 20,
+      "pct_tiempo_sobre_cap_spot": 31.69,
+      "pct_tiempo_sobre_cap_medio": 24.85,
+      "sobrecosto_bajo_pct": 8.32,
+      "sobrecosto_alto_pct": 19.28
+    }
+  ],
+  "contrafactico_sensibilidad_spot_calibrado": [
+    {
+      "cap_kmh": 50,
+      "pct_tiempo_sobre_cap_spot": 2.28,
+      "pct_tiempo_sobre_cap_medio": 0.27,
+      "sobrecosto_bajo_pct": 0.06,
+      "sobrecosto_alto_pct": 0.32
+    },
+    {
+      "cap_kmh": 40,
+      "pct_tiempo_sobre_cap_spot": 8.1,
+      "pct_tiempo_sobre_cap_medio": 1.01,
+      "sobrecosto_bajo_pct": 0.21,
+      "sobrecosto_alto_pct": 1.75
+    },
+    {
+      "cap_kmh": 30,
+      "pct_tiempo_sobre_cap_spot": 19.76,
+      "pct_tiempo_sobre_cap_medio": 5.46,
+      "sobrecosto_bajo_pct": 1.17,
+      "sobrecosto_alto_pct": 7.3
+    },
+    {
+      "cap_kmh": 25,
+      "pct_tiempo_sobre_cap_spot": 27.24,
+      "pct_tiempo_sobre_cap_medio": 12.09,
+      "sobrecosto_bajo_pct": 3.07,
+      "sobrecosto_alto_pct": 13.73
+    },
+    {
+      "cap_kmh": 20,
+      "pct_tiempo_sobre_cap_spot": 33.34,
+      "pct_tiempo_sobre_cap_medio": 24.85,
+      "sobrecosto_bajo_pct": 8.32,
+      "sobrecosto_alto_pct": 24.97
+    }
+  ],
+  "excedencia_por_linea": {
+    "39": [
+      {
+        "v_kmh": 0,
+        "pct_tiempo_spot": 60.666,
+        "pct_dist_spot": 100.0,
+        "pct_tiempo_medio": 99.198,
+        "pct_dist_medio": 100.0
+      },
+      {
+        "v_kmh": 2,
+        "pct_tiempo_spot": 58.831,
+        "pct_dist_spot": 99.855,
+        "pct_tiempo_medio": 94.13,
+        "pct_dist_medio": 99.718
+      },
+      {
+        "v_kmh": 4,
+        "pct_tiempo_spot": 53.264,
+        "pct_dist_spot": 98.633,
+        "pct_tiempo_medio": 89.286,
+        "pct_dist_medio": 98.675
+      },
+      {
+        "v_kmh": 6,
+        "pct_tiempo_spot": 52.005,
+        "pct_dist_spot": 98.14,
+        "pct_tiempo_medio": 83.054,
+        "pct_dist_medio": 96.458
+      },
+      {
+        "v_kmh": 8,
+        "pct_tiempo_spot": 49.3,
+        "pct_dist_spot": 96.672,
+        "pct_tiempo_medio": 75.568,
+        "pct_dist_medio": 92.745
+      },
+      {
+        "v_kmh": 10,
+        "pct_tiempo_spot": 46.534,
+        "pct_dist_spot": 94.724,
+        "pct_tiempo_medio": 67.212,
+        "pct_dist_medio": 87.438
+      },
+      {
+        "v_kmh": 12,
+        "pct_tiempo_spot": 43.552,
+        "pct_dist_spot": 92.153,
+        "pct_tiempo_medio": 57.993,
+        "pct_dist_medio": 80.273
+      },
+      {
+        "v_kmh": 14,
+        "pct_tiempo_spot": 40.727,
+        "pct_dist_spot": 89.281,
+        "pct_tiempo_medio": 47.978,
+        "pct_dist_medio": 71.1
+      },
+      {
+        "v_kmh": 16,
+        "pct_tiempo_spot": 37.431,
+        "pct_dist_spot": 85.431,
+        "pct_tiempo_medio": 38.266,
+        "pct_dist_medio": 60.831
+      },
+      {
+        "v_kmh": 18,
+        "pct_tiempo_spot": 32.698,
+        "pct_dist_spot": 78.91,
+        "pct_tiempo_medio": 29.713,
+        "pct_dist_medio": 50.592
+      },
+      {
+        "v_kmh": 20,
+        "pct_tiempo_spot": 30.945,
+        "pct_dist_spot": 76.303,
+        "pct_tiempo_medio": 22.531,
+        "pct_dist_medio": 40.978
+      },
+      {
+        "v_kmh": 22,
+        "pct_tiempo_spot": 26.333,
+        "pct_dist_spot": 68.48,
+        "pct_tiempo_medio": 16.495,
+        "pct_dist_medio": 32.056
+      },
+      {
+        "v_kmh": 24,
+        "pct_tiempo_spot": 24.884,
+        "pct_dist_spot": 65.872,
+        "pct_tiempo_medio": 11.687,
+        "pct_dist_medio": 24.271
+      },
+      {
+        "v_kmh": 26,
+        "pct_tiempo_spot": 21.775,
+        "pct_dist_spot": 59.683,
+        "pct_tiempo_medio": 8.294,
+        "pct_dist_medio": 18.298
+      },
+      {
+        "v_kmh": 28,
+        "pct_tiempo_spot": 18.733,
+        "pct_dist_spot": 53.256,
+        "pct_tiempo_medio": 5.823,
+        "pct_dist_medio": 13.605
+      },
+      {
+        "v_kmh": 30,
+        "pct_tiempo_spot": 14.491,
+        "pct_dist_spot": 43.637,
+        "pct_tiempo_medio": 4.045,
+        "pct_dist_medio": 9.975
+      },
+      {
+        "v_kmh": 32,
+        "pct_tiempo_spot": 14.491,
+        "pct_dist_spot": 43.637,
+        "pct_tiempo_medio": 2.798,
+        "pct_dist_medio": 7.254
+      },
+      {
+        "v_kmh": 34,
+        "pct_tiempo_spot": 10.58,
+        "pct_dist_spot": 33.568,
+        "pct_tiempo_medio": 1.909,
+        "pct_dist_medio": 5.188
+      },
+      {
+        "v_kmh": 36,
+        "pct_tiempo_spot": 7.161,
+        "pct_dist_spot": 24.039,
+        "pct_tiempo_medio": 1.245,
+        "pct_dist_medio": 3.551
+      },
+      {
+        "v_kmh": 38,
+        "pct_tiempo_spot": 6.312,
+        "pct_dist_spot": 21.581,
+        "pct_tiempo_medio": 0.779,
+        "pct_dist_medio": 2.338
+      },
+      {
+        "v_kmh": 40,
+        "pct_tiempo_spot": 4.674,
+        "pct_dist_spot": 16.645,
+        "pct_tiempo_medio": 0.482,
+        "pct_dist_medio": 1.523
+      },
+      {
+        "v_kmh": 42,
+        "pct_tiempo_spot": 4.057,
+        "pct_dist_spot": 14.666,
+        "pct_tiempo_medio": 0.298,
+        "pct_dist_medio": 0.993
+      },
+      {
+        "v_kmh": 44,
+        "pct_tiempo_spot": 2.444,
+        "pct_dist_spot": 9.256,
+        "pct_tiempo_medio": 0.186,
+        "pct_dist_medio": 0.653
+      },
+      {
+        "v_kmh": 46,
+        "pct_tiempo_spot": 1.63,
+        "pct_dist_spot": 6.391,
+        "pct_tiempo_medio": 0.115,
+        "pct_dist_medio": 0.43
+      },
+      {
+        "v_kmh": 48,
+        "pct_tiempo_spot": 0.882,
+        "pct_dist_spot": 3.645,
+        "pct_tiempo_medio": 0.077,
+        "pct_dist_medio": 0.305
+      },
+      {
+        "v_kmh": 50,
+        "pct_tiempo_spot": 0.882,
+        "pct_dist_spot": 3.645,
+        "pct_tiempo_medio": 0.056,
+        "pct_dist_medio": 0.23
+      },
+      {
+        "v_kmh": 52,
+        "pct_tiempo_spot": 0.417,
+        "pct_dist_spot": 1.797,
+        "pct_tiempo_medio": 0.041,
+        "pct_dist_medio": 0.176
+      },
+      {
+        "v_kmh": 54,
+        "pct_tiempo_spot": 0.182,
+        "pct_dist_spot": 0.811,
+        "pct_tiempo_medio": 0.029,
+        "pct_dist_medio": 0.135
+      },
+      {
+        "v_kmh": 56,
+        "pct_tiempo_spot": 0.129,
+        "pct_dist_spot": 0.582,
+        "pct_tiempo_medio": 0.02,
+        "pct_dist_medio": 0.097
+      },
+      {
+        "v_kmh": 58,
+        "pct_tiempo_spot": 0.046,
+        "pct_dist_spot": 0.216,
+        "pct_tiempo_medio": 0.016,
+        "pct_dist_medio": 0.081
+      },
+      {
+        "v_kmh": 60,
+        "pct_tiempo_spot": 0.014,
+        "pct_dist_spot": 0.07,
+        "pct_tiempo_medio": 0.014,
+        "pct_dist_medio": 0.074
+      },
+      {
+        "v_kmh": 62,
+        "pct_tiempo_spot": 0.003,
+        "pct_dist_spot": 0.017,
+        "pct_tiempo_medio": 0.014,
+        "pct_dist_medio": 0.074
+      },
+      {
+        "v_kmh": 64,
+        "pct_tiempo_spot": 0.002,
+        "pct_dist_spot": 0.009,
+        "pct_tiempo_medio": 0.013,
+        "pct_dist_medio": 0.069
+      },
+      {
+        "v_kmh": 66,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.012,
+        "pct_dist_medio": 0.066
+      },
+      {
+        "v_kmh": 68,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.011,
+        "pct_dist_medio": 0.058
+      },
+      {
+        "v_kmh": 70,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.008,
+        "pct_dist_medio": 0.046
+      },
+      {
+        "v_kmh": 72,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.008,
+        "pct_dist_medio": 0.043
+      },
+      {
+        "v_kmh": 74,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.006,
+        "pct_dist_medio": 0.037
+      },
+      {
+        "v_kmh": 76,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.003,
+        "pct_dist_medio": 0.022
+      },
+      {
+        "v_kmh": 78,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.003,
+        "pct_dist_medio": 0.022
+      },
+      {
+        "v_kmh": 80,
+        "pct_tiempo_spot": 0.0,
+        "pct_dist_spot": 0.0,
+        "pct_tiempo_medio": 0.003,
+        "pct_dist_medio": 0.019
+      }
+    ],
+    "42": [
+      {
+        "v_kmh": 0,
+        "pct_tiempo_spot": 60.363,
+        "pct_dist_spot": 100.0,
+        "pct_tiempo_medio": 99.0,
+        "pct_dist_medio": 100.0
+      },
+      {
+        "v_kmh": 2,
+        "pct_tiempo_spot": 58.796,
+        "pct_dist_spot": 99.886,
+        "pct_tiempo_medio": 91.046,
+        "pct_dist_medio": 99.638
+      },
+      {
+        "v_kmh": 4,
+        "pct_tiempo_spot": 53.07,
+        "pct_dist_spot": 98.694,
+        "pct_tiempo_medio": 85.593,
+        "pct_dist_medio": 98.574
+      },
+      {
+        "v_kmh": 6,
+        "pct_tiempo_spot": 51.885,
+        "pct_dist_spot": 98.266,
+        "pct_tiempo_medio": 79.557,
+        "pct_dist_medio": 96.599
+      },
+      {
+        "v_kmh": 8,
+        "pct_tiempo_spot": 49.354,
+        "pct_dist_spot": 97.006,
+        "pct_tiempo_medio": 72.845,
+        "pct_dist_medio": 93.532
+      },
+      {
+        "v_kmh": 10,
+        "pct_tiempo_spot": 46.713,
+        "pct_dist_spot": 95.289,
+        "pct_tiempo_medio": 65.656,
+        "pct_dist_medio": 89.33
+      },
+      {
+        "v_kmh": 12,
+        "pct_tiempo_spot": 44.084,
+        "pct_dist_spot": 93.198,
+        "pct_tiempo_medio": 58.128,
+        "pct_dist_medio": 83.946
+      },
+      {
+        "v_kmh": 14,
+        "pct_tiempo_spot": 41.603,
+        "pct_dist_spot": 90.869,
+        "pct_tiempo_medio": 50.354,
+        "pct_dist_medio": 77.372
+      },
+      {
+        "v_kmh": 16,
+        "pct_tiempo_spot": 38.84,
+        "pct_dist_spot": 87.896,
+        "pct_tiempo_medio": 42.873,
+        "pct_dist_medio": 70.079
+      },
+      {
+        "v_kmh": 18,
+        "pct_tiempo_spot": 34.781,
+        "pct_dist_spot": 82.731,
+        "pct_tiempo_medio": 36.079,
+        "pct_dist_medio": 62.572
+      },
+      {
+        "v_kmh": 20,
+        "pct_tiempo_spot": 33.347,
+        "pct_dist_spot": 80.761,
+        "pct_tiempo_medio": 30.052,
+        "pct_dist_medio": 55.131
+      },
+      {
+        "v_kmh": 22,
+        "pct_tiempo_spot": 29.268,
+        "pct_dist_spot": 74.376,
+        "pct_tiempo_medio": 24.539,
+        "pct_dist_medio": 47.605
+      },
+      {
+        "v_kmh": 24,
+        "pct_tiempo_spot": 27.935,
+        "pct_dist_spot": 72.162,
+        "pct_tiempo_medio": 19.357,
+        "pct_dist_medio": 39.858
+      },
+      {
+        "v_kmh": 26,
+        "pct_tiempo_spot": 25.051,
+        "pct_dist_spot": 66.864,
+        "pct_tiempo_medio": 14.832,
+        "pct_dist_medio": 32.505
+      },
+      {
+        "v_kmh": 28,
+        "pct_tiempo_spot": 22.047,
+        "pct_dist_spot": 61.007,
+        "pct_tiempo_medio": 11.243,
+        "pct_dist_medio": 26.214
+      },
+      {
+        "v_kmh": 30,
+        "pct_tiempo_spot": 17.829,
+        "pct_dist_spot": 52.17,
+        "pct_tiempo_medio": 8.637,
+        "pct_dist_medio": 21.305
+      },
+      {
+        "v_kmh": 32,
+        "pct_tiempo_spot": 17.829,
+        "pct_dist_spot": 52.17,
+        "pct_tiempo_medio": 6.537,
+        "pct_dist_medio": 17.079
+      },
+      {
+        "v_kmh": 34,
+        "pct_tiempo_spot": 13.814,
+        "pct_dist_spot": 42.628,
+        "pct_tiempo_medio": 4.846,
+        "pct_dist_medio": 13.455
+      },
+      {
+        "v_kmh": 36,
+        "pct_tiempo_spot": 10.208,
+        "pct_dist_spot": 33.347,
+        "pct_tiempo_medio": 3.627,
+        "pct_dist_medio": 10.685
+      },
+      {
+        "v_kmh": 38,
+        "pct_tiempo_spot": 9.253,
+        "pct_dist_spot": 30.795,
+        "pct_tiempo_medio": 2.774,
+        "pct_dist_medio": 8.635
+      },
+      {
+        "v_kmh": 40,
+        "pct_tiempo_spot": 7.511,
+        "pct_dist_spot": 25.949,
+        "pct_tiempo_medio": 2.197,
+        "pct_dist_medio": 7.175
+      },
+      {
+        "v_kmh": 42,
+        "pct_tiempo_spot": 6.74,
+        "pct_dist_spot": 23.664,
+        "pct_tiempo_medio": 1.73,
+        "pct_dist_medio": 5.932
+      },
+      {
+        "v_kmh": 44,
+        "pct_tiempo_spot": 4.747,
+        "pct_dist_spot": 17.499,
+        "pct_tiempo_medio": 1.411,
+        "pct_dist_medio": 5.038
+      },
+      {
+        "v_kmh": 46,
+        "pct_tiempo_spot": 3.734,
+        "pct_dist_spot": 14.205,
+        "pct_tiempo_medio": 1.142,
+        "pct_dist_medio": 4.254
+      },
+      {
+        "v_kmh": 48,
+        "pct_tiempo_spot": 2.584,
+        "pct_dist_spot": 10.313,
+        "pct_tiempo_medio": 0.91,
+        "pct_dist_medio": 3.547
+      },
+      {
+        "v_kmh": 50,
+        "pct_tiempo_spot": 2.584,
+        "pct_dist_spot": 10.313,
+        "pct_tiempo_medio": 0.745,
+        "pct_dist_medio": 3.02
+      },
+      {
+        "v_kmh": 52,
+        "pct_tiempo_spot": 1.806,
+        "pct_dist_spot": 7.457,
+        "pct_tiempo_medio": 0.653,
+        "pct_dist_medio": 2.715
+      },
+      {
+        "v_kmh": 54,
+        "pct_tiempo_spot": 1.243,
+        "pct_dist_spot": 5.277,
+        "pct_tiempo_medio": 0.527,
+        "pct_dist_medio": 2.281
+      },
+      {
+        "v_kmh": 56,
+        "pct_tiempo_spot": 1.12,
+        "pct_dist_spot": 4.786,
+        "pct_tiempo_medio": 0.436,
+        "pct_dist_medio": 1.953
+      },
+      {
+        "v_kmh": 58,
+        "pct_tiempo_spot": 0.796,
+        "pct_dist_spot": 3.465,
+        "pct_tiempo_medio": 0.329,
+        "pct_dist_medio": 1.558
+      },
+      {
+        "v_kmh": 60,
+        "pct_tiempo_spot": 0.281,
+        "pct_dist_spot": 1.27,
+        "pct_tiempo_medio": 0.272,
+        "pct_dist_medio": 1.341
+      },
+      {
+        "v_kmh": 62,
+        "pct_tiempo_spot": 0.075,
+        "pct_dist_spot": 0.363,
+        "pct_tiempo_medio": 0.238,
+        "pct_dist_medio": 1.207
+      },
+      {
+        "v_kmh": 64,
+        "pct_tiempo_spot": 0.061,
+        "pct_dist_spot": 0.298,
+        "pct_tiempo_medio": 0.221,
+        "pct_dist_medio": 1.136
+      },
+      {
+        "v_kmh": 66,
+        "pct_tiempo_spot": 0.023,
+        "pct_dist_spot": 0.122,
+        "pct_tiempo_medio": 0.202,
+        "pct_dist_medio": 1.058
+      },
+      {
+        "v_kmh": 68,
+        "pct_tiempo_spot": 0.023,
+        "pct_dist_spot": 0.122,
+        "pct_tiempo_medio": 0.182,
+        "pct_dist_medio": 0.968
+      },
+      {
+        "v_kmh": 70,
+        "pct_tiempo_spot": 0.012,
+        "pct_dist_spot": 0.071,
+        "pct_tiempo_medio": 0.159,
+        "pct_dist_medio": 0.865
+      },
+      {
+        "v_kmh": 72,
+        "pct_tiempo_spot": 0.01,
+        "pct_dist_spot": 0.057,
+        "pct_tiempo_medio": 0.152,
+        "pct_dist_medio": 0.835
+      },
+      {
+        "v_kmh": 74,
+        "pct_tiempo_spot": 0.007,
+        "pct_dist_spot": 0.043,
+        "pct_tiempo_medio": 0.148,
+        "pct_dist_medio": 0.817
+      },
+      {
+        "v_kmh": 76,
+        "pct_tiempo_spot": 0.007,
+        "pct_dist_spot": 0.043,
+        "pct_tiempo_medio": 0.142,
+        "pct_dist_medio": 0.785
+      },
+      {
+        "v_kmh": 78,
+        "pct_tiempo_spot": 0.006,
+        "pct_dist_spot": 0.036,
+        "pct_tiempo_medio": 0.134,
+        "pct_dist_medio": 0.746
+      },
+      {
+        "v_kmh": 80,
+        "pct_tiempo_spot": 0.003,
+        "pct_dist_spot": 0.017,
+        "pct_tiempo_medio": 0.126,
+        "pct_dist_medio": 0.703
+      }
+    ],
+    "42_sin_autopista": [
+      {
+        "v_kmh": 0,
+        "pct_tiempo_spot": 59.082,
+        "pct_dist_spot": 100.0,
+        "pct_tiempo_medio": 99.026,
+        "pct_dist_medio": 100.0
+      },
+      {
+        "v_kmh": 2,
+        "pct_tiempo_spot": 57.431,
+        "pct_dist_spot": 99.873,
+        "pct_tiempo_medio": 91.1,
+        "pct_dist_medio": 99.595
+      },
+      {
+        "v_kmh": 4,
+        "pct_tiempo_spot": 51.531,
+        "pct_dist_spot": 98.577,
+        "pct_tiempo_medio": 85.408,
+        "pct_dist_medio": 98.43
+      },
+      {
+        "v_kmh": 6,
+        "pct_tiempo_spot": 50.298,
+        "pct_dist_spot": 98.105,
+        "pct_tiempo_medio": 79.169,
+        "pct_dist_medio": 96.291
+      },
+      {
+        "v_kmh": 8,
+        "pct_tiempo_spot": 47.706,
+        "pct_dist_spot": 96.739,
+        "pct_tiempo_medio": 72.41,
+        "pct_dist_medio": 93.053
+      },
+      {
+        "v_kmh": 10,
+        "pct_tiempo_spot": 45.047,
+        "pct_dist_spot": 94.909,
+        "pct_tiempo_medio": 65.099,
+        "pct_dist_medio": 88.563
+      },
+      {
+        "v_kmh": 12,
+        "pct_tiempo_spot": 42.421,
+        "pct_dist_spot": 92.697,
+        "pct_tiempo_medio": 57.249,
+        "pct_dist_medio": 82.67
+      },
+      {
+        "v_kmh": 14,
+        "pct_tiempo_spot": 39.984,
+        "pct_dist_spot": 90.275,
+        "pct_tiempo_medio": 49.011,
+        "pct_dist_medio": 75.361
+      },
+      {
+        "v_kmh": 16,
+        "pct_tiempo_spot": 37.187,
+        "pct_dist_spot": 87.087,
+        "pct_tiempo_medio": 41.089,
+        "pct_dist_medio": 67.26
+      },
+      {
+        "v_kmh": 18,
+        "pct_tiempo_spot": 33.175,
+        "pct_dist_spot": 81.683,
+        "pct_tiempo_medio": 33.945,
+        "pct_dist_medio": 58.975
+      },
+      {
+        "v_kmh": 20,
+        "pct_tiempo_spot": 31.753,
+        "pct_dist_spot": 79.616,
+        "pct_tiempo_medio": 27.681,
+        "pct_dist_medio": 50.862
+      },
+      {
+        "v_kmh": 22,
+        "pct_tiempo_spot": 27.771,
+        "pct_dist_spot": 73.016,
+        "pct_tiempo_medio": 22.098,
+        "pct_dist_medio": 42.868
+      },
+      {
+        "v_kmh": 24,
+        "pct_tiempo_spot": 26.455,
+        "pct_dist_spot": 70.7,
+        "pct_tiempo_medio": 16.836,
+        "pct_dist_medio": 34.613
+      },
+      {
+        "v_kmh": 26,
+        "pct_tiempo_spot": 23.622,
+        "pct_dist_spot": 65.194,
+        "pct_tiempo_medio": 12.36,
+        "pct_dist_medio": 26.984
+      },
+      {
+        "v_kmh": 28,
+        "pct_tiempo_spot": 20.604,
+        "pct_dist_spot": 58.961,
+        "pct_tiempo_medio": 8.847,
+        "pct_dist_medio": 20.525
+      },
+      {
+        "v_kmh": 30,
+        "pct_tiempo_spot": 16.407,
+        "pct_dist_spot": 49.647,
+        "pct_tiempo_medio": 6.366,
+        "pct_dist_medio": 15.622
+      },
+      {
+        "v_kmh": 32,
+        "pct_tiempo_spot": 16.407,
+        "pct_dist_spot": 49.647,
+        "pct_tiempo_medio": 4.476,
+        "pct_dist_medio": 11.63
+      },
+      {
+        "v_kmh": 34,
+        "pct_tiempo_spot": 12.428,
+        "pct_dist_spot": 39.632,
+        "pct_tiempo_medio": 2.937,
+        "pct_dist_medio": 8.171
+      },
+      {
+        "v_kmh": 36,
+        "pct_tiempo_spot": 8.928,
+        "pct_dist_spot": 30.095,
+        "pct_tiempo_medio": 1.91,
+        "pct_dist_medio": 5.722
+      },
+      {
+        "v_kmh": 38,
+        "pct_tiempo_spot": 8.022,
+        "pct_dist_spot": 27.531,
+        "pct_tiempo_medio": 1.263,
+        "pct_dist_medio": 4.093
+      },
+      {
+        "v_kmh": 40,
+        "pct_tiempo_spot": 6.321,
+        "pct_dist_spot": 22.522,
+        "pct_tiempo_medio": 0.855,
+        "pct_dist_medio": 3.007
+      },
+      {
+        "v_kmh": 42,
+        "pct_tiempo_spot": 5.572,
+        "pct_dist_spot": 20.175,
+        "pct_tiempo_medio": 0.616,
+        "pct_dist_medio": 2.341
+      },
+      {
+        "v_kmh": 44,
+        "pct_tiempo_spot": 3.667,
+        "pct_dist_spot": 13.93,
+        "pct_tiempo_medio": 0.489,
+        "pct_dist_medio": 1.97
+      },
+      {
+        "v_kmh": 46,
+        "pct_tiempo_spot": 2.713,
+        "pct_dist_spot": 10.647,
+        "pct_tiempo_medio": 0.389,
+        "pct_dist_medio": 1.663
+      },
+      {
+        "v_kmh": 48,
+        "pct_tiempo_spot": 1.651,
+        "pct_dist_spot": 6.842,
+        "pct_tiempo_medio": 0.317,
+        "pct_dist_medio": 1.432
+      },
+      {
+        "v_kmh": 50,
+        "pct_tiempo_spot": 1.651,
+        "pct_dist_spot": 6.842,
+        "pct_tiempo_medio": 0.265,
+        "pct_dist_medio": 1.258
+      },
+      {
+        "v_kmh": 52,
+        "pct_tiempo_spot": 1.016,
+        "pct_dist_spot": 4.372,
+        "pct_tiempo_medio": 0.242,
+        "pct_dist_medio": 1.177
+      },
+      {
+        "v_kmh": 54,
+        "pct_tiempo_spot": 0.572,
+        "pct_dist_spot": 2.549,
+        "pct_tiempo_medio": 0.203,
+        "pct_dist_medio": 1.038
+      },
+      {
+        "v_kmh": 56,
+        "pct_tiempo_spot": 0.484,
+        "pct_dist_spot": 2.182,
+        "pct_tiempo_medio": 0.19,
+        "pct_dist_medio": 0.988
+      },
+      {
+        "v_kmh": 58,
+        "pct_tiempo_spot": 0.279,
+        "pct_dist_spot": 1.294,
+        "pct_tiempo_medio": 0.166,
+        "pct_dist_medio": 0.894
+      },
+      {
+        "v_kmh": 60,
+        "pct_tiempo_spot": 0.117,
+        "pct_dist_spot": 0.563,
+        "pct_tiempo_medio": 0.15,
+        "pct_dist_medio": 0.829
+      },
+      {
+        "v_kmh": 62,
+        "pct_tiempo_spot": 0.043,
+        "pct_dist_spot": 0.221,
+        "pct_tiempo_medio": 0.15,
+        "pct_dist_medio": 0.829
+      },
+      {
+        "v_kmh": 64,
+        "pct_tiempo_spot": 0.037,
+        "pct_dist_spot": 0.192,
+        "pct_tiempo_medio": 0.147,
+        "pct_dist_medio": 0.819
+      },
+      {
+        "v_kmh": 66,
+        "pct_tiempo_spot": 0.011,
+        "pct_dist_spot": 0.062,
+        "pct_tiempo_medio": 0.144,
+        "pct_dist_medio": 0.805
+      },
+      {
+        "v_kmh": 68,
+        "pct_tiempo_spot": 0.011,
+        "pct_dist_spot": 0.062,
+        "pct_tiempo_medio": 0.137,
+        "pct_dist_medio": 0.773
+      },
+      {
+        "v_kmh": 70,
+        "pct_tiempo_spot": 0.003,
+        "pct_dist_spot": 0.021,
+        "pct_tiempo_medio": 0.124,
+        "pct_dist_medio": 0.711
+      },
+      {
+        "v_kmh": 72,
+        "pct_tiempo_spot": 0.002,
+        "pct_dist_spot": 0.012,
+        "pct_tiempo_medio": 0.124,
+        "pct_dist_medio": 0.711
+      },
+      {
+        "v_kmh": 74,
+        "pct_tiempo_spot": 0.002,
+        "pct_dist_spot": 0.012,
+        "pct_tiempo_medio": 0.124,
+        "pct_dist_medio": 0.711
+      },
+      {
+        "v_kmh": 76,
+        "pct_tiempo_spot": 0.002,
+        "pct_dist_spot": 0.012,
+        "pct_tiempo_medio": 0.122,
+        "pct_dist_medio": 0.703
+      },
+      {
+        "v_kmh": 78,
+        "pct_tiempo_spot": 0.002,
+        "pct_dist_spot": 0.012,
+        "pct_tiempo_medio": 0.119,
+        "pct_dist_medio": 0.686
+      },
+      {
+        "v_kmh": 80,
+        "pct_tiempo_spot": 0.002,
+        "pct_dist_spot": 0.012,
+        "pct_tiempo_medio": 0.112,
+        "pct_dist_medio": 0.651
+      }
+    ]
+  },
+  "contrafactico_por_viaje": {
+    "n_viajes_completos": 5226,
+    "duracion_mediana_min": 43.0,
+    "largo_mediano_km": 10.3,
+    "v_comercial_mediana_kmh": 14.54,
+    "por_cap": [
+      {
+        "cap_kmh": 50,
+        "extra_s_mediana_bajo": 0.0,
+        "extra_s_media_bajo": 1.4,
+        "extra_s_media_alto": 2.9,
+        "extra_pct_media_alto": 0.11,
+        "pct_viajes_sin_efecto_bajo": 92.5
+      },
+      {
+        "cap_kmh": 40,
+        "extra_s_mediana_bajo": 0.0,
+        "extra_s_media_bajo": 4.8,
+        "extra_s_media_alto": 22.7,
+        "extra_pct_media_alto": 0.89,
+        "pct_viajes_sin_efecto_bajo": 76.9
+      },
+      {
+        "cap_kmh": 30,
+        "extra_s_mediana_bajo": 13.8,
+        "extra_s_media_bajo": 28.3,
+        "extra_s_media_alto": 122.2,
+        "extra_pct_media_alto": 4.77,
+        "pct_viajes_sin_efecto_bajo": 24.9
+      },
+      {
+        "cap_kmh": 25,
+        "extra_s_mediana_bajo": 52.0,
+        "extra_s_media_bajo": 76.3,
+        "extra_s_media_alto": 252.1,
+        "extra_pct_media_alto": 9.84,
+        "pct_viajes_sin_efecto_bajo": 5.0
+      },
+      {
+        "cap_kmh": 20,
+        "extra_s_mediana_bajo": 169.1,
+        "extra_s_media_bajo": 210.4,
+        "extra_s_media_alto": 497.2,
+        "extra_pct_media_alto": 19.41,
+        "pct_viajes_sin_efecto_bajo": 0.1
+      }
+    ]
+  },
+  "linea_42_autopista": {
+    "pct_tiempo_en_autopista": 16.24,
+    "v_comercial_con_autopista": 15.38,
+    "v_comercial_sin_autopista": 14.66
+  }
+}

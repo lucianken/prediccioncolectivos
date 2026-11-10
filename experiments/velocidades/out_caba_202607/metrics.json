@@ -1,0 +1,186 @@
+{
+  "cobertura": {
+    "dias": 28,
+    "lineas": 25,
+    "lineas_caba_sin_trip_id": [
+      "4",
+      "25"
+    ],
+    "lineas_confianza_baja_trip_id_bajo_50pct": [
+      "4",
+      "84",
+      "102",
+      "151"
+    ],
+    "vehiculos": 1529,
+    "viajes": 503481,
+    "intervalos": 14952404
+  },
+  "odometro_qc": {
+    "vehiculos_con_datos": 1528,
+    "sin_evidencia_suficiente": 17,
+    "rotos_pegado_en_cero": 188,
+    "rotos_escala": 0,
+    "sanos": 1323,
+    "pct_sanos_sobre_juzgables": 87.6,
+    "ratio_mediano_sanos": 1.0244
+  },
+  "metodos": {
+    "odo_qc": {
+      "n_intervalos": 13254195,
+      "n_vehiculos": 1323,
+      "horas": 230331.3,
+      "km": 3459681.4,
+      "v_comercial_kmh": 15.02,
+      "pct_muestras_frenado": 38.0,
+      "pct_tiempo_sobre_30_spot": 16.46,
+      "pct_tiempo_sobre_30_medio": 7.52,
+      "n_viajes_completos": 283698,
+      "v_comercial_mediana_viaje_kmh": 15.15,
+      "contrafactico": [
+        {
+          "cap_kmh": 50,
+          "pct_tiempo_sobre_cap_spot": 1.83,
+          "sobrecosto_bajo_pct": 0.07,
+          "sobrecosto_alto_pct": 0.15
+        },
+        {
+          "cap_kmh": 40,
+          "pct_tiempo_sobre_cap_spot": 6.27,
+          "sobrecosto_bajo_pct": 0.32,
+          "sobrecosto_alto_pct": 1.08
+        },
+        {
+          "cap_kmh": 30,
+          "pct_tiempo_sobre_cap_spot": 16.46,
+          "sobrecosto_bajo_pct": 1.73,
+          "sobrecosto_alto_pct": 5.28
+        },
+        {
+          "cap_kmh": 25,
+          "pct_tiempo_sobre_cap_spot": 25.48,
+          "sobrecosto_bajo_pct": 4.27,
+          "sobrecosto_alto_pct": 10.64
+        },
+        {
+          "cap_kmh": 20,
+          "pct_tiempo_sobre_cap_spot": 33.3,
+          "sobrecosto_bajo_pct": 10.73,
+          "sobrecosto_alto_pct": 20.72
+        }
+      ]
+    },
+    "hav": {
+      "n_intervalos": 14951912,
+      "n_vehiculos": 1529,
+      "horas": 259836.1,
+      "km": 3671557.5,
+      "v_comercial_kmh": 14.13,
+      "pct_muestras_frenado": 38.2,
+      "pct_tiempo_sobre_30_spot": 16.13,
+      "pct_tiempo_sobre_30_medio": 5.72,
+      "n_viajes_completos": 313647,
+      "v_comercial_mediana_viaje_kmh": 14.27,
+      "contrafactico": [
+        {
+          "cap_kmh": 50,
+          "pct_tiempo_sobre_cap_spot": 1.75,
+          "sobrecosto_bajo_pct": 0.04,
+          "sobrecosto_alto_pct": 0.14
+        },
+        {
+          "cap_kmh": 40,
+          "pct_tiempo_sobre_cap_spot": 6.09,
+          "sobrecosto_bajo_pct": 0.21,
+          "sobrecosto_alto_pct": 1.04
+        },
+        {
+          "cap_kmh": 30,
+          "pct_tiempo_sobre_cap_spot": 16.13,
+          "sobrecosto_bajo_pct": 1.25,
+          "sobrecosto_alto_pct": 5.15
+        },
+        {
+          "cap_kmh": 25,
+          "pct_tiempo_sobre_cap_spot": 25.06,
+          "sobrecosto_bajo_pct": 3.21,
+          "sobrecosto_alto_pct": 10.4
+        },
+        {
+          "cap_kmh": 20,
+          "pct_tiempo_sobre_cap_spot": 32.81,
+          "sobrecosto_bajo_pct": 8.39,
+          "sobrecosto_alto_pct": 20.31
+        }
+      ]
+    },
+    "odo": {
+      "n_intervalos": 14942370,
+      "n_vehiculos": 1529,
+      "horas": 259671.5,
+      "km": 3826330.8,
+      "v_comercial_kmh": 14.74,
+      "pct_muestras_frenado": 38.2,
+      "pct_tiempo_sobre_30_spot": 16.13,
+      "pct_tiempo_sobre_30_medio": 7.63,
+      "n_viajes_completos": 316254,
+      "v_comercial_mediana_viaje_kmh": 14.98,
+      "contrafactico": [
+        {
+          "cap_kmh": 50,
+          "pct_tiempo_sobre_cap_spot": 1.75,
+          "sobrecosto_bajo_pct": 0.13,
+          "sobrecosto_alto_pct": 0.14
+        },
+        {
+          "cap_kmh": 40,
+          "pct_tiempo_sobre_cap_spot": 6.09,
+          "sobrecosto_bajo_pct": 0.44,
+          "sobrecosto_alto_pct": 1.04
+        },
+        {
+          "cap_kmh": 30,
+          "pct_tiempo_sobre_cap_spot": 16.13,
+          "sobrecosto_bajo_pct": 1.95,
+          "sobrecosto_alto_pct": 5.14
+        },
+        {
+          "cap_kmh": 25,
+          "pct_tiempo_sobre_cap_spot": 25.05,
+          "sobrecosto_bajo_pct": 4.54,
+          "sobrecosto_alto_pct": 10.4
+        },
+        {
+          "cap_kmh": 20,
+          "pct_tiempo_sobre_cap_spot": 32.81,
+          "sobrecosto_bajo_pct": 10.98,
+          "sobrecosto_alto_pct": 20.3
+        }
+      ]
+    }
+  },
+  "validacion_con_shape": {
+    "lineas": [
+      "151",
+      "26",
+      "39",
+      "42"
+    ],
+    "v_comercial_shape": 13.99,
+    "odo_qc": {
+      "v_comercial": 13.94,
+      "sesgo_vs_shape_pct": -0.34,
+      "cobertura_intervalos_pct": 85.1
+    },
+    "hav": {
+      "v_comercial": 13.22,
+      "sesgo_vs_shape_pct": -5.48,
+      "cobertura_intervalos_pct": 100.0
+    },
+    "odo": {
+      "v_comercial": 13.74,
+      "sesgo_vs_shape_pct": -1.74,
+      "cobertura_intervalos_pct": 99.9
+    }
+  }
+}

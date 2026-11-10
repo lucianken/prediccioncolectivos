@@ -1,0 +1,6 @@
+cap_kmh,pct_tiempo_sobre_cap_spot,pct_tiempo_sobre_cap_medio,sobrecosto_bajo_pct,sobrecosto_alto_pct
+50,1.41,0.27,0.06,0.12
+40,5.55,1.01,0.21,0.9
+30,15.52,5.46,1.17,4.76
+25,24.16,12.09,3.07,9.79
+20,31.69,24.85,8.32,19.28
