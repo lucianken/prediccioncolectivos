@@ -1,5 +1,12 @@
+import math
+
 import torch
 import torch.nn as nn
+
+# Bounding box AMBA (el mismo que usa inference/fleet_cache.py)
+GRID_LAT_MIN, GRID_LAT_MAX = -35.1, -34.3
+GRID_LON_MIN, GRID_LON_MAX = -59.1, -57.9
+_M_PER_DEG_LAT = 111_320.0
 
 
 class TrajectoryEncoder(nn.Module):
@@ -93,8 +100,57 @@ class TimeEncoder(nn.Module):
         return self.out_proj(combined)  # (batch, out_dim)
 
 
+class CityGridEncoder(nn.Module):
+    """
+    Mapa aprendido de la ciudad: grilla de celdas de ~`cell_m` metros sobre el bbox AMBA, un embedding por vértice
+    e interpolación bilineal entre los 4 vértices de la celda que contiene al punto (continuo, sin escalones).
+    Entrada: (batch, 4) = [lat_P, lon_P, lat_T, lon_T]. Salida: (batch, 2 * dim): P y T codificados con la
+    MISMA grilla y concatenados. Los puntos fuera del bbox se saturan al borde.
+    """
+
+    def __init__(self, cell_m: float = 500.0, dim: int = 16):
+        super().__init__()
+        mid_lat = (GRID_LAT_MIN + GRID_LAT_MAX) / 2.0
+        self.n_lat = max(1, math.ceil((GRID_LAT_MAX - GRID_LAT_MIN) * _M_PER_DEG_LAT / cell_m))
+        self.n_lon = max(1, math.ceil((GRID_LON_MAX - GRID_LON_MIN) * _M_PER_DEG_LAT
+                                      * math.cos(math.radians(mid_lat)) / cell_m))
+        self.dim = dim
+        self.embed = nn.Embedding((self.n_lat + 1) * (self.n_lon + 1), dim)  # vértices = celdas + 1 por eje
+        nn.init.normal_(self.embed.weight, std=0.1)
+
+    @property
+    def out_dim(self) -> int:
+        return 2 * self.dim
+
+    def encode(self, lat: torch.Tensor, lon: torch.Tensor) -> torch.Tensor:
+        """lat, lon: (batch,) -> (batch, dim)."""
+        lat = lat.float()
+        lon = lon.float()
+        u = (lat - GRID_LAT_MIN) / (GRID_LAT_MAX - GRID_LAT_MIN) * self.n_lat
+        v = (lon - GRID_LON_MIN) / (GRID_LON_MAX - GRID_LON_MIN) * self.n_lon
+        u = u.clamp(0.0, self.n_lat - 1e-4)
+        v = v.clamp(0.0, self.n_lon - 1e-4)
+        i0 = u.floor().long()
+        j0 = v.floor().long()
+        fu = (u - i0.float()).unsqueeze(-1)
+        fv = (v - j0.float()).unsqueeze(-1)
+        w = self.n_lon + 1
+
+        def e(i, j):
+            return self.embed(i * w + j)
+
+        return ((1 - fu) * (1 - fv) * e(i0, j0) + (1 - fu) * fv * e(i0, j0 + 1)
+                + fu * (1 - fv) * e(i0 + 1, j0) + fu * fv * e(i0 + 1, j0 + 1))
+
+    def forward(self, geo: torch.Tensor) -> torch.Tensor:
+        p = self.encode(geo[:, 0], geo[:, 1])
+        t = self.encode(geo[:, 2], geo[:, 3])
+        return torch.cat([p, t], dim=-1)
+
+
 class A3ETAModel(nn.Module):
-    def __init__(self, d_model: int = 128, hidden_dims: tuple = (256, 128, 64)):
+    def __init__(self, d_model: int = 128, hidden_dims: tuple = (256, 128, 64),
+                 city_grid: bool = False, grid_cell_m: float = 500.0, grid_dim: int = 16):
         """
         Concatena: trajectory(d_model) + fleet(d_model) + time(16) + dist(1) + time_since_start(1) + ts_age_s(1) + has_bus(1) + schedule_dev_norm(1)
         MLP: Linear(concat_dim → 256) → GELU → Dropout(0.1) → Linear(256 → 128) → GELU → Linear(128 → 64) → GELU → Linear(64 → 1) → Softplus
@@ -105,6 +161,12 @@ class A3ETAModel(nn.Module):
         self.time_enc = TimeEncoder(dow_embed_dim=8, out_dim=16)
 
         concat_dim = d_model + d_model + 16 + 1 + 1 + 1 + 1 + 1 + 1 + 1  # = 2 * d_model + 23
+
+        # E1c: con city_grid=False no se crea ningún módulo ni parámetro nuevo (los checkpoints viejos cargan igual).
+        self.city_grid_enabled = bool(city_grid)
+        if city_grid:
+            self.city_grid = CityGridEncoder(cell_m=grid_cell_m, dim=grid_dim)
+            concat_dim += self.city_grid.out_dim
 
         layers = []
         in_dim = concat_dim
@@ -136,11 +198,18 @@ class A3ETAModel(nn.Module):
         schedule_dev_norm: torch.Tensor,      # (batch, 1)
         time_since_last_bus_s: torch.Tensor,  # (batch, 1) log1p-normalizado
         last_bus_found: torch.Tensor,         # (batch, 1) 0/1
+        geo: torch.Tensor | None = None,      # (batch, 4) lat_P, lon_P, lat_T, lon_T — solo con city_grid
     ) -> torch.Tensor:
         """Returns: (batch, 1) — ETA en segundos, siempre positivo (Softplus)."""
         traj_emb = self.trajectory_enc(trajectory, trajectory_mask)  # (batch, d_model)
         fleet_emb = self.fleet_enc(fleet, fleet_mask)                # (batch, d_model)
         time_emb = self.time_enc(hour_sin, hour_cos, dow)            # (batch, 16)
+
+        extra = []
+        if self.city_grid_enabled:
+            if geo is None:
+                raise ValueError("el modelo tiene city_grid activo: falta el tensor `geo` (batch, 4)")
+            extra.append(self.city_grid(geo))                         # (batch, 2 * grid_dim)
 
         combined = torch.cat([
             traj_emb,
@@ -153,6 +222,7 @@ class A3ETAModel(nn.Module):
             schedule_dev_norm,
             time_since_last_bus_s,
             last_bus_found,
+            *extra,
         ], dim=-1)
 
         return self.mlp(combined)  # (batch, 1)

@@ -162,6 +162,7 @@ def train_phase3(
     max_groups: int | None = None,
     fleet_same_dir_cap: int | None = None,
     scheduler_type: str = "plateau",
+    city_grid: bool = False,
 ) -> dict[str, object]:
     """
     Entrena A3ETAModel con L1Loss + mixed precision + early stopping.
@@ -236,7 +237,7 @@ def train_phase3(
     if max_groups is not None:
         print(f"      WARN: --max-groups {max_groups} activo — subsampling para iteración rápida, no usar para modelo final")
     sdn_path = ml_dir / "schedule_dev_medians.json"
-    train_ds = ETADataset(train_parquet, shape_lengths=shape_lengths, shuffle=True, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap, schedule_dev_medians=sdn_path)
+    train_ds = ETADataset(train_parquet, shape_lengths=shape_lengths, shuffle=True, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap, schedule_dev_medians=sdn_path, use_geo=city_grid)
     print(f"      Train: ~{train_ds.approx_batches * batch_size:,} muestras en ~{train_ds.approx_batches:,} batches ({train_ds._n_groups} row groups)")
 
     has_val = val_parquet.exists() and val_parquet.stat().st_size > 0
@@ -247,7 +248,7 @@ def train_phase3(
             print(f"      WARN: {exc}")
             has_val = False
     if has_val:
-        val_ds = ETADataset(val_parquet, shape_lengths=shape_lengths, shuffle=False, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap, schedule_dev_medians=sdn_path)
+        val_ds = ETADataset(val_parquet, shape_lengths=shape_lengths, shuffle=False, yield_batch_size=batch_size, use_fleet=use_fleet, max_groups=max_groups, fleet_same_dir_cap=fleet_same_dir_cap, schedule_dev_medians=sdn_path, use_geo=city_grid)
         print(f"      Val:   ~{val_ds.approx_batches * batch_size:,} muestras en ~{val_ds.approx_batches:,} batches ({val_ds._n_groups} row groups)")
     else:
         print("      WARN: eta_val.parquet no encontrado. No habrá val loss.")
@@ -282,7 +283,10 @@ def train_phase3(
     logger.info(f"[train_phase3] DataLoaders ready: {time.time()-t_loader:.2f}s")
 
     t_model = time.time()
-    model = A3ETAModel(d_model=d_model).to(actual_device)
+    model = A3ETAModel(d_model=d_model, city_grid=city_grid).to(actual_device)
+    n_params = sum(p.numel() for p in model.parameters())
+    n_params_grid = sum(p.numel() for p in model.city_grid.parameters()) if city_grid else 0
+    print(f"      Parámetros: {n_params:,} (city_grid: {'sí, ' + format(n_params_grid, ',') + ' en la grilla + primera Linear' if city_grid else 'no'})")
     logger.info(f"[train_phase3] Model initialized and moved to {actual_device}: {time.time()-t_model:.2f}s")
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     _onecycle = scheduler_type == "onecycle"
@@ -413,6 +417,7 @@ def train_phase3(
                 tlb          = batch.get("time_since_last_bus_s", batch["has_active_bus"] * 0).to(actual_device)
                 lbf          = batch.get("last_bus_found",        batch["has_active_bus"] * 0).to(actual_device)
                 eta_target   = batch["eta_seconds"].to(actual_device)
+                geo          = batch["geo"].to(actual_device) if city_grid else None
                 # No synchronize aquí — .to() es async, medir sin frenar el pipeline
                 t1 = _time.perf_counter()
                 acc["todev"] += t1 - t0
@@ -424,7 +429,7 @@ def train_phase3(
                 with autocast(device_type=actual_device, dtype=amp_dtype, enabled=use_amp):
                     pred = model(
                         traj, traj_mask, fleet, fleet_mask,
-                        h_sin, h_cos, dow, dist_rem, tss, ts_age, has_bus, sdn, tlb, lbf,
+                        h_sin, h_cos, dow, dist_rem, tss, ts_age, has_bus, sdn, tlb, lbf, geo,
                     )
                     loss = criterion(pred, eta_target, dist_rem_m)
                 # No synchronize — forward es async hasta que necesitemos el valor
@@ -601,7 +606,7 @@ def train_phase3(
         model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
-    # Exportar ONNX
+    # Exportar ONNX (con city_grid el grafo lleva además el input `geo`)
     _export_a3_onnx(model, onnx_path, actual_device)
 
     import shutil as _shutil
@@ -620,6 +625,8 @@ def train_phase3(
         "batch_size": batch_size,
         "lr_initial": lr,
         "use_fleet": use_fleet,
+        "city_grid": city_grid,
+        "n_params": n_params,
         "d_model": d_model,
         "max_groups": max_groups,
         "model_path": str(best_ckpt_path),
@@ -636,7 +643,8 @@ def train_phase3(
     fleet_tag = "fleet" if use_fleet else "nofleet"
     groups_tag = f"g{max_groups}" if max_groups else "gfull"
     mae_tag = f"mae{int(best_val_mae)}s" if has_val else "noval"
-    run_tag = f"{fleet_tag}_{groups_tag}_ep{best_epoch}_{mae_tag}_{ts}"
+    grid_tag = "_geo" if city_grid else ""
+    run_tag = f"{fleet_tag}{grid_tag}_{groups_tag}_ep{best_epoch}_{mae_tag}_{ts}"
     archived_metrics = output_dir / f"eta_a3_{run_tag}_metrics.json"
     _shutil.copy2(metrics_path, archived_metrics)
     logger.info(f"[train_phase3] Métricas archivadas: {archived_metrics.name}")
@@ -680,6 +688,9 @@ def _export_a3_onnx(model, onnx_path: Path, device: str) -> None:
         "dist_remaining_norm", "time_since_start", "ts_age_s", "has_active_bus",
         "schedule_dev_norm", "time_since_last_bus_s", "last_bus_found",
     ]
+    if getattr(model, "city_grid_enabled", False):
+        ex = ex + (torch.tensor([[-34.6, -58.4, -34.6, -58.4]], device=device),)  # geo: lat/lon de P y T
+        input_names = input_names + ["geo"]
 
     try:
         torch.onnx.export(

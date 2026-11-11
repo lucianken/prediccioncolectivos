@@ -146,12 +146,14 @@ def predict_a3(parquet_path: Path, ckpt_path: Path, shape_lengths: dict, sdn_pat
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
     sd = ckpt["model_state_dict"] if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
     d_model = int(sd["trajectory_enc.input_proj.weight"].shape[0])
-    model = A3ETAModel(d_model=d_model)
+    city_grid = "city_grid.embed.weight" in sd          # E1c: se infiere del checkpoint
+    model = A3ETAModel(d_model=d_model, city_grid=city_grid)
     model.load_state_dict(sd)
     model.to(device).eval()
 
     ds = ETADataset(parquet_path, shape_lengths=shape_lengths, shuffle=False, yield_batch_size=batch_size,
-                    use_fleet=False, schedule_dev_medians=str(sdn_path) if sdn_path else None)
+                    use_fleet=False, schedule_dev_medians=str(sdn_path) if sdn_path else None,
+                    use_geo=city_grid)
     loader = DataLoader(ds, batch_size=1, shuffle=False, collate_fn=collate_identity, num_workers=0)
     preds = []
     with torch.no_grad():
@@ -160,7 +162,7 @@ def predict_a3(parquet_path: Path, ckpt_path: Path, shape_lengths: dict, sdn_pat
             p = model(g("trajectory"), g("trajectory_mask"), g("fleet"), g("fleet_mask"), g("hour_sin"),
                       g("hour_cos"), g("dow"), g("dist_remaining_norm"), g("time_since_start"), g("ts_age_s"),
                       g("has_active_bus"), g("schedule_dev_norm"), g("time_since_last_bus_s"),
-                      g("last_bus_found"))
+                      g("last_bus_found"), g("geo") if city_grid else None)
             preds.append(p.squeeze(-1).cpu().numpy())
     pred = np.concatenate(preds).astype(np.float64) if preds else np.empty(0)
     if len(pred) != n_expected:

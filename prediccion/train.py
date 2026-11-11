@@ -52,6 +52,9 @@ def main():
     parser.add_argument("--d-model", type=int, default=128)
     parser.add_argument("--no-fleet", action="store_true",
                         help="Deshabilitar FleetEncoder (más rápido, útil para baseline sin tráfico)")
+    parser.add_argument("--city-grid", action="store_true",
+                        help="E1c: CityGridEncoder (grilla aprendida de ~500 m con la lat/lon de P y T interpoladas "
+                             "sobre el shape). Apagado por defecto.")
     parser.add_argument("--resume", action="store_true",
                         help="Reanudar desde eta_a3_best.pt si existe (recuperación tras corte)")
     parser.add_argument("--max-groups", type=int, default=None,
@@ -144,6 +147,7 @@ def _run_phase3(args):
         max_groups=getattr(args, "max_groups", None),
         fleet_same_dir_cap=getattr(args, "fleet_same_dir_cap", None),
         scheduler_type=getattr(args, "scheduler", "plateau"),
+        city_grid=getattr(args, "city_grid", False),
     )
     val_mae = metrics.get("val_mae_min")
     val_str = f"{val_mae:.2f} min" if val_mae is not None else "N/A"

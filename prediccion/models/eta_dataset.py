@@ -93,6 +93,8 @@ class ETADataset(IterableDataset):
         max_groups: int | None = None,
         fleet_same_dir_cap: int | None = None,
         schedule_dev_medians: "dict | Path | str | None" = None,
+        use_geo: bool = False,
+        geo_store: "Any | None" = None,
     ):
         import pyarrow.parquet as pq
 
@@ -103,6 +105,12 @@ class ETADataset(IterableDataset):
         self._yield_batch_size = yield_batch_size
         self._use_fleet = use_fleet
         self._fleet_same_dir_cap = fleet_same_dir_cap  # si es int, filtra same_dir y capea
+        # E1c: con use_geo se emite "geo" (b, 4) = lat/lon de P y T interpolados sobre el shape (ver models/geo.py)
+        self._use_geo = use_geo
+        self._geo_store = geo_store
+        if use_geo and self._geo_store is None:
+            from prediccion.models.geo import ShapeGeoStore
+            self._geo_store = ShapeGeoStore()
 
         pf = pq.ParquetFile(self._path)
         total_groups = pf.metadata.num_row_groups
@@ -114,6 +122,11 @@ class ETADataset(IterableDataset):
         self._read_cols: list[str] = _BASE_COLS + [
             c for c in _OPTIONAL_COLS if c in schema_names and c not in skip
         ]
+        if use_geo:
+            missing = {"line", "shape_id", "dist_along_m"} - schema_names
+            if missing:
+                raise ValueError(f"use_geo necesita las columnas {sorted(missing)} en {self._path}")
+            self._read_cols += ["line", "shape_id", "dist_along_m"]
 
         # Pre-convertir medianas a numpy arrays indexados por bucket int (0-20) para lookup O(1)
         self._sdn_medians: dict[str, np.ndarray] | None = None
@@ -182,7 +195,7 @@ class ETADataset(IterableDataset):
         # ramal_id es el único string; todo lo demás es escalar o FixedSizeList → np.asarray
         df: dict[str, Any] = {}
         for col in self._read_cols:
-            if col == "ramal_id":
+            if col in ("ramal_id", "line", "shape_id"):
                 df[col] = tbl[col].to_pylist()
             else:
                 df[col] = np.asarray(tbl[col])
@@ -195,6 +208,12 @@ class ETADataset(IterableDataset):
         # → traj_flat contiene metros crudos en vez de 0-1, overflow en fp16
         # dist_rem < 100m: sub-100m no se predice — la app muestra "llegando". Ver ML plan §7.
         mask  = (eta_arr > 0) & (dist_rem_arr >= 100.0) & (dist_along_arr >= 0) & (dist_along_arr <= 1.0)
+        geo_arr = None
+        if self._use_geo:
+            from prediccion.models.geo import geo_coords
+            geo_arr = geo_coords(df["line"], df["shape_id"], df["dist_along_m"], dist_rem_arr, self._geo_store)
+            # un shape sin resolver dejaría NaN en el mapa: esas filas se descartan (no deberían existir)
+            mask &= np.isfinite(geo_arr).all(axis=1)
         valid = np.where(mask)[0]
 
         if self._shuffle:
@@ -299,7 +318,7 @@ class ETADataset(IterableDataset):
         B = self._yield_batch_size
         for start in range(0, len(valid), B):
             sl = valid[start:start + B]
-            yield {
+            batch = {
                 "trajectory":      torch.from_numpy(np.ascontiguousarray(traj_all[sl])),       # (b, 10, 3)
                 "trajectory_mask": torch.from_numpy(np.ascontiguousarray(traj_mask_all[sl])),  # (b, 10)
                 "fleet":           torch.from_numpy(np.ascontiguousarray(fleet_all[sl])),      # (b, N_FLEET, 5)
@@ -317,6 +336,9 @@ class ETADataset(IterableDataset):
                 "last_bus_found":         torch.from_numpy(np.ascontiguousarray(lbf_arr[sl, None])),    # (b, 1)
                 "eta_seconds":            torch.from_numpy(np.ascontiguousarray(eta_clipped[sl, None])), # (b, 1)
             }
+            if geo_arr is not None:
+                batch["geo"] = torch.from_numpy(np.ascontiguousarray(geo_arr[sl]))                 # (b, 4)
+            yield batch
 
 
 def collate_identity(batch: list[dict]) -> dict[str, torch.Tensor]:
