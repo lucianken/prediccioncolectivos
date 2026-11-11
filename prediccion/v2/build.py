@@ -110,7 +110,7 @@ def main(argv=None):
     ap.add_argument("--lines-file", type=Path, default=DEFAULT_V2_DIR / "lines.json")
     ap.add_argument("--lines", default=None, help="subconjunto de líneas (coma); default: train+heldout del lines-file")
     ap.add_argument("--days", required=True, help="rango 'A:B' inclusivo o lista 'a,b,c'")
-    ap.add_argument("--pairs-per-trip", type=int, default=64)
+    ap.add_argument("--pairs-per-trip", type=int, default=32)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--chunk-days", type=int, default=7)
     ap.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)

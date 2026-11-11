@@ -131,7 +131,7 @@ def predict_a1(df, model) -> np.ndarray:
 
 
 def predict_a3(parquet_path: Path, ckpt_path: Path, shape_lengths: dict, sdn_path: Path | None,
-               n_expected: int, batch_size: int = 4096, device: str = "cpu") -> np.ndarray:
+               n_expected: int, batch_size: int = 4096, device: str | None = None) -> np.ndarray:
     """
     Corre A3ETAModel sobre el eval parquet (usa ETADataset, así la normalización es idéntica a la del
     entrenamiento). El eval parquet viene prefiltrado con el mismo filtro que ETADataset, de modo que las
@@ -142,6 +142,7 @@ def predict_a3(parquet_path: Path, ckpt_path: Path, shape_lengths: dict, sdn_pat
     from prediccion.models.a3_eta import A3ETAModel
     from prediccion.models.eta_dataset import ETADataset, collate_identity
 
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
     sd = ckpt["model_state_dict"] if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
     d_model = int(sd["trajectory_enc.input_proj.weight"].shape[0])
