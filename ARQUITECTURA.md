@@ -80,8 +80,22 @@ Estimación de costo E2 (medida, 60 líneas, K=32): ~147 M filas de train (~4,7 
 
 ## 7. Resultados (se completa a medida que corren)
 
-| Fecha | Experimento | eval_seen | eval_heldout | Notas |
-|---|---|---|---|---|
+MAE (s) por bucket de ETA real **0–5 / 5–10 / 10–20 / 20+ min**, y % de subestimaciones > 60 s en 0–5 min. Archivos en `data/ml/v2/eval/`.
+
+| Fecha | Experimento | Conjunto | MAE por bucket | Subest. 0–5 | Notas |
+|---|---|---|---|---|---|
+| 2026-11-11 | E0 A0 naive | seen (100k) | 72 / 192 / 386 / 962 | 22 % | |
+| 2026-11-11 | E0 A1 (`a1_v1794415690`) | seen (100k) | **42 / 89 / 134 / 213** | 12 % | piso a superar |
+| 2026-11-11 | E0 A0 naive | heldout (100k) | 68 / 186 / 377 / 890 | 22 % | A1 sin tabla para heldout cae a 7 m/s (= a0c:7) |
+| 2026-11-11 | E0 A1 | seen, solo 39 (3770) | **36 / 72 / 101 / 160** | 11 % | |
+| 2026-11-11 | E0 A3 viejo ep21 | seen, solo 39 | 53 / 74 / 114 / 178 | **2,8 %** | más conservador (pinball), menos preciso |
+| 2026-11-11 | E1 A3 v2 K=64 (corte ep 9) | seen, solo 39 | 39 / 75 / 112 / 180 | 8,5 % | val ruidosa con lr fija, cortó temprano |
+| 2026-11-11 | E1 A3 v2 K=32 (corte ep 21) | seen, solo 39 | 46 / 69 / 109 / 179 | 3,5 % | lr bajó a 5e-4 y 2,5e-4 |
+| 2026-11-11 | **E1c** A3 K=32 + `--city-grid` (corte ep 26, mejor ep 21) | seen, solo 39 | **38** / **61** / **93** / **153** | 4,7 % | global 90,7 s (A1 96,7); gana a A1 salvo en 0–5 min (38 vs 36); +645 k parámetros |
+
+**Lectura E1:** K=32 rinde igual que K=64 → K=32 alcanza. El pipeline v2 (geometría, sin trip_id) no empeora: iguala o mejora apenas al A3 viejo. Pero **ningún A3 le gana a A1 en la 39** salvo en subestimaciones. Hipótesis: A3 no sabe *dónde* está el coche en la ciudad (solo distancia normalizada), y A1 sí (velocidad típica por tramo, hora y día).
+
+**Lectura E1c:** darle la ubicación física de P y T (grilla aprendida de ~500 m, sin ramal ni sentido) es lo que faltaba: el A3 pasa de 105,6 a 90,7 s de MAE global y **le gana a A1 (96,7 s) en los buckets de 5–10, 10–20 y 20+ min**, y por distancia en los cuatro tramos (<500 m: 48 vs 54; 5+ km: 147 vs 151). La anticorrelación ida/vuelta del error de nivel baja de −0,60 a −0,14 (muestra de train; diag en `data/ml/v2/diag/e1c_tables.md`) y el MAE a >2 km de 141 a 124 s en train (A1 133). Una sola corrida: falta repetir con otra semilla y probar en `eval_heldout`/otras líneas antes de darlo por cerrado.
 | — | — | — | — | — |
 
 ## 8. Decisiones previas que siguen vigentes (no re-discutir sin dato nuevo)
