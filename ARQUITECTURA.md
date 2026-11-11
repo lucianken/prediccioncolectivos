@@ -73,8 +73,12 @@ Cada escalón es una corrida nocturna y responde una pregunta. Se corta donde de
 |---|---|---|---|
 | E0 | Baselines A0/A1/A3-actual en la vara | ¿Dónde estamos de verdad? | piso a superar |
 | E1 | A3 no-fleet, solo 39, pipeline v2, K=64 | ¿El muestreo de pares y la geometría empeoran algo vs A3 actual? | si K=64 alcanza |
-| E2 | A3 no-fleet, 30–40 líneas, K=64 | ¿Más líneas mejoran la 39? ¿Generaliza a las líneas de control? | si vale escalar |
-| E3 | flota liviana (1 capa o mean pooling, N≤20) sobre E2 | ¿La flota de la agencia aporta? | si invertir en flota / compute |
+| E1c | E1 K=32 + grilla de ciudad (ubicación de P y T), solo 39 | ¿Falta saber *dónde* está el coche? | hecho: sí, le gana a A1 (§7) |
+| E2 | A3 no-fleet **+ grilla**, 48 líneas, K=32 | ¿Más líneas mejoran la 39? ¿Generaliza a las líneas de control? | si vale escalar |
+| E3a | E1c + tránsito actual en las celdas del camino P→T (todas las líneas de la flota), **solo 39** | ¿El tránsito actual aporta sobre la ubicación? | si vale escalarlo |
+| E3b | E2 + lo mismo, **48 líneas** (solo si E3a mejora) | ¿Se sostiene en todas las líneas y en las de control? | modelo candidato |
+
+E3 sigue el mismo escalonado que E1→E2: primero solo la 39 (barato, ~30 min) y después todas. Aun entrenando con la 39, el tránsito de cada celda sale de **todos** los coches de la flota grabada (todas las líneas), porque es la información de la ciudad, no de la línea. Requiere una tabla nueva por snapshot × celda (velocidad media y conteo de coches en movimiento), construida una vez desde el NDJSON. La variante por zona y la flota como lista de vehículos (FleetEncoder) quedan después (§11).
 
 Estimación de costo E2 (medida, 60 líneas, K=32): ~147 M filas de train (~4,7 M solo la 39) y ~27 M de val; ~43 k viajes por día hábil. En la RTX 3080 el trainer actual rinde ~24 k filas/s con `--batch-size 256` y ~98 k filas/s con `--batch-size 1024` (limitado por lanzamiento de kernels, ~95 it/s en ambos): **~100 min por época con batch 256 y ~25 min con batch 1024** (+~2 min de val). Con K=64 serían el doble de filas y de disco. La estimación original de este documento (~1,5 M viajes, 100 M filas, 12 min/época) subestimaba los viajes ~4×. La flota con el encoder actual es ~12× más lenta (§9 del plan): por eso va después y en versión liviana. **Comprar compute solo si E3 muestra que la flota vale y no entra en una noche.**
 
