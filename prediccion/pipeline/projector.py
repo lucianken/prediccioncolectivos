@@ -34,9 +34,18 @@ class ShapeIndex:
     Crear una vez por trip (o reusar entre trips del mismo ramal).
     """
 
-    def __init__(self, shape_points: list[tuple[float, float]]):
+    def __init__(self, shape_points: list[tuple[float, float]], fast: bool = False):
+        """
+        fast=True (usado por el pipeline v2): project_many busca el segmento más cercano con un KD-tree sobre el
+        recorrido densificado (cada 25 m) y calcula la proyección exacta solo en los segmentos vecinos, en vez de
+        contra todos (O(M log S) en lugar de O(M x S)). Mismo resultado que el exacto para puntos a < 400 m
+        (diferencias de centímetros); más lejos devuelve una aproximación (error perp. >= 400 m).
+        fast=False (default) mantiene el comportamiento histórico, bit a bit.
+        """
         pts = np.array(shape_points, dtype=np.float64)  # (N, 2): lat, lon
         self._pts = pts
+        self._fast = fast
+        self._tree = None
 
         # Vectores de segmentos en metros usando aproximación de ángulo pequeño
         lat_mid = (pts[:-1, 0] + pts[1:, 0]) / 2.0
@@ -81,6 +90,62 @@ class ShapeIndex:
         dist_along = float(self._cum_dist[best_i] + t[best_i] * self._seg_lens[best_i])
         return dist_along, float(perp[best_i])
 
+    _FAST_STEP_M = 25.0
+    _FAST_WINDOW = 3
+    _FAST_FAR_M = 400.0
+
+    def _build_tree(self) -> None:
+        from scipy.spatial import cKDTree
+        pts = self._pts
+        self._lat0 = float(pts[:, 0].mean())
+        self._mlon = _M_PER_DEG_LAT * math.cos(math.radians(self._lat0))
+        xs, ys, seg, along = [], [], [], []
+        for i in range(len(pts) - 1):
+            n = max(1, int(math.ceil(self._seg_lens[i] / self._FAST_STEP_M)))
+            t = np.arange(n + 1) / n
+            xs.append(pts[i, 1] + t * (pts[i + 1, 1] - pts[i, 1]))
+            ys.append(pts[i, 0] + t * (pts[i + 1, 0] - pts[i, 0]))
+            seg.append(np.full(n + 1, i))
+            along.append(self._cum_dist[i] + t * self._seg_lens[i])
+        lon = np.concatenate(xs)
+        lat = np.concatenate(ys)
+        self._dense_seg = np.concatenate(seg)
+        self._dense_along = np.concatenate(along)
+        self._tree = cKDTree(np.column_stack([lon * self._mlon, lat * _M_PER_DEG_LAT]))
+
+    def _project_many_fast(self, lats, lons):
+        if self._tree is None:
+            self._build_tree()
+        lats = np.asarray(lats, dtype=np.float64)
+        lons = np.asarray(lons, dtype=np.float64)
+        M = len(lats)
+        dist_q, nn = self._tree.query(np.column_stack([lons * self._mlon, lats * _M_PER_DEG_LAT]))
+        s0 = self._dense_seg[nn]
+        n_segs = len(self._ab_x)
+        W = self._FAST_WINDOW
+        cand = np.clip(s0[:, None] + np.arange(-W, W + 1)[None, :], 0, n_segs - 1)     # (M, 2W+1)
+        a_lat = self._pts[cand, 0]
+        a_lon = self._pts[cand, 1]
+        ap_y = (lats[:, None] - a_lat) * _M_PER_DEG_LAT
+        ap_x = (lons[:, None] - a_lon) * self._m_per_deg_lon[cand]
+        abx, aby, abd = self._ab_x[cand], self._ab_y[cand], self._ab_dot[cand]
+        valid = self._valid[cand]
+        t = np.where(valid, (ap_x * abx + ap_y * aby) / np.where(valid, abd, 1.0), 0.0)
+        t = np.clip(t, 0.0, 1.0)
+        dp_y = ap_y - t * aby
+        dp_x = ap_x - t * abx
+        perp_all = np.sqrt(dp_x ** 2 + dp_y ** 2)
+        best = np.argmin(perp_all, axis=1)
+        rows = np.arange(M)
+        bi = cand[rows, best]
+        perp = perp_all[rows, best]
+        along = self._cum_dist[bi] + t[rows, best] * self._seg_lens[bi]
+        far = dist_q > self._FAST_FAR_M
+        if far.any():
+            perp = np.where(far, dist_q, perp)
+            along = np.where(far, self._dense_along[nn], along)
+        return along, perp
+
     def project_many(
         self,
         lats: "np.ndarray",
@@ -108,6 +173,8 @@ class ShapeIndex:
         loop Python por punto (~2.25M llamadas en el profiling → cuellos de botella
         del 20% del tiempo total de build_ramal_map).
         """
+        if self._fast:
+            return self._project_many_fast(lats, lons)
         lats_arr = np.asarray(lats, dtype=np.float64)   # (M,)
         lons_arr = np.asarray(lons, dtype=np.float64)   # (M,)
         M = len(lats_arr)

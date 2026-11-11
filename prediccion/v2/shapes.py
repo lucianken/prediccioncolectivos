@@ -52,7 +52,7 @@ class LineShapes:
                     if sid is None or len(pts) < 2:
                         continue
                     infos.append(ShapeInfo(str(sid), line, r.get("name", ""),
-                                           r.get("shortName", ""), ShapeIndex(pts)))
+                                           r.get("shortName", ""), ShapeIndex(pts, fast=True)))
             self._cache[line] = infos
         return self._cache[line]
 

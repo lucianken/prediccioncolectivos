@@ -30,13 +30,14 @@ from prediccion.pipeline.shapes_io import resolve_label_line_index
 from prediccion.pipeline.features import N_FLEET
 from prediccion.v2.pairs import trip_seed
 from prediccion.v2.rows import trip_rows, add_trip_to_passage_cache
+from prediccion.v2.segmenter import segment_geometric
 from prediccion.v2.shapes import LineShapes
 
 CARRY_WINDOW_S = 900
 PASSAGE_KEEP = 3          # pasajes por recorrido que se arrastran al día siguiente
 PASSAGE_MAX_AGE_S = 3600  # el cap de time_since_last_bus_s es 1 h: más viejo no sirve
 ROW_GROUP_SIZE = 250_000
-META_VERSION = 2
+META_VERSION = 3
 
 # obs = (ts, lat, lon, speed, odo, direction_id, start_date, start_time, frame_ts, has_trip_id, route_id)
 # route_id solo se guarda para diagnóstico (comparar contra ramal_map); NUNCA identifica línea ni ramal.
@@ -77,10 +78,11 @@ def read_meta(out_dir: Path, day: str) -> dict | None:
     return m if m.get("version") == META_VERSION else None
 
 
-def day_is_done(meta: dict | None, lines, k_pairs: int, include_fleet: bool) -> bool:
+def day_is_done(meta: dict | None, lines, k_pairs: int, include_fleet: bool, segmentation: str = "geo") -> bool:
     if meta is None:
         return False
     return (set(lines) <= set(meta["lines"]) and meta["k_pairs"] == k_pairs
+            and meta.get("segmentation") == segmentation
             and bool(meta.get("include_fleet")) == include_fleet)
 
 
@@ -167,17 +169,32 @@ def make_carry(vehicles: dict, day: str, lines, passages: dict | None) -> dict:
     return {"date": day, "lines": sorted(lines), "vehicles": cv, "passages": keep_pass}
 
 
-def segment_vehicles(vehicles: dict, label_index: dict[str, dict]):
-    """Segmenta cada vehículo en viajes. Setea line_number/agency_id (por sufijo del label)."""
+def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineShapes | None = None,
+                     method: str = "geo", stats: dict | None = None):
+    """
+    Segmenta cada vehículo en viajes. Setea line_number/agency_id (por sufijo del label).
+    method="geo" (default v2): segmentador geométrico, no usa trip_id ni start_time (v2/segmenter.py).
+    stats (solo method="geo"): acumula por línea pings / depot / moving_total / moving_valid.
+    method="trip_id": segmentador viejo (start_time/start_date/direction_id); solo para validación/comparación.
+    """
     trips = []
     for vid, rec in vehicles.items():
         suffix = rec["label"].split("-")[-1] if rec["label"] else ""
         info = label_index.get(suffix)
         if not info:
             continue
-        obs = [dict(zip(_OBS_KEYS, o)) for o in rec["obs"]]
         carry_ts = rec.get("carry_ts", 0)
-        for trip in segment_vehicle_history(vid, obs):
+        if method == "geo":
+            found, vs = segment_geometric(vid, rec["obs"], shapes.indices(info["line"]) if shapes else {},
+                                          return_stats=True)
+            if stats is not None:
+                a = stats.setdefault(info["line"], {"pings": 0, "depot": 0, "moving_total": 0, "moving_valid": 0})
+                for k in a:
+                    a[k] += vs[k]
+        else:
+            obs = [dict(zip(_OBS_KEYS, o)) for o in rec["obs"]]
+            found = segment_vehicle_history(vid, obs)
+        for trip in found:
             if trip.points[-1].ts <= carry_ts:
                 continue            # fragmento del día anterior sin continuación: ya se procesó ayer
             trip.line_number = info["line"]
@@ -269,6 +286,7 @@ def process_day(
     use_carry: bool = True,
     force: bool = False,
     interval_s: int = 30,
+    segmentation: str = "geo",
 ) -> dict:
     """
     Procesa un día. Retorna el meta dict con meta["status"] en {"skipped", "processed"}
@@ -282,10 +300,11 @@ def process_day(
     paths = _paths(out_dir, day)
     lines = sorted(set(map(str, lines)))
     meta_old = read_meta(out_dir, day)
-    if not force and day_is_done(meta_old, lines, k_pairs, include_fleet):
+    if not force and day_is_done(meta_old, lines, k_pairs, include_fleet, segmentation):
         return {**meta_old, "status": "skipped"}
     if (meta_old and not force and meta_old["k_pairs"] == k_pairs
-            and bool(meta_old.get("include_fleet")) == include_fleet):
+            and bool(meta_old.get("include_fleet")) == include_fleet
+            and meta_old.get("segmentation") == segmentation):
         lines = sorted(set(lines) | set(meta_old["lines"]))   # unión: el resultado == build desde cero
 
     t0 = time.time()
@@ -307,7 +326,7 @@ def process_day(
             carry = None
 
     vehicles, stats, fleet = read_day(fp, label_map, lineset, carry, interval_s, include_fleet)
-    trips = segment_vehicles(vehicles, label_index)
+    trips = segment_vehicles(vehicles, label_index, shapes, segmentation)
     trips.sort(key=lambda t: t.start_time)
 
     passage_cache: dict = {}
@@ -383,7 +402,7 @@ def process_day(
 
     meta = {
         "version": META_VERSION, "date": day, "lines": lines, "k_pairs": k_pairs,
-        "include_fleet": include_fleet, "n_rows": int(n_rows), "n_trips": len(trip_recs),
+        "include_fleet": include_fleet, "segmentation": segmentation, "n_rows": int(n_rows), "n_trips": len(trip_recs),
         "per_line": per_line, "carry_in": carry is not None,
         "line_stats": {ln: {"pings": s[0], "with_trip_id": s[1], "with_start_time": s[2]}
                        for ln, s in stats.items()},
