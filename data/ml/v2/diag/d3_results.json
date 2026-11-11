@@ -1,0 +1,168 @@
+{
+ "share_ambiguous": 0.7755968169761274,
+ "true_in_candidates": 0.9426751592356688,
+ "sensitivity": [
+  {
+   "N pings": 3,
+   "perp (m)": 30,
+   "% ambiguas": 81.9
+  },
+  {
+   "N pings": 5,
+   "perp (m)": 30,
+   "% ambiguas": 77.6
+  },
+  {
+   "N pings": 10,
+   "perp (m)": 30,
+   "% ambiguas": 69.9
+  },
+  {
+   "N pings": 5,
+   "perp (m)": 50,
+   "% ambiguas": 79.7
+  },
+  {
+   "N pings": 5,
+   "perp (m)": 15,
+   "% ambiguas": 68.7
+  }
+ ],
+ "by_class": [
+  {
+   "cls": "ambiguo, T compartido",
+   "n": 2156.0,
+   "MAE A1": 90.9,
+   "MAE A3": 98.8,
+   "Δ (A3-A1)": 7.9,
+   "ep Δ": 1.6,
+   "sesgo A1": -26.0,
+   "sesgo A3": -6.6,
+   "rem media (km)": 3.2
+  },
+  {
+   "cls": "ambiguo, T tras la divergencia",
+   "n": 768.0,
+   "MAE A1": 105.2,
+   "MAE A3": 117.0,
+   "Δ (A3-A1)": 11.8,
+   "ep Δ": 2.9,
+   "sesgo A1": -33.8,
+   "sesgo A3": -50.6,
+   "rem media (km)": 4.5
+  },
+  {
+   "cls": "no ambiguo",
+   "n": 844.0,
+   "MAE A1": 103.9,
+   "MAE A3": 112.7,
+   "Δ (A3-A1)": 8.9,
+   "ep Δ": 2.5,
+   "sesgo A1": -25.2,
+   "sesgo A3": -21.4,
+   "rem media (km)": 3.5
+  },
+  {
+   "cls": "sin historial",
+   "n": 2.0,
+   "MAE A1": 56.2,
+   "MAE A3": 46.6,
+   "Δ (A3-A1)": -9.7,
+   "ep Δ": 38.2,
+   "sesgo A1": -56.2,
+   "sesgo A3": 9.0,
+   "rem media (km)": 3.4
+  },
+  {
+   "cls": "TOTAL",
+   "n": 3770.0,
+   "MAE A1": 96.72,
+   "MAE A3": 105.61,
+   "Δ (A3-A1)": 8.89,
+   "ep Δ": 1.24,
+   "sesgo A1": -27.45,
+   "sesgo A3": -18.87,
+   "rem media (km)": 3.5
+  }
+ ],
+ "leak_table": [
+  {
+   "filas": "todas",
+   "n": 3770,
+   "A1 ex post": 96.72,
+   "A1 sin fuga (prom.)": 97.61,
+   "A1 sin fuga (mejor ajuste)": 100.46,
+   "A3 ex post": 105.61,
+   "A3 sin fuga (prom., aprox.)": 105.31,
+   "A3 sin fuga (mejor ajuste, aprox.)": 106.64
+  },
+  {
+   "filas": ">= 2 candidatos con P y T",
+   "n": 2593,
+   "A1 ex post": 94.75,
+   "A1 sin fuga (prom.)": 96.05,
+   "A1 sin fuga (mejor ajuste)": 100.19,
+   "A3 ex post": 103.15,
+   "A3 sin fuga (prom., aprox.)": 102.71,
+   "A3 sin fuga (mejor ajuste, aprox.)": 104.64
+  },
+  {
+   "filas": "resto",
+   "n": 1177,
+   "A1 ex post": 101.05,
+   "A1 sin fuga (prom.)": 101.05,
+   "A1 sin fuga (mejor ajuste)": 101.05,
+   "A3 ex post": 111.05,
+   "A3 sin fuga (prom., aprox.)": 111.05,
+   "A3 sin fuga (mejor ajuste, aprox.)": 111.05
+  },
+  {
+   "filas": "no ambiguo",
+   "n": 844,
+   "A1 ex post": 103.88,
+   "A1 sin fuga (prom.)": 103.88,
+   "A1 sin fuga (mejor ajuste)": 103.88,
+   "A3 ex post": 112.74,
+   "A3 sin fuga (prom., aprox.)": 112.74,
+   "A3 sin fuga (mejor ajuste, aprox.)": 112.74
+  },
+  {
+   "filas": "ambiguo, T compartido",
+   "n": 2156,
+   "A1 ex post": 90.94,
+   "A1 sin fuga (prom.)": 91.67,
+   "A1 sin fuga (mejor ajuste)": 95.79,
+   "A3 ex post": 98.82,
+   "A3 sin fuga (prom., aprox.)": 97.87,
+   "A3 sin fuga (mejor ajuste, aprox.)": 99.79
+  },
+  {
+   "filas": "ambiguo, T tras la divergencia",
+   "n": 768,
+   "A1 ex post": 105.17,
+   "A1 sin fuga (prom.)": 107.51,
+   "A1 sin fuga (mejor ajuste)": 109.92,
+   "A3 ex post": 117.01,
+   "A3 sin fuga (prom., aprox.)": 118.2,
+   "A3 sin fuga (mejor ajuste, aprox.)": 119.34
+  }
+ ],
+ "paired": {
+  "todas": {
+   "n": 3770,
+   "A1_expost_minus_A1_lf_mean": -0.8913013823160865,
+   "A3_minus_A1_expost": 8.893395908066065,
+   "A3_minus_A1_leakfree_mean": 8.002094525749978,
+   "A3lf_minus_A1lf_mean": 7.702567928162859,
+   "se_A3_minus_A1_leakfree_mean": 1.2470765661652339
+  },
+  "ambiguas (>=2 cand. con P y T)": {
+   "n": 2593,
+   "A1_expost_minus_A1_lf_mean": -1.2958752048762174,
+   "A3_minus_A1_expost": 8.39450743083122,
+   "A3_minus_A1_leakfree_mean": 7.098632225955003,
+   "A3lf_minus_A1lf_mean": 6.6631469532403695,
+   "se_A3_minus_A1_leakfree_mean": 1.5220393054318773
+  }
+ }
+}

@@ -1,0 +1,250 @@
+{
+ "geom": {
+  "same_dir_place_mismatch_m": [
+   129.43631753540507,
+   861.9733466872866
+  ],
+  "opp_dir_place_mismatch_m": [
+   6260.735837577354,
+   9912.921391092323
+  ]
+ },
+ "train_contrib_dist": {
+  "<500 m": 0.4663070774285437,
+  "0,5-2 km": 0.48094675033982504,
+  "2-5 km": 2.1057019747994894,
+  "5+ km": 2.053960061354096
+ },
+ "train_concentration": {
+  "cells": 100,
+  "cells_A1_better": 84,
+  "share_of_A1_advantage_in_top20pct_cells": 0.531235952080053
+ },
+ "eval_contrib_dist": {
+  "<500 m": 0.3959716808025155,
+  "0,5-2 km": 0.7455955045279417,
+  "2-5 km": 2.3811384520745333,
+  "5+ km": 5.370690270661074
+ },
+ "eval_concentration": {
+  "cells": 78,
+  "cells_A1_better": 57,
+  "share_of_A1_advantage_in_top20pct_cells": 0.5666604981093427
+ },
+ "profile": {
+  "mean_corr_A1": 0.9400000000000001,
+  "mean_corr_A3": 0.8849999999999999,
+  "mean_std_ratio_A1": 0.8133333333333334,
+  "mean_std_ratio_A3": 0.7883333333333334,
+  "mean_rmse_nolevel_A1": 0.6733333333333333,
+  "mean_rmse_nolevel_A3": 0.8933333333333332
+ },
+ "r2": {
+  "fracción (20 bins)": [
+   0.12319749593734741,
+   20
+  ],
+  "fracción x sentido": [
+   0.19709527492523193,
+   40
+  ],
+  "shape x tramo 1 km": [
+   0.21721452474594116,
+   101
+  ],
+  "sentido x tramo 1 km": [
+   0.19569873809814453,
+   34
+  ],
+  "fracción x franja horaria": [
+   0.28430038690567017,
+   80
+  ],
+  "fracción x sentido x franja": [
+   0.372314453125,
+   160
+  ],
+  "shape x tramo x franja": [
+   0.3943746089935303,
+   401
+  ]
+ },
+ "ida_vuelta_corr_error_nivel": {
+  "a1": -0.01750060801456695,
+  "a1_std_log_ratio": 0.05056211093357945,
+  "a3": -0.5988310810673411,
+  "a3_std_log_ratio": 0.05839400626772171
+ },
+ "a1_identity_ablation_mae_train": {
+  "misma identidad (A1 normal)": 99.31580352833103,
+  "otro recorrido, mismo sentido (igual fracción)": 113.85740836167166,
+  "recorrido de sentido opuesto (igual fracción)": 154.08443851710297
+ },
+ "zona_pct_separado": 0.25384,
+ "capture": {
+  "train": {
+   "MAE plano": 129.02734253547032,
+   "MAE A1": 99.31580352833103,
+   "MAE A3": 104.42271939225297,
+   "% de la ganancia de A1 sobre el plano que captura A3": 82.81167507783823
+  },
+  "eval": {
+   "MAE plano": 128.91652283344274,
+   "MAE A1": 96.71893207741923,
+   "MAE A3": 105.6123279854853,
+   "% de la ganancia de A1 sobre el plano que captura A3": 72.37869138888196
+  }
+ },
+ "h_perdida": [
+  {
+   "conjunto": "train",
+   "distancia": "<250 m",
+   "n": 4094,
+   "q objetivo (centro)": 0.76,
+   "cobertura A3": 0.8,
+   "cobertura A1": 0.17,
+   "sesgo A3": 10.5,
+   "sesgo A1": -42.8,
+   "MAE A1": 46.6,
+   "MAE A3": 46.8,
+   "MAE A3 recentrado": 40.7,
+   "subest>60 A1 %": 17.3,
+   "subest>60 A3 %": 5.8
+  },
+  {
+   "conjunto": "train",
+   "distancia": "250-500 m",
+   "n": 8926,
+   "q objetivo (centro)": 0.69,
+   "cobertura A3": 0.71,
+   "cobertura A1": 0.41,
+   "sesgo A3": 8.5,
+   "sesgo A1": -32.3,
+   "MAE A1": 51.4,
+   "MAE A3": 56.5,
+   "MAE A3 recentrado": 50.7,
+   "subest>60 A1 %": 17.2,
+   "subest>60 A3 %": 8.8
+  },
+  {
+   "conjunto": "train",
+   "distancia": "0,5-1 km",
+   "n": 15118,
+   "q objetivo (centro)": 0.57,
+   "cobertura A3": 0.53,
+   "cobertura A1": 0.38,
+   "sesgo A3": -14.7,
+   "sesgo A1": -40.1,
+   "MAE A1": 67.3,
+   "MAE A3": 66.1,
+   "MAE A3 recentrado": 65.9,
+   "subest>60 A1 %": 27.4,
+   "subest>60 A3 %": 19.9
+  },
+  {
+   "conjunto": "train",
+   "distancia": "1-2 km",
+   "n": 21905,
+   "q objetivo (centro)": 0.5,
+   "cobertura A3": 0.44,
+   "cobertura A1": 0.42,
+   "sesgo A3": -27.5,
+   "sesgo A1": -31.4,
+   "MAE A1": 74.2,
+   "MAE A3": 77.2,
+   "MAE A3 recentrado": 76.4,
+   "subest>60 A1 %": 29.3,
+   "subest>60 A3 %": 28.8
+  },
+  {
+   "conjunto": "train",
+   "distancia": ">2 km",
+   "n": 49957,
+   "q objetivo (centro)": 0.5,
+   "cobertura A3": 0.46,
+   "cobertura A1": 0.47,
+   "sesgo A3": -28.5,
+   "sesgo A1": -23.0,
+   "MAE A1": 132.9,
+   "MAE A3": 141.2,
+   "MAE A3 recentrado": 140.8,
+   "subest>60 A1 %": 35.7,
+   "subest>60 A3 %": 37.6
+  },
+  {
+   "conjunto": "eval",
+   "distancia": "<250 m",
+   "n": 145,
+   "q objetivo (centro)": 0.76,
+   "cobertura A3": 0.81,
+   "cobertura A1": 0.26,
+   "sesgo A3": 21.5,
+   "sesgo A1": -32.6,
+   "MAE A1": 38.9,
+   "MAE A3": 43.7,
+   "MAE A3 recentrado": 36.6,
+   "subest>60 A1 %": 13.1,
+   "subest>60 A3 %": 6.2
+  },
+  {
+   "conjunto": "eval",
+   "distancia": "250-500 m",
+   "n": 278,
+   "q objetivo (centro)": 0.69,
+   "cobertura A3": 0.66,
+   "cobertura A1": 0.36,
+   "sesgo A3": 1.4,
+   "sesgo A1": -42.0,
+   "MAE A1": 61.5,
+   "MAE A3": 64.3,
+   "MAE A3 recentrado": 60.9,
+   "subest>60 A1 %": 23.0,
+   "subest>60 A3 %": 12.6
+  },
+  {
+   "conjunto": "eval",
+   "distancia": "0,5-1 km",
+   "n": 562,
+   "q objetivo (centro)": 0.57,
+   "cobertura A3": 0.52,
+   "cobertura A1": 0.36,
+   "sesgo A3": -13.8,
+   "sesgo A1": -42.6,
+   "MAE A1": 69.6,
+   "MAE A3": 66.5,
+   "MAE A3 recentrado": 66.4,
+   "subest>60 A1 %": 31.0,
+   "subest>60 A3 %": 20.6
+  },
+  {
+   "conjunto": "eval",
+   "distancia": "1-2 km",
+   "n": 774,
+   "q objetivo (centro)": 0.5,
+   "cobertura A3": 0.44,
+   "cobertura A1": 0.42,
+   "sesgo A3": -18.7,
+   "sesgo A1": -23.8,
+   "MAE A1": 66.2,
+   "MAE A3": 72.1,
+   "MAE A3 recentrado": 71.5,
+   "subest>60 A1 %": 26.0,
+   "subest>60 A3 %": 26.6
+  },
+  {
+   "conjunto": "eval",
+   "distancia": ">2 km",
+   "n": 2011,
+   "q objetivo (centro)": 0.5,
+   "cobertura A3": 0.47,
+   "cobertura A1": 0.46,
+   "sesgo A3": -26.1,
+   "sesgo A1": -22.3,
+   "MAE A1": 125.1,
+   "MAE A3": 139.6,
+   "MAE A3 recentrado": 139.2,
+   "subest>60 A1 %": 35.6,
+   "subest>60 A3 %": 38.5
+  }
+ ]
+}
