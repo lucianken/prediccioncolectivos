@@ -1,32 +1,44 @@
 {
  "train": [
+  "4",
+  "7",
   "9",
   "20",
+  "25",
   "26",
   "28",
   "29",
   "33",
+  "34",
   "39",
   "41",
   "42",
+  "44",
   "46",
   "47",
   "50",
-  "56",
+  "61",
   "62",
   "74",
+  "76",
+  "84",
   "85",
   "88",
   "92",
   "98",
+  "102",
   "106",
   "107",
+  "108",
   "110",
   "113",
   "114",
+  "115",
+  "118",
   "123",
   "124",
   "127",
+  "132",
   "143",
   "151",
   "168",
@@ -39,896 +51,1658 @@
  ],
  "heldout": [
   "1",
+  "12",
   "15",
   "21",
+  "64",
+  "65",
+  "68",
   "87",
-  "91",
   "100",
+  "109",
   "128",
   "181"
  ],
+ "n_train": 48,
+ "n_heldout": 12,
+ "caba_lines": [
+  "4",
+  "7",
+  "12",
+  "25",
+  "26",
+  "34",
+  "39",
+  "42",
+  "44",
+  "47",
+  "50",
+  "61",
+  "62",
+  "64",
+  "65",
+  "68",
+  "76",
+  "84",
+  "102",
+  "106",
+  "107",
+  "108",
+  "109",
+  "115",
+  "118",
+  "132",
+  "151"
+ ],
+ "caba_missing_from_dataset": [],
  "criteria": {
-  "min_trips_weekday": 300,
-  "min_trip_id_cov": 0.6,
-  "min_start_time_cov": 0.6,
-  "max_median_perp_m": 15.0,
-  "min_frac_within_150": 0.92,
-  "min_frac_trips_perp_le_50": 0.8,
-  "selection": "7 actuales + farthest-point sampling por centroide del recorrido entre las elegibles (bonus x1.25 por agencia no representada, ponderado por calidad); cada ~5ª elegida va a heldout",
+  "segmentation": "geométrica (v2/segmenter.py): no usa trip_id, start_time ni route_id",
   "sample_days": [
-   "2026-07-15",
    "2026-08-18",
    "2026-09-17",
-   "2026-10-07",
    "2026-08-22"
   ],
-  "weekday_days": [
-   "2026-07-15",
-   "2026-08-18",
-   "2026-09-17",
-   "2026-10-07"
-  ]
+  "metric_definitions": {
+   "frac_within_150_trips": "% de pings dentro de viajes segmentados a <=150 m del mejor recorrido",
+   "frac_within_150_moving": "% de pings que no son de depósito (quietos y lejos de todo recorrido) a <=150 m de algún recorrido",
+   "depot_frac": "% de pings descartados como depósito/garage/playa",
+   "frac_trips_perp_le_50": "% de viajes geométricos con error perp. mediano <=50 m",
+   "antes_segmentacion_trip_id": "métricas de la primera tanda (5 días, segmentación por trip_id, todos los pings, incluye depósito)"
+  },
+  "recorrido_incompleto": "El 10-20 % de pings fuera de 150 m de 7, 44, 65, 76, 115 y 151 era depósito/garage y traslados (los coches comparten depósito y se pasan unidades entre líneas), no un ramal faltante en OSM. Con pings en movimiento y viajes segmentados el ajuste sube a 0,91-0,98 (ver depot_study). Solo las de suspect_recorrido_con_pings_en_movimiento siguen por debajo de 0,93/0,90 y son candidatas a ramal faltante.",
+  "nine_caba_split": {
+   "68": {
+    "split": "control",
+    "why": "norte de CABA (lat -34,575), empresa 39 ausente de train; ~1078 viajes/día"
+   },
+   "109": {
+    "split": "control",
+    "why": "oeste (lon -58,451), empresa 24 ausente de train; vecina de la 108 (train)"
+   },
+   "12": {
+    "split": "control",
+    "why": "microcentro-este, empresa 704 ausente de train; ~1006 viajes/día"
+   },
+   "64": {
+    "split": "control",
+    "why": "este (lon -58,396), empresa 41 ausente de train; ~590 viajes/día"
+   },
+   "34": {
+    "split": "train",
+    "why": "oeste-centro, empresa 36 ya presente en train; ~1057 viajes/día"
+   },
+   "61": {
+    "split": "train",
+    "why": "solo ~190 viajes/día: más útil como dato de train que como control"
+   },
+   "108": {
+    "split": "train",
+    "why": "vecina de la 109 (control); empresa 715"
+   },
+   "118": {
+    "split": "train",
+    "why": "este (lon -58,408), empresa 42; ~935 viajes/día"
+   },
+   "132": {
+    "split": "train",
+    "why": "centro-este, empresa 12; ~1093 viajes/día"
+   }
+  }
  },
+ "depot_study": {
+  "7": {
+   "antes": {
+    "trips_weekday": 656,
+    "frac_within_150": 0.836,
+    "frac_trips_perp_le_50": 0.813
+   },
+   "despues": {
+    "frac_within_150_trips": 0.971,
+    "frac_within_150_moving": 0.906,
+    "depot_frac": 0.044,
+    "frac_trips_perp_le_50": 0.991,
+    "trips_weekday": 349
+   }
+  },
+  "44": {
+   "antes": {
+    "trips_weekday": 940,
+    "frac_within_150": 0.895,
+    "frac_trips_perp_le_50": 0.764
+   },
+   "despues": {
+    "frac_within_150_trips": 0.985,
+    "frac_within_150_moving": 0.962,
+    "depot_frac": 0.066,
+    "frac_trips_perp_le_50": 1.0,
+    "trips_weekday": 609
+   }
+  },
+  "65": {
+   "antes": {
+    "trips_weekday": 1148,
+    "frac_within_150": 0.904,
+    "frac_trips_perp_le_50": 0.666
+   },
+   "despues": {
+    "frac_within_150_trips": 0.99,
+    "frac_within_150_moving": 0.953,
+    "depot_frac": 0.032,
+    "frac_trips_perp_le_50": 0.996,
+    "trips_weekday": 626
+   }
+  },
+  "76": {
+   "antes": {
+    "trips_weekday": 859,
+    "frac_within_150": 0.901,
+    "frac_trips_perp_le_50": 0.718
+   },
+   "despues": {
+    "frac_within_150_trips": 0.989,
+    "frac_within_150_moving": 0.938,
+    "depot_frac": 0.04,
+    "frac_trips_perp_le_50": 0.979,
+    "trips_weekday": 519
+   }
+  },
+  "115": {
+   "antes": {
+    "trips_weekday": 1072,
+    "frac_within_150": 0.948,
+    "frac_trips_perp_le_50": 0.797
+   },
+   "despues": {
+    "frac_within_150_trips": 0.984,
+    "frac_within_150_moving": 0.983,
+    "depot_frac": 0.004,
+    "frac_trips_perp_le_50": 0.869,
+    "trips_weekday": 750
+   }
+  },
+  "151": {
+   "antes": {
+    "trips_weekday": 1504,
+    "frac_within_150": 0.89,
+    "frac_trips_perp_le_50": 0.878
+   },
+   "despues": {
+    "frac_within_150_trips": 0.99,
+    "frac_within_150_moving": 0.971,
+    "depot_frac": 0.05,
+    "frac_trips_perp_le_50": 0.995,
+    "trips_weekday": 768
+   }
+  }
+ },
+ "suspect_recorrido_con_pings_en_movimiento": [
+  "7",
+  "84",
+  "115"
+ ],
  "metrics": {
+  "4": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA sin trip_id: ya no es motivo de exclusión (segmentación geométrica)",
+   "agencies": [
+    "36"
+   ],
+   "centroid": [
+    -34.6349,
+    -58.4387
+   ],
+   "trips_weekday": 430,
+   "median_perp_m": 3.13,
+   "frac_within_150_trips": 0.996,
+   "frac_within_150_moving": 0.99,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 0.984,
+   "trip_id_cov_solo_informativo": 0.0,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 142,
+    "frac_within_150": 0.898,
+    "frac_trips_perp_le_50": 0.928
+   }
+  },
+  "7": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA con recorrido OSM parcial (10-20 % de pings a >150 m): se acepta perder esos puntos",
+   "agencies": [
+    "702"
+   ],
+   "centroid": [
+    -34.6257,
+    -58.4193
+   ],
+   "trips_weekday": 349,
+   "median_perp_m": 3.46,
+   "frac_within_150_trips": 0.971,
+   "frac_within_150_moving": 0.906,
+   "depot_frac": 0.044,
+   "frac_trips_perp_le_50": 0.991,
+   "trip_id_cov_solo_informativo": 0.85,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 656,
+    "frac_within_150": 0.836,
+    "frac_trips_perp_le_50": 0.813
+   }
+  },
   "9": {
-   "trips_weekday": 988.0,
-   "trip_id_cov": 0.883,
-   "start_time_cov": 0.883,
-   "median_perp_m": 3.114,
-   "p90_perp_m": 32.705,
-   "frac_within_150": 0.996,
-   "frac_trips_perp_le_50": 0.94,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "713"
    ],
-   "n_days_seen": 5,
-   "pings": 144914,
    "centroid": [
     -34.6307,
     -58.3992
-   ]
+   ],
+   "trips_weekday": 554,
+   "median_perp_m": 2.83,
+   "frac_within_150_trips": 0.999,
+   "frac_within_150_moving": 0.999,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.85,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 988,
+    "frac_within_150": 0.996,
+    "frac_trips_perp_le_50": 0.94
+   }
   },
   "20": {
-   "trips_weekday": 562.0,
-   "trip_id_cov": 0.917,
-   "start_time_cov": 0.917,
-   "median_perp_m": 3.436,
-   "p90_perp_m": 61.947,
-   "frac_within_150": 0.949,
-   "frac_trips_perp_le_50": 0.864,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "21"
    ],
-   "n_days_seen": 5,
-   "pings": 98817,
    "centroid": [
     -34.6693,
     -58.393
-   ]
+   ],
+   "trips_weekday": 370,
+   "median_perp_m": 3.16,
+   "frac_within_150_trips": 0.973,
+   "frac_within_150_moving": 0.958,
+   "depot_frac": 0.007,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.92,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 562,
+    "frac_within_150": 0.949,
+    "frac_trips_perp_le_50": 0.864
+   }
+  },
+  "25": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA sin trip_id: ya no es motivo de exclusión (segmentación geométrica)",
+   "agencies": [
+    "7"
+   ],
+   "centroid": [
+    -34.6276,
+    -58.4355
+   ],
+   "trips_weekday": 338,
+   "median_perp_m": 2.86,
+   "frac_within_150_trips": 0.986,
+   "frac_within_150_moving": 0.967,
+   "depot_frac": 0.004,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.0,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 248,
+    "frac_within_150": 0.932,
+    "frac_trips_perp_le_50": 0.988
+   }
   },
   "26": {
-   "trips_weekday": 1040.0,
-   "trip_id_cov": 0.885,
-   "start_time_cov": 0.885,
-   "median_perp_m": 4.123,
-   "p90_perp_m": 51.332,
-   "frac_within_150": 0.981,
-   "frac_trips_perp_le_50": 0.892,
+   "split": "train",
+   "caba": true,
+   "reason": "actual",
    "agencies": [
     "13"
    ],
-   "n_days_seen": 4,
-   "pings": 118846,
    "centroid": [
     -34.6092,
     -58.4054
-   ]
+   ],
+   "trips_weekday": 414,
+   "median_perp_m": 3.56,
+   "frac_within_150_trips": 0.991,
+   "frac_within_150_moving": 0.993,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 0.997,
+   "trip_id_cov_solo_informativo": 0.88,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1040,
+    "frac_within_150": 0.981,
+    "frac_trips_perp_le_50": 0.892
+   }
   },
   "28": {
-   "trips_weekday": 3763.5,
-   "trip_id_cov": 0.892,
-   "start_time_cov": 0.892,
-   "median_perp_m": 3.56,
-   "p90_perp_m": 62.602,
-   "frac_within_150": 0.958,
-   "frac_trips_perp_le_50": 0.888,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "701"
    ],
-   "n_days_seen": 5,
-   "pings": 441407,
    "centroid": [
     -34.6255,
     -58.4517
-   ]
+   ],
+   "trips_weekday": 2016,
+   "median_perp_m": 3.31,
+   "frac_within_150_trips": 0.977,
+   "frac_within_150_moving": 0.991,
+   "depot_frac": 0.002,
+   "frac_trips_perp_le_50": 0.941,
+   "trip_id_cov_solo_informativo": 0.89,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 3764,
+    "frac_within_150": 0.958,
+    "frac_trips_perp_le_50": 0.888
+   }
   },
   "29": {
-   "trips_weekday": 1279.0,
-   "trip_id_cov": 0.888,
-   "start_time_cov": 0.888,
-   "median_perp_m": 4.673,
-   "p90_perp_m": 43.637,
-   "frac_within_150": 0.985,
-   "frac_trips_perp_le_50": 0.941,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "47"
    ],
-   "n_days_seen": 5,
-   "pings": 208041,
    "centroid": [
     -34.5899,
     -58.4099
-   ]
+   ],
+   "trips_weekday": 610,
+   "median_perp_m": 4.06,
+   "frac_within_150_trips": 0.994,
+   "frac_within_150_moving": 0.994,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.9,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1279,
+    "frac_within_150": 0.985,
+    "frac_trips_perp_le_50": 0.941
+   }
   },
   "33": {
-   "trips_weekday": 1898.5,
-   "trip_id_cov": 0.887,
-   "start_time_cov": 0.887,
-   "median_perp_m": 3.437,
-   "p90_perp_m": 44.568,
-   "frac_within_150": 0.966,
-   "frac_trips_perp_le_50": 0.905,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "87"
    ],
-   "n_days_seen": 5,
-   "pings": 226578,
    "centroid": [
     -34.6253,
     -58.3783
-   ]
+   ],
+   "trips_weekday": 736,
+   "median_perp_m": 3.12,
+   "frac_within_150_trips": 0.986,
+   "frac_within_150_moving": 0.981,
+   "depot_frac": 0.006,
+   "frac_trips_perp_le_50": 0.999,
+   "trip_id_cov_solo_informativo": 0.89,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1898,
+    "frac_within_150": 0.966,
+    "frac_trips_perp_le_50": 0.905
+   }
+  },
+  "34": {
+   "split": "train",
+   "caba": true,
+   "reason": "train (CABA, pasó el filtro y no estaba elegida): oeste-centro, empresa 36 ya presente en train; ~1057 viajes/día",
+   "agencies": [
+    "36"
+   ],
+   "centroid": [
+    -34.5957,
+    -58.4589
+   ],
+   "trips_weekday": 1057,
+   "median_perp_m": 3.64,
+   "frac_within_150_trips": 0.995,
+   "frac_within_150_moving": 0.989,
+   "depot_frac": 0.008,
+   "frac_trips_perp_le_50": 0.986,
+   "trip_id_cov_solo_informativo": 0.82,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1724,
+    "frac_within_150": 0.959,
+    "frac_trips_perp_le_50": 0.83
+   }
   },
   "39": {
-   "trips_weekday": 1555.5,
-   "trip_id_cov": 0.904,
-   "start_time_cov": 0.904,
-   "median_perp_m": 3.595,
-   "p90_perp_m": 6.874,
-   "frac_within_150": 0.992,
-   "frac_trips_perp_le_50": 0.977,
+   "split": "train",
+   "caba": true,
+   "reason": "actual",
    "agencies": [
     "56"
    ],
-   "n_days_seen": 5,
-   "pings": 264887,
    "centroid": [
     -34.6032,
     -58.3996
-   ]
+   ],
+   "trips_weekday": 1018,
+   "median_perp_m": 3.44,
+   "frac_within_150_trips": 0.997,
+   "frac_within_150_moving": 0.995,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.88,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1556,
+    "frac_within_150": 0.992,
+    "frac_trips_perp_le_50": 0.977
+   }
   },
   "41": {
-   "trips_weekday": 1088.0,
-   "trip_id_cov": 0.881,
-   "start_time_cov": 0.881,
-   "median_perp_m": 3.534,
-   "p90_perp_m": 31.775,
-   "frac_within_150": 0.997,
-   "frac_trips_perp_le_50": 0.982,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "719"
    ],
-   "n_days_seen": 5,
-   "pings": 200067,
    "centroid": [
     -34.5732,
     -58.4502
-   ]
+   ],
+   "trips_weekday": 555,
+   "median_perp_m": 2.9,
+   "frac_within_150_trips": 0.999,
+   "frac_within_150_moving": 1.0,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.88,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1088,
+    "frac_within_150": 0.997,
+    "frac_trips_perp_le_50": 0.982
+   }
   },
   "42": {
-   "trips_weekday": 1113.0,
-   "trip_id_cov": 0.807,
-   "start_time_cov": 0.807,
-   "median_perp_m": 4.463,
-   "p90_perp_m": 77.267,
-   "frac_within_150": 0.954,
-   "frac_trips_perp_le_50": 0.865,
+   "split": "train",
+   "caba": true,
+   "reason": "actual",
    "agencies": [
     "15"
    ],
-   "n_days_seen": 5,
-   "pings": 165601,
    "centroid": [
     -34.5902,
     -58.4395
-   ]
+   ],
+   "trips_weekday": 558,
+   "median_perp_m": 3.7,
+   "frac_within_150_trips": 0.983,
+   "frac_within_150_moving": 0.991,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 0.967,
+   "trip_id_cov_solo_informativo": 0.81,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1113,
+    "frac_within_150": 0.954,
+    "frac_trips_perp_le_50": 0.865
+   }
+  },
+  "44": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA con recorrido OSM parcial (10-20 % de pings a >150 m): se acepta perder esos puntos",
+   "agencies": [
+    "700"
+   ],
+   "centroid": [
+    -34.6033,
+    -58.4523
+   ],
+   "trips_weekday": 609,
+   "median_perp_m": 3.03,
+   "frac_within_150_trips": 0.985,
+   "frac_within_150_moving": 0.962,
+   "depot_frac": 0.066,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.85,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 940,
+    "frac_within_150": 0.895,
+    "frac_trips_perp_le_50": 0.764
+   }
   },
   "46": {
-   "trips_weekday": 833.0,
-   "trip_id_cov": 0.853,
-   "start_time_cov": 0.853,
-   "median_perp_m": 3.08,
-   "p90_perp_m": 32.964,
-   "frac_within_150": 0.966,
-   "frac_trips_perp_le_50": 0.911,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "73"
    ],
-   "n_days_seen": 5,
-   "pings": 128095,
    "centroid": [
     -34.6462,
     -58.4535
-   ]
+   ],
+   "trips_weekday": 335,
+   "median_perp_m": 2.81,
+   "frac_within_150_trips": 0.99,
+   "frac_within_150_moving": 0.987,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 0.997,
+   "trip_id_cov_solo_informativo": 0.86,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 833,
+    "frac_within_150": 0.966,
+    "frac_trips_perp_le_50": 0.911
+   }
   },
   "47": {
-   "trips_weekday": 753.0,
-   "trip_id_cov": 0.843,
-   "start_time_cov": 0.843,
-   "median_perp_m": 2.846,
-   "p90_perp_m": 59.796,
-   "frac_within_150": 0.943,
-   "frac_trips_perp_le_50": 0.884,
+   "split": "train",
+   "caba": true,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "52"
    ],
-   "n_days_seen": 5,
-   "pings": 107735,
    "centroid": [
     -34.6379,
     -58.4906
-   ]
+   ],
+   "trips_weekday": 362,
+   "median_perp_m": 2.47,
+   "frac_within_150_trips": 0.992,
+   "frac_within_150_moving": 0.988,
+   "depot_frac": 0.021,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.86,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 753,
+    "frac_within_150": 0.943,
+    "frac_trips_perp_le_50": 0.884
+   }
   },
   "50": {
-   "trips_weekday": 1027.0,
-   "trip_id_cov": 0.883,
-   "start_time_cov": 0.883,
-   "median_perp_m": 3.956,
-   "p90_perp_m": 42.451,
-   "frac_within_150": 0.945,
-   "frac_trips_perp_le_50": 0.908,
+   "split": "train",
+   "caba": true,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "702"
    ],
-   "n_days_seen": 5,
-   "pings": 187875,
    "centroid": [
     -34.6412,
     -58.4317
-   ]
-  },
-  "56": {
-   "trips_weekday": 457.0,
-   "trip_id_cov": 0.874,
-   "start_time_cov": 0.874,
-   "median_perp_m": 3.366,
-   "p90_perp_m": 389.397,
-   "frac_within_150": 0.925,
-   "frac_trips_perp_le_50": 0.842,
-   "agencies": [
-    "712"
    ],
-   "n_days_seen": 5,
-   "pings": 49687,
-   "centroid": [
-    -34.6898,
-    -58.4947
-   ]
+   "trips_weekday": 594,
+   "median_perp_m": 3.29,
+   "frac_within_150_trips": 0.977,
+   "frac_within_150_moving": 0.974,
+   "depot_frac": 0.007,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.86,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1027,
+    "frac_within_150": 0.945,
+    "frac_trips_perp_le_50": 0.908
+   }
   },
-  "62": {
-   "trips_weekday": 413.5,
-   "trip_id_cov": 0.768,
-   "start_time_cov": 0.768,
-   "median_perp_m": 5.001,
-   "p90_perp_m": 49.148,
-   "frac_within_150": 0.951,
-   "frac_trips_perp_le_50": 0.906,
+  "61": {
+   "split": "train",
+   "caba": true,
+   "reason": "train (CABA, pasó el filtro y no estaba elegida): solo ~190 viajes/día: más útil como dato de train que como control",
    "agencies": [
     "717"
    ],
-   "n_days_seen": 5,
-   "pings": 40184,
+   "centroid": [
+    -34.6116,
+    -58.3795
+   ],
+   "trips_weekday": 194,
+   "median_perp_m": 4.59,
+   "frac_within_150_trips": 0.999,
+   "frac_within_150_moving": 0.989,
+   "depot_frac": 0.036,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.75,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 346,
+    "frac_within_150": 0.979,
+    "frac_trips_perp_le_50": 0.884
+   }
+  },
+  "62": {
+   "split": "train",
+   "caba": true,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
+   "agencies": [
+    "717"
+   ],
    "centroid": [
     -34.611,
     -58.3791
-   ]
+   ],
+   "trips_weekday": 274,
+   "median_perp_m": 4.37,
+   "frac_within_150_trips": 0.984,
+   "frac_within_150_moving": 0.974,
+   "depot_frac": 0.007,
+   "frac_trips_perp_le_50": 0.992,
+   "trip_id_cov_solo_informativo": 0.77,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 414,
+    "frac_within_150": 0.951,
+    "frac_trips_perp_le_50": 0.906
+   }
   },
   "74": {
-   "trips_weekday": 397.0,
-   "trip_id_cov": 0.958,
-   "start_time_cov": 0.958,
-   "median_perp_m": 2.854,
-   "p90_perp_m": 30.786,
-   "frac_within_150": 0.97,
-   "frac_trips_perp_le_50": 0.944,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "727"
    ],
-   "n_days_seen": 5,
-   "pings": 92397,
    "centroid": [
     -34.7061,
     -58.3765
-   ]
+   ],
+   "trips_weekday": 280,
+   "median_perp_m": 2.57,
+   "frac_within_150_trips": 0.992,
+   "frac_within_150_moving": 0.986,
+   "depot_frac": 0.015,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.96,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 397,
+    "frac_within_150": 0.97,
+    "frac_trips_perp_le_50": 0.944
+   }
+  },
+  "76": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA con recorrido OSM parcial (10-20 % de pings a >150 m): se acepta perder esos puntos",
+   "agencies": [
+    "711"
+   ],
+   "centroid": [
+    -34.6191,
+    -58.4539
+   ],
+   "trips_weekday": 519,
+   "median_perp_m": 2.84,
+   "frac_within_150_trips": 0.989,
+   "frac_within_150_moving": 0.938,
+   "depot_frac": 0.04,
+   "frac_trips_perp_le_50": 0.979,
+   "trip_id_cov_solo_informativo": 0.91,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 859,
+    "frac_within_150": 0.901,
+    "frac_trips_perp_le_50": 0.718
+   }
+  },
+  "84": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA sin trip_id: ya no es motivo de exclusión (segmentación geométrica)",
+   "agencies": [
+    "706"
+   ],
+   "centroid": [
+    -34.617,
+    -58.4321
+   ],
+   "trips_weekday": 403,
+   "median_perp_m": 3.24,
+   "frac_within_150_trips": 0.998,
+   "frac_within_150_moving": 0.927,
+   "depot_frac": 0.011,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.14,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 572,
+    "frac_within_150": 0.807,
+    "frac_trips_perp_le_50": 0.874
+   }
   },
   "85": {
-   "trips_weekday": 1015.0,
-   "trip_id_cov": 0.969,
-   "start_time_cov": 0.969,
-   "median_perp_m": 2.982,
-   "p90_perp_m": 30.743,
-   "frac_within_150": 0.984,
-   "frac_trips_perp_le_50": 0.949,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "59"
    ],
-   "n_days_seen": 5,
-   "pings": 284892,
    "centroid": [
     -34.6591,
     -58.4063
-   ]
+   ],
+   "trips_weekday": 719,
+   "median_perp_m": 2.79,
+   "frac_within_150_trips": 0.99,
+   "frac_within_150_moving": 0.986,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 0.975,
+   "trip_id_cov_solo_informativo": 0.97,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1015,
+    "frac_within_150": 0.984,
+    "frac_trips_perp_le_50": 0.949
+   }
   },
   "88": {
-   "trips_weekday": 891.0,
-   "trip_id_cov": 0.802,
-   "start_time_cov": 0.802,
-   "median_perp_m": 3.102,
-   "p90_perp_m": 71.567,
-   "frac_within_150": 0.951,
-   "frac_trips_perp_le_50": 0.884,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "741"
    ],
-   "n_days_seen": 5,
-   "pings": 132524,
    "centroid": [
     -34.8742,
     -58.6711
-   ]
+   ],
+   "trips_weekday": 402,
+   "median_perp_m": 2.63,
+   "frac_within_150_trips": 0.998,
+   "frac_within_150_moving": 0.986,
+   "depot_frac": 0.016,
+   "frac_trips_perp_le_50": 0.994,
+   "trip_id_cov_solo_informativo": 0.8,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 891,
+    "frac_within_150": 0.951,
+    "frac_trips_perp_le_50": 0.884
+   }
   },
   "92": {
-   "trips_weekday": 1469.5,
-   "trip_id_cov": 0.876,
-   "start_time_cov": 0.876,
-   "median_perp_m": 3.918,
-   "p90_perp_m": 76.591,
-   "frac_within_150": 0.961,
-   "frac_trips_perp_le_50": 0.868,
+   "split": "train",
+   "caba": false,
+   "reason": "actual",
    "agencies": [
     "89"
    ],
-   "n_days_seen": 5,
-   "pings": 257434,
    "centroid": [
     -34.6534,
     -58.4698
-   ]
+   ],
+   "trips_weekday": 804,
+   "median_perp_m": 3.37,
+   "frac_within_150_trips": 0.987,
+   "frac_within_150_moving": 0.975,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 0.979,
+   "trip_id_cov_solo_informativo": 0.88,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1470,
+    "frac_within_150": 0.961,
+    "frac_trips_perp_le_50": 0.868
+   }
   },
   "98": {
-   "trips_weekday": 2078.0,
-   "trip_id_cov": 0.929,
-   "start_time_cov": 0.929,
-   "median_perp_m": 3.138,
-   "p90_perp_m": 60.284,
-   "frac_within_150": 0.952,
-   "frac_trips_perp_le_50": 0.89,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "62"
    ],
-   "n_days_seen": 5,
-   "pings": 378292,
    "centroid": [
     -34.6693,
     -58.3421
-   ]
+   ],
+   "trips_weekday": 1518,
+   "median_perp_m": 2.97,
+   "frac_within_150_trips": 0.978,
+   "frac_within_150_moving": 0.974,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 0.993,
+   "trip_id_cov_solo_informativo": 0.91,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 2078,
+    "frac_within_150": 0.952,
+    "frac_trips_perp_le_50": 0.89
+   }
+  },
+  "102": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA con trip_id parcial: ya no es motivo de exclusión (segmentación geométrica)",
+   "agencies": [
+    "2"
+   ],
+   "centroid": [
+    -34.5901,
+    -58.4066
+   ],
+   "trips_weekday": 642,
+   "median_perp_m": 4.13,
+   "frac_within_150_trips": 0.995,
+   "frac_within_150_moving": 0.985,
+   "depot_frac": 0.009,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.34,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1014,
+    "frac_within_150": 0.91,
+    "frac_trips_perp_le_50": 0.879
+   }
   },
   "106": {
-   "trips_weekday": 2964.5,
-   "trip_id_cov": 0.859,
-   "start_time_cov": 0.859,
-   "median_perp_m": 3.517,
-   "p90_perp_m": 23.274,
-   "frac_within_150": 0.979,
-   "frac_trips_perp_le_50": 0.942,
+   "split": "train",
+   "caba": true,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "29"
    ],
-   "n_days_seen": 5,
-   "pings": 370931,
    "centroid": [
     -34.6111,
     -58.4443
-   ]
+   ],
+   "trips_weekday": 1286,
+   "median_perp_m": 3.18,
+   "frac_within_150_trips": 0.995,
+   "frac_within_150_moving": 0.99,
+   "depot_frac": 0.004,
+   "frac_trips_perp_le_50": 0.999,
+   "trip_id_cov_solo_informativo": 0.87,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 2964,
+    "frac_within_150": 0.979,
+    "frac_trips_perp_le_50": 0.942
+   }
   },
   "107": {
-   "trips_weekday": 802.5,
-   "trip_id_cov": 0.901,
-   "start_time_cov": 0.901,
-   "median_perp_m": 3.211,
-   "p90_perp_m": 102.345,
-   "frac_within_150": 0.962,
-   "frac_trips_perp_le_50": 0.834,
+   "split": "train",
+   "caba": true,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "702"
    ],
-   "n_days_seen": 5,
-   "pings": 162597,
    "centroid": [
     -34.5891,
     -58.4792
-   ]
+   ],
+   "trips_weekday": 526,
+   "median_perp_m": 2.78,
+   "frac_within_150_trips": 0.982,
+   "frac_within_150_moving": 0.984,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 0.971,
+   "trip_id_cov_solo_informativo": 0.88,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 802,
+    "frac_within_150": 0.962,
+    "frac_trips_perp_le_50": 0.834
+   }
+  },
+  "108": {
+   "split": "train",
+   "caba": true,
+   "reason": "train (CABA, pasó el filtro y no estaba elegida): vecina de la 109 (control); empresa 715",
+   "agencies": [
+    "715"
+   ],
+   "centroid": [
+    -34.5955,
+    -58.4495
+   ],
+   "trips_weekday": 449,
+   "median_perp_m": 3.38,
+   "frac_within_150_trips": 0.994,
+   "frac_within_150_moving": 0.954,
+   "depot_frac": 0.006,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.88,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 722,
+    "frac_within_150": 0.929,
+    "frac_trips_perp_le_50": 0.805
+   }
   },
   "110": {
-   "trips_weekday": 849.5,
-   "trip_id_cov": 0.926,
-   "start_time_cov": 0.926,
-   "median_perp_m": 3.453,
-   "p90_perp_m": 29.163,
-   "frac_within_150": 0.997,
-   "frac_trips_perp_le_50": 0.986,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "19"
    ],
-   "n_days_seen": 5,
-   "pings": 189020,
    "centroid": [
     -34.586,
     -58.4589
-   ]
+   ],
+   "trips_weekday": 575,
+   "median_perp_m": 3.26,
+   "frac_within_150_trips": 0.998,
+   "frac_within_150_moving": 0.998,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.93,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 850,
+    "frac_within_150": 0.997,
+    "frac_trips_perp_le_50": 0.986
+   }
   },
   "113": {
-   "trips_weekday": 892.0,
-   "trip_id_cov": 0.906,
-   "start_time_cov": 0.906,
-   "median_perp_m": 3.233,
-   "p90_perp_m": 35.977,
-   "frac_within_150": 0.983,
-   "frac_trips_perp_le_50": 0.929,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "30"
    ],
-   "n_days_seen": 5,
-   "pings": 165845,
    "centroid": [
     -34.6215,
     -58.4907
-   ]
+   ],
+   "trips_weekday": 478,
+   "median_perp_m": 2.83,
+   "frac_within_150_trips": 0.992,
+   "frac_within_150_moving": 0.988,
+   "depot_frac": 0.002,
+   "frac_trips_perp_le_50": 0.994,
+   "trip_id_cov_solo_informativo": 0.91,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 892,
+    "frac_within_150": 0.983,
+    "frac_trips_perp_le_50": 0.929
+   }
   },
   "114": {
-   "trips_weekday": 643.0,
-   "trip_id_cov": 0.86,
-   "start_time_cov": 0.86,
-   "median_perp_m": 3.132,
-   "p90_perp_m": 228.55,
-   "frac_within_150": 0.931,
-   "frac_trips_perp_le_50": 0.865,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "718"
    ],
-   "n_days_seen": 5,
-   "pings": 112217,
    "centroid": [
     -34.6222,
     -58.4707
-   ]
+   ],
+   "trips_weekday": 390,
+   "median_perp_m": 2.82,
+   "frac_within_150_trips": 0.974,
+   "frac_within_150_moving": 0.989,
+   "depot_frac": 0.002,
+   "frac_trips_perp_le_50": 0.996,
+   "trip_id_cov_solo_informativo": 0.86,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 643,
+    "frac_within_150": 0.931,
+    "frac_trips_perp_le_50": 0.865
+   }
+  },
+  "115": {
+   "split": "train",
+   "caba": true,
+   "reason": "train: CABA con recorrido OSM parcial (10-20 % de pings a >150 m): se acepta perder esos puntos",
+   "agencies": [
+    "706"
+   ],
+   "centroid": [
+    -34.6338,
+    -58.4168
+   ],
+   "trips_weekday": 750,
+   "median_perp_m": 3.64,
+   "frac_within_150_trips": 0.984,
+   "frac_within_150_moving": 0.983,
+   "depot_frac": 0.004,
+   "frac_trips_perp_le_50": 0.869,
+   "trip_id_cov_solo_informativo": 0.86,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1072,
+    "frac_within_150": 0.948,
+    "frac_trips_perp_le_50": 0.797
+   }
+  },
+  "118": {
+   "split": "train",
+   "caba": true,
+   "reason": "train (CABA, pasó el filtro y no estaba elegida): este (lon -58,408), empresa 42; ~935 viajes/día",
+   "agencies": [
+    "42"
+   ],
+   "centroid": [
+    -34.6088,
+    -58.4081
+   ],
+   "trips_weekday": 935,
+   "median_perp_m": 3.86,
+   "frac_within_150_trips": 0.985,
+   "frac_within_150_moving": 0.993,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 0.983,
+   "trip_id_cov_solo_informativo": 0.68,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1712,
+    "frac_within_150": 0.936,
+    "frac_trips_perp_le_50": 0.844
+   }
   },
   "123": {
-   "trips_weekday": 554.5,
-   "trip_id_cov": 0.839,
-   "start_time_cov": 0.839,
-   "median_perp_m": 3.185,
-   "p90_perp_m": 50.685,
-   "frac_within_150": 0.98,
-   "frac_trips_perp_le_50": 0.892,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "92"
    ],
-   "n_days_seen": 5,
-   "pings": 77535,
    "centroid": [
     -34.5933,
     -58.5119
-   ]
+   ],
+   "trips_weekday": 304,
+   "median_perp_m": 2.73,
+   "frac_within_150_trips": 0.981,
+   "frac_within_150_moving": 0.994,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.84,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 554,
+    "frac_within_150": 0.98,
+    "frac_trips_perp_le_50": 0.892
+   }
   },
   "124": {
-   "trips_weekday": 235.5,
-   "trip_id_cov": 0.0,
-   "start_time_cov": 0.0,
-   "median_perp_m": 8.776,
-   "p90_perp_m": 13.187,
-   "frac_within_150": 0.829,
-   "frac_trips_perp_le_50": 0.993,
+   "split": "train",
+   "caba": false,
+   "reason": "actual, se mantiene por decisión del usuario",
    "agencies": [
     "705"
    ],
-   "n_days_seen": 5,
-   "pings": 158768,
    "centroid": [
     -34.6074,
     -58.4598
-   ]
+   ],
+   "trips_weekday": 482,
+   "median_perp_m": 3.44,
+   "frac_within_150_trips": 0.991,
+   "frac_within_150_moving": 0.996,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.0,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 236,
+    "frac_within_150": 0.829,
+    "frac_trips_perp_le_50": 0.993
+   }
   },
   "127": {
-   "trips_weekday": 730.0,
-   "trip_id_cov": 0.95,
-   "start_time_cov": 0.95,
-   "median_perp_m": 2.854,
-   "p90_perp_m": 29.05,
-   "frac_within_150": 0.966,
-   "frac_trips_perp_le_50": 0.92,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "22"
    ],
-   "n_days_seen": 5,
-   "pings": 145465,
    "centroid": [
     -34.5698,
     -58.4981
-   ]
+   ],
+   "trips_weekday": 412,
+   "median_perp_m": 2.72,
+   "frac_within_150_trips": 0.986,
+   "frac_within_150_moving": 0.989,
+   "depot_frac": 0.004,
+   "frac_trips_perp_le_50": 0.976,
+   "trip_id_cov_solo_informativo": 0.95,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 730,
+    "frac_within_150": 0.966,
+    "frac_trips_perp_le_50": 0.92
+   }
+  },
+  "132": {
+   "split": "train",
+   "caba": true,
+   "reason": "train (CABA, pasó el filtro y no estaba elegida): centro-este, empresa 12; ~1093 viajes/día",
+   "agencies": [
+    "12"
+   ],
+   "centroid": [
+    -34.6094,
+    -58.4121
+   ],
+   "trips_weekday": 1093,
+   "median_perp_m": 3.97,
+   "frac_within_150_trips": 0.996,
+   "frac_within_150_moving": 0.994,
+   "depot_frac": 0.002,
+   "frac_trips_perp_le_50": 0.999,
+   "trip_id_cov_solo_informativo": 0.87,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1848,
+    "frac_within_150": 0.975,
+    "frac_trips_perp_le_50": 0.887
+   }
   },
   "143": {
-   "trips_weekday": 526.0,
-   "trip_id_cov": 0.951,
-   "start_time_cov": 0.951,
-   "median_perp_m": 2.907,
-   "p90_perp_m": 26.422,
-   "frac_within_150": 0.984,
-   "frac_trips_perp_le_50": 0.955,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "718"
    ],
-   "n_days_seen": 5,
-   "pings": 88252,
    "centroid": [
     -34.6411,
     -58.4161
-   ]
+   ],
+   "trips_weekday": 328,
+   "median_perp_m": 2.63,
+   "frac_within_150_trips": 0.993,
+   "frac_within_150_moving": 0.998,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 0.99,
+   "trip_id_cov_solo_informativo": 0.93,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 526,
+    "frac_within_150": 0.984,
+    "frac_trips_perp_le_50": 0.955
+   }
   },
   "151": {
-   "trips_weekday": 1503.5,
-   "trip_id_cov": 0.424,
-   "start_time_cov": 0.424,
-   "median_perp_m": 4.033,
-   "p90_perp_m": 68.775,
-   "frac_within_150": 0.89,
-   "frac_trips_perp_le_50": 0.878,
+   "split": "train",
+   "caba": true,
+   "reason": "actual, se mantiene por decisión del usuario",
    "agencies": [
     "708"
    ],
-   "n_days_seen": 5,
-   "pings": 263943,
    "centroid": [
     -34.6003,
     -58.4214
-   ]
+   ],
+   "trips_weekday": 768,
+   "median_perp_m": 3.41,
+   "frac_within_150_trips": 0.99,
+   "frac_within_150_moving": 0.971,
+   "depot_frac": 0.05,
+   "frac_trips_perp_le_50": 0.995,
+   "trip_id_cov_solo_informativo": 0.43,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1504,
+    "frac_within_150": 0.89,
+    "frac_trips_perp_le_50": 0.878
+   }
   },
   "168": {
-   "trips_weekday": 1068.5,
-   "trip_id_cov": 0.924,
-   "start_time_cov": 0.924,
-   "median_perp_m": 3.253,
-   "p90_perp_m": 79.162,
-   "frac_within_150": 0.965,
-   "frac_trips_perp_le_50": 0.88,
+   "split": "train",
+   "caba": false,
+   "reason": "actual",
    "agencies": [
     "80"
    ],
-   "n_days_seen": 5,
-   "pings": 217424,
    "centroid": [
     -34.5677,
     -58.44
-   ]
+   ],
+   "trips_weekday": 598,
+   "median_perp_m": 2.93,
+   "frac_within_150_trips": 0.989,
+   "frac_within_150_moving": 0.979,
+   "depot_frac": 0.013,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.93,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1068,
+    "frac_within_150": 0.965,
+    "frac_trips_perp_le_50": 0.88
+   }
   },
   "169": {
-   "trips_weekday": 855.0,
-   "trip_id_cov": 0.904,
-   "start_time_cov": 0.904,
-   "median_perp_m": 2.716,
-   "p90_perp_m": 32.737,
-   "frac_within_150": 0.986,
-   "frac_trips_perp_le_50": 0.965,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "33"
    ],
-   "n_days_seen": 5,
-   "pings": 117520,
    "centroid": [
     -34.5734,
     -58.5463
-   ]
+   ],
+   "trips_weekday": 406,
+   "median_perp_m": 2.48,
+   "frac_within_150_trips": 0.988,
+   "frac_within_150_moving": 0.992,
+   "depot_frac": 0.002,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.9,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 855,
+    "frac_within_150": 0.986,
+    "frac_trips_perp_le_50": 0.965
+   }
   },
   "180": {
-   "trips_weekday": 2386.0,
-   "trip_id_cov": 0.793,
-   "start_time_cov": 0.793,
-   "median_perp_m": 3.72,
-   "p90_perp_m": 96.729,
-   "frac_within_150": 0.956,
-   "frac_trips_perp_le_50": 0.802,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "737"
    ],
-   "n_days_seen": 5,
-   "pings": 331175,
    "centroid": [
     -34.6828,
     -58.5163
-   ]
+   ],
+   "trips_weekday": 1017,
+   "median_perp_m": 3.04,
+   "frac_within_150_trips": 0.983,
+   "frac_within_150_moving": 0.977,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 0.996,
+   "trip_id_cov_solo_informativo": 0.79,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 2386,
+    "frac_within_150": 0.956,
+    "frac_trips_perp_le_50": 0.802
+   }
   },
   "184": {
-   "trips_weekday": 705.5,
-   "trip_id_cov": 0.658,
-   "start_time_cov": 0.658,
-   "median_perp_m": 2.941,
-   "p90_perp_m": 38.426,
-   "frac_within_150": 0.966,
-   "frac_trips_perp_le_50": 0.93,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "743"
    ],
-   "n_days_seen": 5,
-   "pings": 90083,
    "centroid": [
     -34.5436,
     -58.487
-   ]
+   ],
+   "trips_weekday": 310,
+   "median_perp_m": 2.57,
+   "frac_within_150_trips": 0.985,
+   "frac_within_150_moving": 0.989,
+   "depot_frac": 0.003,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.62,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 706,
+    "frac_within_150": 0.966,
+    "frac_trips_perp_le_50": 0.93
+   }
   },
   "188": {
-   "trips_weekday": 1487.0,
-   "trip_id_cov": 0.924,
-   "start_time_cov": 0.924,
-   "median_perp_m": 3.272,
-   "p90_perp_m": 46.668,
-   "frac_within_150": 0.966,
-   "frac_trips_perp_le_50": 0.912,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "21"
    ],
-   "n_days_seen": 5,
-   "pings": 210908,
    "centroid": [
     -34.6732,
     -58.4233
-   ]
+   ],
+   "trips_weekday": 696,
+   "median_perp_m": 3.07,
+   "frac_within_150_trips": 0.984,
+   "frac_within_150_moving": 0.98,
+   "depot_frac": 0.006,
+   "frac_trips_perp_le_50": 0.998,
+   "trip_id_cov_solo_informativo": 0.92,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1487,
+    "frac_within_150": 0.966,
+    "frac_trips_perp_le_50": 0.912
+   }
   },
   "194": {
-   "trips_weekday": 1392.5,
-   "trip_id_cov": 0.833,
-   "start_time_cov": 0.833,
-   "median_perp_m": 4.567,
-   "p90_perp_m": 109.779,
-   "frac_within_150": 0.959,
-   "frac_trips_perp_le_50": 0.86,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "709"
    ],
-   "n_days_seen": 5,
-   "pings": 246499,
    "centroid": [
     -34.444,
     -58.6326
-   ]
+   ],
+   "trips_weekday": 708,
+   "median_perp_m": 3.72,
+   "frac_within_150_trips": 0.989,
+   "frac_within_150_moving": 0.979,
+   "depot_frac": 0.007,
+   "frac_trips_perp_le_50": 0.977,
+   "trip_id_cov_solo_informativo": 0.83,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1392,
+    "frac_within_150": 0.959,
+    "frac_trips_perp_le_50": 0.86
+   }
   },
   "197": {
-   "trips_weekday": 1109.5,
-   "trip_id_cov": 0.868,
-   "start_time_cov": 0.868,
-   "median_perp_m": 3.148,
-   "p90_perp_m": 45.829,
-   "frac_within_150": 0.929,
-   "frac_trips_perp_le_50": 0.902,
+   "split": "train",
+   "caba": false,
+   "reason": "elegida por calidad y variedad geográfica (primera tanda)",
    "agencies": [
     "718"
    ],
-   "n_days_seen": 5,
-   "pings": 165544,
    "centroid": [
     -34.6988,
     -58.311
-   ]
+   ],
+   "trips_weekday": 634,
+   "median_perp_m": 2.78,
+   "frac_within_150_trips": 0.989,
+   "frac_within_150_moving": 0.958,
+   "depot_frac": 0.014,
+   "frac_trips_perp_le_50": 0.974,
+   "trip_id_cov_solo_informativo": 0.87,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1110,
+    "frac_within_150": 0.929,
+    "frac_trips_perp_le_50": 0.902
+   }
   },
   "1": {
-   "trips_weekday": 410.0,
-   "trip_id_cov": 0.914,
-   "start_time_cov": 0.914,
-   "median_perp_m": 3.502,
-   "p90_perp_m": 74.141,
-   "frac_within_150": 0.974,
-   "frac_trips_perp_le_50": 0.836,
+   "split": "control",
+   "caba": false,
+   "reason": "control (primera tanda)",
    "agencies": [
     "34"
    ],
-   "n_days_seen": 5,
-   "pings": 72218,
    "centroid": [
     -34.6346,
     -58.5253
-   ]
+   ],
+   "trips_weekday": 272,
+   "median_perp_m": 3.02,
+   "frac_within_150_trips": 0.988,
+   "frac_within_150_moving": 0.985,
+   "depot_frac": 0.003,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.91,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 410,
+    "frac_within_150": 0.974,
+    "frac_trips_perp_le_50": 0.836
+   }
+  },
+  "12": {
+   "split": "control",
+   "caba": true,
+   "reason": "control (CABA, pasó el filtro y no estaba elegida): microcentro-este, empresa 704 ausente de train; ~1006 viajes/día",
+   "agencies": [
+    "704"
+   ],
+   "centroid": [
+    -34.6097,
+    -58.3965
+   ],
+   "trips_weekday": 1006,
+   "median_perp_m": 3.94,
+   "frac_within_150_trips": 0.999,
+   "frac_within_150_moving": 0.998,
+   "depot_frac": 0.001,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.82,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1846,
+    "frac_within_150": 0.989,
+    "frac_trips_perp_le_50": 0.96
+   }
   },
   "15": {
-   "trips_weekday": 1273.0,
-   "trip_id_cov": 0.853,
-   "start_time_cov": 0.853,
-   "median_perp_m": 4.388,
-   "p90_perp_m": 113.113,
-   "frac_within_150": 0.944,
-   "frac_trips_perp_le_50": 0.842,
+   "split": "control",
+   "caba": false,
+   "reason": "control (primera tanda)",
    "agencies": [
     "55"
    ],
-   "n_days_seen": 5,
-   "pings": 243700,
    "centroid": [
     -34.5445,
     -58.5066
-   ]
+   ],
+   "trips_weekday": 592,
+   "median_perp_m": 3.59,
+   "frac_within_150_trips": 0.993,
+   "frac_within_150_moving": 0.972,
+   "depot_frac": 0.014,
+   "frac_trips_perp_le_50": 0.995,
+   "trip_id_cov_solo_informativo": 0.87,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1273,
+    "frac_within_150": 0.944,
+    "frac_trips_perp_le_50": 0.842
+   }
   },
   "21": {
-   "trips_weekday": 2587.5,
-   "trip_id_cov": 0.891,
-   "start_time_cov": 0.891,
-   "median_perp_m": 3.621,
-   "p90_perp_m": 92.085,
-   "frac_within_150": 0.956,
-   "frac_trips_perp_le_50": 0.859,
+   "split": "control",
+   "caba": false,
+   "reason": "control (primera tanda)",
    "agencies": [
     "716"
    ],
-   "n_days_seen": 5,
-   "pings": 400042,
    "centroid": [
     -34.5544,
     -58.5381
-   ]
+   ],
+   "trips_weekday": 1482,
+   "median_perp_m": 3.2,
+   "frac_within_150_trips": 0.983,
+   "frac_within_150_moving": 0.984,
+   "depot_frac": 0.008,
+   "frac_trips_perp_le_50": 0.939,
+   "trip_id_cov_solo_informativo": 0.86,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 2588,
+    "frac_within_150": 0.956,
+    "frac_trips_perp_le_50": 0.859
+   }
+  },
+  "64": {
+   "split": "control",
+   "caba": true,
+   "reason": "control (CABA, pasó el filtro y no estaba elegida): este (lon -58,396), empresa 41 ausente de train; ~590 viajes/día",
+   "agencies": [
+    "41"
+   ],
+   "centroid": [
+    -34.6026,
+    -58.3963
+   ],
+   "trips_weekday": 590,
+   "median_perp_m": 3.33,
+   "frac_within_150_trips": 0.999,
+   "frac_within_150_moving": 0.997,
+   "depot_frac": 0.0,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.88,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 952,
+    "frac_within_150": 0.972,
+    "frac_trips_perp_le_50": 0.922
+   }
+  },
+  "65": {
+   "split": "control",
+   "caba": true,
+   "reason": "control (CABA): decisión del usuario; antes excluida por 'recorrido incompleto'",
+   "agencies": [
+    "708"
+   ],
+   "centroid": [
+    -34.6051,
+    -58.4304
+   ],
+   "trips_weekday": 626,
+   "median_perp_m": 3.31,
+   "frac_within_150_trips": 0.99,
+   "frac_within_150_moving": 0.953,
+   "depot_frac": 0.032,
+   "frac_trips_perp_le_50": 0.996,
+   "trip_id_cov_solo_informativo": 0.83,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1148,
+    "frac_within_150": 0.904,
+    "frac_trips_perp_le_50": 0.666
+   }
+  },
+  "68": {
+   "split": "control",
+   "caba": true,
+   "reason": "control (CABA, pasó el filtro y no estaba elegida): norte de CABA (lat -34,575), empresa 39 ausente de train; ~1078 viajes/día",
+   "agencies": [
+    "39"
+   ],
+   "centroid": [
+    -34.5753,
+    -58.4348
+   ],
+   "trips_weekday": 1078,
+   "median_perp_m": 3.86,
+   "frac_within_150_trips": 0.999,
+   "frac_within_150_moving": 0.99,
+   "depot_frac": 0.003,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.8,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1846,
+    "frac_within_150": 0.966,
+    "frac_trips_perp_le_50": 0.807
+   }
   },
   "87": {
-   "trips_weekday": 906.5,
-   "trip_id_cov": 0.91,
-   "start_time_cov": 0.91,
-   "median_perp_m": 2.853,
-   "p90_perp_m": 7.93,
-   "frac_within_150": 0.956,
-   "frac_trips_perp_le_50": 0.953,
+   "split": "control",
+   "caba": false,
+   "reason": "control (primera tanda)",
    "agencies": [
     "22"
    ],
-   "n_days_seen": 5,
-   "pings": 142766,
    "centroid": [
     -34.5251,
     -58.5731
-   ]
-  },
-  "91": {
-   "trips_weekday": 984.0,
-   "trip_id_cov": 0.937,
-   "start_time_cov": 0.937,
-   "median_perp_m": 2.939,
-   "p90_perp_m": 27.386,
-   "frac_within_150": 0.945,
-   "frac_trips_perp_le_50": 0.915,
-   "agencies": [
-    "712"
    ],
-   "n_days_seen": 5,
-   "pings": 114290,
-   "centroid": [
-    -34.677,
-    -58.4672
-   ]
+   "trips_weekday": 482,
+   "median_perp_m": 2.63,
+   "frac_within_150_trips": 0.98,
+   "frac_within_150_moving": 0.977,
+   "depot_frac": 0.008,
+   "frac_trips_perp_le_50": 0.993,
+   "trip_id_cov_solo_informativo": 0.91,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 906,
+    "frac_within_150": 0.956,
+    "frac_trips_perp_le_50": 0.953
+   }
   },
   "100": {
-   "trips_weekday": 1209.0,
-   "trip_id_cov": 0.885,
-   "start_time_cov": 0.885,
-   "median_perp_m": 3.477,
-   "p90_perp_m": 143.879,
-   "frac_within_150": 0.951,
-   "frac_trips_perp_le_50": 0.874,
+   "split": "control",
+   "caba": false,
+   "reason": "control (primera tanda)",
    "agencies": [
     "707"
    ],
-   "n_days_seen": 5,
-   "pings": 195417,
    "centroid": [
     -34.6362,
     -58.3763
-   ]
+   ],
+   "trips_weekday": 707,
+   "median_perp_m": 2.9,
+   "frac_within_150_trips": 0.99,
+   "frac_within_150_moving": 0.968,
+   "depot_frac": 0.003,
+   "frac_trips_perp_le_50": 0.984,
+   "trip_id_cov_solo_informativo": 0.85,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1209,
+    "frac_within_150": 0.951,
+    "frac_trips_perp_le_50": 0.874
+   }
+  },
+  "109": {
+   "split": "control",
+   "caba": true,
+   "reason": "control (CABA, pasó el filtro y no estaba elegida): oeste (lon -58,451), empresa 24 ausente de train; vecina de la 108 (train)",
+   "agencies": [
+    "24"
+   ],
+   "centroid": [
+    -34.6079,
+    -58.4511
+   ],
+   "trips_weekday": 452,
+   "median_perp_m": 3.23,
+   "frac_within_150_trips": 0.996,
+   "frac_within_150_moving": 0.969,
+   "depot_frac": 0.01,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.82,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 1111,
+    "frac_within_150": 0.94,
+    "frac_trips_perp_le_50": 0.912
+   }
   },
   "128": {
-   "trips_weekday": 993.5,
-   "trip_id_cov": 0.842,
-   "start_time_cov": 0.842,
-   "median_perp_m": 4.16,
-   "p90_perp_m": 40.868,
-   "frac_within_150": 0.982,
-   "frac_trips_perp_le_50": 0.915,
+   "split": "control",
+   "caba": false,
+   "reason": "control (primera tanda)",
    "agencies": [
     "31"
    ],
-   "n_days_seen": 5,
-   "pings": 125014,
    "centroid": [
     -34.6274,
     -58.4141
-   ]
+   ],
+   "trips_weekday": 490,
+   "median_perp_m": 3.28,
+   "frac_within_150_trips": 0.987,
+   "frac_within_150_moving": 0.987,
+   "depot_frac": 0.004,
+   "frac_trips_perp_le_50": 1.0,
+   "trip_id_cov_solo_informativo": 0.84,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 994,
+    "frac_within_150": 0.982,
+    "frac_trips_perp_le_50": 0.915
+   }
   },
   "181": {
-   "trips_weekday": 893.0,
-   "trip_id_cov": 0.865,
-   "start_time_cov": 0.865,
-   "median_perp_m": 2.933,
-   "p90_perp_m": 48.309,
-   "frac_within_150": 0.931,
-   "frac_trips_perp_le_50": 0.9,
+   "split": "control",
+   "caba": false,
+   "reason": "control (primera tanda)",
    "agencies": [
     "37"
    ],
-   "n_days_seen": 5,
-   "pings": 151417,
    "centroid": [
     -34.6216,
     -58.5125
-   ]
+   ],
+   "trips_weekday": 433,
+   "median_perp_m": 2.46,
+   "frac_within_150_trips": 0.998,
+   "frac_within_150_moving": 0.972,
+   "depot_frac": 0.036,
+   "frac_trips_perp_le_50": 0.996,
+   "trip_id_cov_solo_informativo": 0.86,
+   "antes_segmentacion_trip_id": {
+    "trips_weekday": 893,
+    "frac_within_150": 0.931,
+    "frac_trips_perp_le_50": 0.9
+   }
   }
  },
- "warnings_current_lines": {
-  "124": "línea actual que se mantiene pese a no cumplir: pocos viajes (236/día hábil < 300); trip_id 0% < 60%; start_time 0% (el segmentador corta por start_time); solo 83% de puntos <=150 m",
-  "151": "línea actual que se mantiene pese a no cumplir: trip_id 42% < 60%; start_time 42% (el segmentador corta por start_time); solo 89% de puntos <=150 m"
+ "dropped": {
+  "56": "decisión del usuario: se saca de train",
+  "91": "decisión del usuario: sale del control"
  },
- "eligible_not_picked": [
-  "2",
-  "8",
-  "10",
-  "12",
-  "17",
-  "19",
-  "24",
-  "34",
-  "45",
-  "55",
-  "59",
-  "61",
-  "63",
-  "64",
-  "67",
-  "68",
-  "78",
-  "93",
-  "95",
-  "101",
-  "103",
-  "105",
-  "108",
-  "109",
-  "111",
-  "117",
-  "118",
-  "126",
-  "130",
-  "132",
-  "134",
-  "140",
-  "145",
-  "166"
- ],
- "excluded": {
-  "4": "pocos viajes (142/día hábil < 300); trip_id 0% < 60%; start_time 0% (el segmentador corta por start_time); solo 90% de puntos <=150 m",
-  "7": "solo 84% de puntos <=150 m",
+ "not_in_dataset_first_pass": {
   "22": "solo 91% de puntos <=150 m; solo 79% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
-  "25": "pocos viajes (248/día hábil < 300); trip_id 0% < 60%; start_time 0% (el segmentador corta por start_time)",
   "31": "solo 90% de puntos <=150 m; solo 75% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "32": "solo 86% de puntos <=150 m; solo 70% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "37": "solo 73% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
-  "44": "solo 89% de puntos <=150 m; solo 76% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "49": "solo 79% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "51": "perp mediano 28 m > 15 m; solo 47% de puntos <=150 m; solo 53% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "53": "solo 90% de puntos <=150 m",
   "57": "solo 88% de puntos <=150 m",
   "60": "solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
-  "65": "solo 90% de puntos <=150 m; solo 67% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "70": "solo 89% de puntos <=150 m; solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "71": "solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
-  "76": "solo 90% de puntos <=150 m; solo 72% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "79": "perp mediano 2972 m > 15 m; solo 47% de puntos <=150 m; solo 41% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "80": "solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
-  "84": "trip_id 14% < 60%; start_time 14% (el segmentador corta por start_time); solo 81% de puntos <=150 m",
   "86": "solo 84% de puntos <=150 m; solo 77% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "96": "solo 90% de puntos <=150 m",
   "97": "solo 83% de puntos <=150 m; solo 70% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
-  "102": "trip_id 34% < 60%; start_time 34% (el segmentador corta por start_time); solo 91% de puntos <=150 m",
-  "115": "solo 80% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "119": "solo 87% de puntos <=150 m; solo 58% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "129": "trip_id 57% < 60%; start_time 57% (el segmentador corta por start_time); solo 91% de puntos <=150 m",
   "133": "solo 87% de puntos <=150 m",
@@ -955,77 +1729,5 @@
   "185": "solo 90% de puntos <=150 m",
   "193": "solo 75% de puntos <=150 m; solo 65% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
   "195": "solo 88% de puntos <=150 m"
- },
- "lines_1_199_without_shape": [
-  "3",
-  "5",
-  "6",
-  "11",
-  "13",
-  "14",
-  "16",
-  "18",
-  "23",
-  "27",
-  "30",
-  "35",
-  "36",
-  "38",
-  "40",
-  "43",
-  "48",
-  "52",
-  "54",
-  "58",
-  "66",
-  "69",
-  "72",
-  "73",
-  "75",
-  "77",
-  "81",
-  "82",
-  "83",
-  "89",
-  "90",
-  "94",
-  "99",
-  "104",
-  "112",
-  "116",
-  "120",
-  "121",
-  "122",
-  "125",
-  "131",
-  "137",
-  "138",
-  "139",
-  "141",
-  "142",
-  "144",
-  "147",
-  "148",
-  "149",
-  "155",
-  "156",
-  "157",
-  "162",
-  "165",
-  "167",
-  "170",
-  "171",
-  "173",
-  "175",
-  "183",
-  "186",
-  "187",
-  "189",
-  "190",
-  "191",
-  "192",
-  "196",
-  "198",
-  "199"
- ]
+ }
 }

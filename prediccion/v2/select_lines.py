@@ -50,15 +50,18 @@ def amba_lines(shapes: LineShapes) -> list[str]:
 
 
 def _measure_day(args) -> tuple[str, dict]:
-    day, shapes_dir, data_dir, label_map_path = args
+    day, shapes_dir, data_dir, label_map_path, only_lines = args
     t0 = time.time()
     shapes = LineShapes(shapes_dir)
     label_data = load_label_line_data(label_map_path)
     index = resolve_label_line_index(label_data, on_date=day)
     label_map = {s: v["line"] for s, v in index.items()}
     lines = set(amba_lines(shapes)) & set(label_map.values())
+    if only_lines:
+        lines &= set(only_lines)
     vehicles, stats, _ = read_day(Path(data_dir) / f"{day}.ndjson.gz", label_map, lines)
-    trips = segment_vehicles(vehicles, index)
+    mstats: dict = {}
+    trips = segment_vehicles(vehicles, index, shapes, "geo", stats=mstats)
     del vehicles
     agg: dict[str, dict] = {}
     for trip in trips:
@@ -86,7 +89,10 @@ def _measure_day(args) -> tuple[str, dict]:
             "start_time_cov": s[2] / s[0] if s[0] else 0.0,
             "median_perp_m": float(np.nanmedian(med)),
             "p90_perp_m": float(np.nanpercentile(med, 90)),
-            "frac_within_150": a["valid"] / a["points"] if a["points"] else 0.0,
+            "frac_within_150": a["valid"] / a["points"] if a["points"] else 0.0,      # sobre pings dentro de viajes
+            "depot_frac": mstats[ln]["depot"] / mstats[ln]["pings"] if ln in mstats and mstats[ln]["pings"] else 0.0,
+            "frac_within_150_moving": (mstats[ln]["moving_valid"] / mstats[ln]["moving_total"]
+                                       if ln in mstats and mstats[ln]["moving_total"] else 0.0),
             "frac_trips_perp_le_50": float(np.mean(med <= 50.0)),
             "agencies": a["agencies"],
         }
@@ -94,8 +100,8 @@ def _measure_day(args) -> tuple[str, dict]:
     return day, out
 
 
-def measure(days: list[str], workers: int, out_path: Path, shapes_dir, data_dir, label_map) -> dict:
-    jobs = [(d, str(shapes_dir), str(data_dir), str(label_map)) for d in days]
+def measure(days: list[str], workers: int, out_path: Path, shapes_dir, data_dir, label_map, only_lines=None) -> dict:
+    jobs = [(d, str(shapes_dir), str(data_dir), str(label_map), only_lines) for d in days]
     results = {}
     if workers <= 1:
         for j in jobs:
@@ -144,7 +150,7 @@ def summarize(metrics: dict) -> dict[str, dict]:
         wk = [m for d, m in ds.items() if d in weekday]
         allm = list(ds.values())
         def med(key, ms):
-            return float(np.median([m[key] for m in ms])) if ms else float("nan")
+            return float(np.median([m.get(key, float("nan")) for m in ms])) if ms else float("nan")
         pings = sum(m["pings"] for m in allm)
         out[ln] = {
             "trips_weekday": med("trips", wk),
@@ -154,6 +160,8 @@ def summarize(metrics: dict) -> dict[str, dict]:
             "median_perp_m": med("median_perp_m", allm),
             "p90_perp_m": med("p90_perp_m", allm),
             "frac_within_150": med("frac_within_150", allm),
+            "frac_within_150_moving": med("frac_within_150_moving", allm),
+            "depot_frac": med("depot_frac", allm),
             "frac_trips_perp_le_50": med("frac_trips_perp_le_50", allm),
             "agencies": sorted(r["agencies"], key=lambda a: -r["agencies"][a]),
             "n_days_seen": len(ds), "pings": pings,
@@ -271,6 +279,7 @@ def main():
     m = sub.add_parser("measure")
     m.add_argument("--days", required=True, help="YYYY-MM-DD separados por coma")
     m.add_argument("--workers", type=int, default=3)
+    m.add_argument("--lines", default=None, help="medir solo estas líneas (coma)")
     m.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     m.add_argument("--shapes-dir", type=Path, default=DEFAULT_LINE_SHAPES_DIR)
     m.add_argument("--label-map", type=Path, default=DEFAULT_LABEL_MAP)
@@ -278,10 +287,11 @@ def main():
     p = sub.add_parser("propose")
     p.add_argument("--metrics", type=Path, default=DEFAULT_V2_DIR / "line_metrics.json")
     p.add_argument("--shapes-dir", type=Path, default=DEFAULT_LINE_SHAPES_DIR)
-    p.add_argument("--out", type=Path, default=DEFAULT_V2_DIR / "lines.json")
+    p.add_argument("--out", type=Path, default=DEFAULT_V2_DIR / "lines_first_pass.json")  # la lista final sale de lines_final.py
     a = ap.parse_args()
     if a.cmd == "measure":
-        measure(a.days.split(","), a.workers, a.out, a.shapes_dir, a.data_dir, a.label_map)
+        measure(a.days.split(","), a.workers, a.out, a.shapes_dir, a.data_dir, a.label_map,
+                a.lines.split(",") if a.lines else None)
         print("OK ->", a.out)
     else:
         out = propose(a.metrics, a.out, a.shapes_dir)
