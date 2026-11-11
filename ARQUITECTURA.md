@@ -2,7 +2,7 @@
 
 **Este es el documento rector.** Si contradice a otro doc, manda este.
 `prediccion_ml_plan.md` queda como **referencia histórica de diseño**: ahí está el porqué de muchas decisiones (§7, §7b, §9, §11), pero su estado y su plan de fases están desactualizados.
-Copias de todos los docs anteriores a este cambio: `docs_old/2026-11-10/`. Tag git `pre-arquitectura-2026-11` = estado del código antes del cambio.
+Copias de todos los docs anteriores a este cambio: `docs_old/2026-11-10/`. **Siguen vigentes sin cambios:** `.claude/skills/grabador_nuc.md` (grabador, formato NDJSON, monitoreo) y `analisis_grabacion_mensual.md`. Tag git `pre-arquitectura-2026-11` = estado del código antes del cambio.
 
 ---
 
@@ -91,3 +91,49 @@ Del plan histórico: modelo único para todas las líneas (§7); pinball asimét
 - Split de validación: el código usa último 20 % de días (`build_dataset.py:423`); `ml_timeline.md` dice últimos 7 días. **Ahora manda §5.**
 - `INFERENCE_GUIDE.md` no incluye `schedule_dev_norm` ni `time_since_last_bus_s`, y asume `shape_id` vía ramal_lookup.
 - `has_active_bus` es siempre 1 en training (nunca se entrenó el caso sin coche visible).
+
+## 10. Cómo correr (pipeline v2, vara de medir y escalera E0–E2)
+
+Todo desde la raíz del repo (`prediccion colectivos/`), en PowerShell. El venv de `Dondeestaelbondi\.venv` tiene **torch CPU** (sin CUDA): para entrenar en la RTX 3080 hace falta un entorno con torch+CUDA (`--device cuda`). Construir datos, eval A0/A1 y los tests no necesitan GPU. Si falla `python -m ...`, usar `$env:PYTHONPATH="."`.
+
+Código: `prediccion/v2/` (shapes, pairs, rows, day = `process_day`, assemble, build, select_lines, make_eval, compare_old), `prediccion/eval.py`, `best_shape_for_trip` en `prediccion/pipeline/projector.py`. Todo lo nuevo escribe en `data/ml/v2/` (el pipeline viejo y `data/ml/training|models` no se tocan).
+
+### Estructura de `data/ml/v2/`
+`lines.json` (train/heldout + justificación, versionado) · `line_metrics.json` (mediciones de §4.4, versionado) · `daily/YYYY-MM-DD.{parquet,trips.parquet,meta.json,carry.json}` · `manifest.json` · `training/eta_train|eta_val.parquet` · `shape_lengths.json` · `schedule_dev_medians.json` · `eval/eval_seen|eval_heldout.parquet` + resultados · `models/`.
+
+### Paso 0 — construir el dataset completo (una vez; reanudable)
+```powershell
+python -m prediccion.v2.build --lines-file data/ml/v2/lines.json --days 2026-03-28:2026-10-14 --pairs-per-trip 64 --workers 8
+```
+Mismo comando para reanudar tras un corte o para agregar una línea nueva a `lines.json` (solo reprocesa los días que no la tienen). `--workers 8` usa ~21 GB de RAM (2,6 GB por worker). Al final corre `assemble_dataset()` (split §5). Para re-ensamblar sin releer NDJSON: `python -m prediccion.v2.assemble`.
+Para E2 con menos filas/disco, usar `--pairs-per-trip 24` o `32` (ver estimaciones en el reporte de la corrida chica: con K=64 salen ~380 M filas y ~37 GB en `daily/` + ~30 GB de `training/`).
+
+### E0 — baselines (minutos)
+```powershell
+python -m prediccion.v2.make_eval                                   # congela eval_seen / eval_heldout (no regenera si existen; --force para rehacer)
+python -m prediccion.train --phase 1 --ml-dir data/ml/v2 --skip-build   # A1 reentrenado con el train v2 -> data/ml/v2/models/a1_v<ts>.pkl
+foreach ($s in "seen","heldout") {
+  python -m prediccion.eval --model a0 --set $s
+  python -m prediccion.eval --model a0c:7 --set $s
+  python -m prediccion.eval --model a1:data/ml/v2/models/a1_v<ts>.pkl --set $s
+}
+# A3 actual ep21 (solo 39, referencia histórica; usa las medianas schedule_dev del pipeline viejo automáticamente)
+python -m prediccion.eval --model a3:data/ml/models/eta_a3_nofleet_gfull_ep21_mae72s_20260606_183507.pt --set seen --lines 39
+```
+Resultados en `data/ml/v2/eval/<modelo>_<set>_<fecha>.{json,md}`; anotar lo que importa en §7.
+
+### E1 — A3 sin flota, solo línea 39, K=64
+```powershell
+python -m prediccion.v2.assemble --only-lines 39 --dest data/ml/v2/e1_39
+python -m prediccion.train --phase 3 --ml-dir data/ml/v2/e1_39 --no-fleet --device cuda --epochs 30 --patience 5
+python -m prediccion.eval --model a3:data/ml/v2/e1_39/models/eta_a3_best.pt --set seen --lines 39
+python -m prediccion.eval --model a1:data/ml/v2/models/a1_v<ts>.pkl --set seen --lines 39    # referencia en el mismo subconjunto
+```
+
+### E2 — A3 sin flota, todas las líneas de `lines.json`
+```powershell
+python -m prediccion.train --phase 3 --ml-dir data/ml/v2 --no-fleet --device cuda --epochs 30 --patience 5
+foreach ($s in "seen","heldout") { python -m prediccion.eval --model a3:data/ml/v2/models/eta_a3_best.pt --set $s }
+python -m prediccion.eval --model a3:data/ml/v2/models/eta_a3_best.pt --set seen --lines 39     # ¿mejora la 39 vs E1?
+```
+El `.pt` queda también archivado con nombre (`eta_a3_nofleet_gfull_ep<N>_mae<M>s_<ts>.pt`); usar ese nombre para que no lo pise la corrida siguiente.
