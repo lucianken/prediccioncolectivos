@@ -1,0 +1,1031 @@
+{
+ "train": [
+  "9",
+  "20",
+  "26",
+  "28",
+  "29",
+  "33",
+  "39",
+  "41",
+  "42",
+  "46",
+  "47",
+  "50",
+  "56",
+  "62",
+  "74",
+  "85",
+  "88",
+  "92",
+  "98",
+  "106",
+  "107",
+  "110",
+  "113",
+  "114",
+  "123",
+  "124",
+  "127",
+  "143",
+  "151",
+  "168",
+  "169",
+  "180",
+  "184",
+  "188",
+  "194",
+  "197"
+ ],
+ "heldout": [
+  "1",
+  "15",
+  "21",
+  "87",
+  "91",
+  "100",
+  "128",
+  "181"
+ ],
+ "criteria": {
+  "min_trips_weekday": 300,
+  "min_trip_id_cov": 0.6,
+  "min_start_time_cov": 0.6,
+  "max_median_perp_m": 15.0,
+  "min_frac_within_150": 0.92,
+  "min_frac_trips_perp_le_50": 0.8,
+  "selection": "7 actuales + farthest-point sampling por centroide del recorrido entre las elegibles (bonus x1.25 por agencia no representada, ponderado por calidad); cada ~5ª elegida va a heldout",
+  "sample_days": [
+   "2026-07-15",
+   "2026-08-18",
+   "2026-09-17",
+   "2026-10-07",
+   "2026-08-22"
+  ],
+  "weekday_days": [
+   "2026-07-15",
+   "2026-08-18",
+   "2026-09-17",
+   "2026-10-07"
+  ]
+ },
+ "metrics": {
+  "9": {
+   "trips_weekday": 988.0,
+   "trip_id_cov": 0.883,
+   "start_time_cov": 0.883,
+   "median_perp_m": 3.114,
+   "p90_perp_m": 32.705,
+   "frac_within_150": 0.996,
+   "frac_trips_perp_le_50": 0.94,
+   "agencies": [
+    "713"
+   ],
+   "n_days_seen": 5,
+   "pings": 144914,
+   "centroid": [
+    -34.6307,
+    -58.3992
+   ]
+  },
+  "20": {
+   "trips_weekday": 562.0,
+   "trip_id_cov": 0.917,
+   "start_time_cov": 0.917,
+   "median_perp_m": 3.436,
+   "p90_perp_m": 61.947,
+   "frac_within_150": 0.949,
+   "frac_trips_perp_le_50": 0.864,
+   "agencies": [
+    "21"
+   ],
+   "n_days_seen": 5,
+   "pings": 98817,
+   "centroid": [
+    -34.6693,
+    -58.393
+   ]
+  },
+  "26": {
+   "trips_weekday": 1040.0,
+   "trip_id_cov": 0.885,
+   "start_time_cov": 0.885,
+   "median_perp_m": 4.123,
+   "p90_perp_m": 51.332,
+   "frac_within_150": 0.981,
+   "frac_trips_perp_le_50": 0.892,
+   "agencies": [
+    "13"
+   ],
+   "n_days_seen": 4,
+   "pings": 118846,
+   "centroid": [
+    -34.6092,
+    -58.4054
+   ]
+  },
+  "28": {
+   "trips_weekday": 3763.5,
+   "trip_id_cov": 0.892,
+   "start_time_cov": 0.892,
+   "median_perp_m": 3.56,
+   "p90_perp_m": 62.602,
+   "frac_within_150": 0.958,
+   "frac_trips_perp_le_50": 0.888,
+   "agencies": [
+    "701"
+   ],
+   "n_days_seen": 5,
+   "pings": 441407,
+   "centroid": [
+    -34.6255,
+    -58.4517
+   ]
+  },
+  "29": {
+   "trips_weekday": 1279.0,
+   "trip_id_cov": 0.888,
+   "start_time_cov": 0.888,
+   "median_perp_m": 4.673,
+   "p90_perp_m": 43.637,
+   "frac_within_150": 0.985,
+   "frac_trips_perp_le_50": 0.941,
+   "agencies": [
+    "47"
+   ],
+   "n_days_seen": 5,
+   "pings": 208041,
+   "centroid": [
+    -34.5899,
+    -58.4099
+   ]
+  },
+  "33": {
+   "trips_weekday": 1898.5,
+   "trip_id_cov": 0.887,
+   "start_time_cov": 0.887,
+   "median_perp_m": 3.437,
+   "p90_perp_m": 44.568,
+   "frac_within_150": 0.966,
+   "frac_trips_perp_le_50": 0.905,
+   "agencies": [
+    "87"
+   ],
+   "n_days_seen": 5,
+   "pings": 226578,
+   "centroid": [
+    -34.6253,
+    -58.3783
+   ]
+  },
+  "39": {
+   "trips_weekday": 1555.5,
+   "trip_id_cov": 0.904,
+   "start_time_cov": 0.904,
+   "median_perp_m": 3.595,
+   "p90_perp_m": 6.874,
+   "frac_within_150": 0.992,
+   "frac_trips_perp_le_50": 0.977,
+   "agencies": [
+    "56"
+   ],
+   "n_days_seen": 5,
+   "pings": 264887,
+   "centroid": [
+    -34.6032,
+    -58.3996
+   ]
+  },
+  "41": {
+   "trips_weekday": 1088.0,
+   "trip_id_cov": 0.881,
+   "start_time_cov": 0.881,
+   "median_perp_m": 3.534,
+   "p90_perp_m": 31.775,
+   "frac_within_150": 0.997,
+   "frac_trips_perp_le_50": 0.982,
+   "agencies": [
+    "719"
+   ],
+   "n_days_seen": 5,
+   "pings": 200067,
+   "centroid": [
+    -34.5732,
+    -58.4502
+   ]
+  },
+  "42": {
+   "trips_weekday": 1113.0,
+   "trip_id_cov": 0.807,
+   "start_time_cov": 0.807,
+   "median_perp_m": 4.463,
+   "p90_perp_m": 77.267,
+   "frac_within_150": 0.954,
+   "frac_trips_perp_le_50": 0.865,
+   "agencies": [
+    "15"
+   ],
+   "n_days_seen": 5,
+   "pings": 165601,
+   "centroid": [
+    -34.5902,
+    -58.4395
+   ]
+  },
+  "46": {
+   "trips_weekday": 833.0,
+   "trip_id_cov": 0.853,
+   "start_time_cov": 0.853,
+   "median_perp_m": 3.08,
+   "p90_perp_m": 32.964,
+   "frac_within_150": 0.966,
+   "frac_trips_perp_le_50": 0.911,
+   "agencies": [
+    "73"
+   ],
+   "n_days_seen": 5,
+   "pings": 128095,
+   "centroid": [
+    -34.6462,
+    -58.4535
+   ]
+  },
+  "47": {
+   "trips_weekday": 753.0,
+   "trip_id_cov": 0.843,
+   "start_time_cov": 0.843,
+   "median_perp_m": 2.846,
+   "p90_perp_m": 59.796,
+   "frac_within_150": 0.943,
+   "frac_trips_perp_le_50": 0.884,
+   "agencies": [
+    "52"
+   ],
+   "n_days_seen": 5,
+   "pings": 107735,
+   "centroid": [
+    -34.6379,
+    -58.4906
+   ]
+  },
+  "50": {
+   "trips_weekday": 1027.0,
+   "trip_id_cov": 0.883,
+   "start_time_cov": 0.883,
+   "median_perp_m": 3.956,
+   "p90_perp_m": 42.451,
+   "frac_within_150": 0.945,
+   "frac_trips_perp_le_50": 0.908,
+   "agencies": [
+    "702"
+   ],
+   "n_days_seen": 5,
+   "pings": 187875,
+   "centroid": [
+    -34.6412,
+    -58.4317
+   ]
+  },
+  "56": {
+   "trips_weekday": 457.0,
+   "trip_id_cov": 0.874,
+   "start_time_cov": 0.874,
+   "median_perp_m": 3.366,
+   "p90_perp_m": 389.397,
+   "frac_within_150": 0.925,
+   "frac_trips_perp_le_50": 0.842,
+   "agencies": [
+    "712"
+   ],
+   "n_days_seen": 5,
+   "pings": 49687,
+   "centroid": [
+    -34.6898,
+    -58.4947
+   ]
+  },
+  "62": {
+   "trips_weekday": 413.5,
+   "trip_id_cov": 0.768,
+   "start_time_cov": 0.768,
+   "median_perp_m": 5.001,
+   "p90_perp_m": 49.148,
+   "frac_within_150": 0.951,
+   "frac_trips_perp_le_50": 0.906,
+   "agencies": [
+    "717"
+   ],
+   "n_days_seen": 5,
+   "pings": 40184,
+   "centroid": [
+    -34.611,
+    -58.3791
+   ]
+  },
+  "74": {
+   "trips_weekday": 397.0,
+   "trip_id_cov": 0.958,
+   "start_time_cov": 0.958,
+   "median_perp_m": 2.854,
+   "p90_perp_m": 30.786,
+   "frac_within_150": 0.97,
+   "frac_trips_perp_le_50": 0.944,
+   "agencies": [
+    "727"
+   ],
+   "n_days_seen": 5,
+   "pings": 92397,
+   "centroid": [
+    -34.7061,
+    -58.3765
+   ]
+  },
+  "85": {
+   "trips_weekday": 1015.0,
+   "trip_id_cov": 0.969,
+   "start_time_cov": 0.969,
+   "median_perp_m": 2.982,
+   "p90_perp_m": 30.743,
+   "frac_within_150": 0.984,
+   "frac_trips_perp_le_50": 0.949,
+   "agencies": [
+    "59"
+   ],
+   "n_days_seen": 5,
+   "pings": 284892,
+   "centroid": [
+    -34.6591,
+    -58.4063
+   ]
+  },
+  "88": {
+   "trips_weekday": 891.0,
+   "trip_id_cov": 0.802,
+   "start_time_cov": 0.802,
+   "median_perp_m": 3.102,
+   "p90_perp_m": 71.567,
+   "frac_within_150": 0.951,
+   "frac_trips_perp_le_50": 0.884,
+   "agencies": [
+    "741"
+   ],
+   "n_days_seen": 5,
+   "pings": 132524,
+   "centroid": [
+    -34.8742,
+    -58.6711
+   ]
+  },
+  "92": {
+   "trips_weekday": 1469.5,
+   "trip_id_cov": 0.876,
+   "start_time_cov": 0.876,
+   "median_perp_m": 3.918,
+   "p90_perp_m": 76.591,
+   "frac_within_150": 0.961,
+   "frac_trips_perp_le_50": 0.868,
+   "agencies": [
+    "89"
+   ],
+   "n_days_seen": 5,
+   "pings": 257434,
+   "centroid": [
+    -34.6534,
+    -58.4698
+   ]
+  },
+  "98": {
+   "trips_weekday": 2078.0,
+   "trip_id_cov": 0.929,
+   "start_time_cov": 0.929,
+   "median_perp_m": 3.138,
+   "p90_perp_m": 60.284,
+   "frac_within_150": 0.952,
+   "frac_trips_perp_le_50": 0.89,
+   "agencies": [
+    "62"
+   ],
+   "n_days_seen": 5,
+   "pings": 378292,
+   "centroid": [
+    -34.6693,
+    -58.3421
+   ]
+  },
+  "106": {
+   "trips_weekday": 2964.5,
+   "trip_id_cov": 0.859,
+   "start_time_cov": 0.859,
+   "median_perp_m": 3.517,
+   "p90_perp_m": 23.274,
+   "frac_within_150": 0.979,
+   "frac_trips_perp_le_50": 0.942,
+   "agencies": [
+    "29"
+   ],
+   "n_days_seen": 5,
+   "pings": 370931,
+   "centroid": [
+    -34.6111,
+    -58.4443
+   ]
+  },
+  "107": {
+   "trips_weekday": 802.5,
+   "trip_id_cov": 0.901,
+   "start_time_cov": 0.901,
+   "median_perp_m": 3.211,
+   "p90_perp_m": 102.345,
+   "frac_within_150": 0.962,
+   "frac_trips_perp_le_50": 0.834,
+   "agencies": [
+    "702"
+   ],
+   "n_days_seen": 5,
+   "pings": 162597,
+   "centroid": [
+    -34.5891,
+    -58.4792
+   ]
+  },
+  "110": {
+   "trips_weekday": 849.5,
+   "trip_id_cov": 0.926,
+   "start_time_cov": 0.926,
+   "median_perp_m": 3.453,
+   "p90_perp_m": 29.163,
+   "frac_within_150": 0.997,
+   "frac_trips_perp_le_50": 0.986,
+   "agencies": [
+    "19"
+   ],
+   "n_days_seen": 5,
+   "pings": 189020,
+   "centroid": [
+    -34.586,
+    -58.4589
+   ]
+  },
+  "113": {
+   "trips_weekday": 892.0,
+   "trip_id_cov": 0.906,
+   "start_time_cov": 0.906,
+   "median_perp_m": 3.233,
+   "p90_perp_m": 35.977,
+   "frac_within_150": 0.983,
+   "frac_trips_perp_le_50": 0.929,
+   "agencies": [
+    "30"
+   ],
+   "n_days_seen": 5,
+   "pings": 165845,
+   "centroid": [
+    -34.6215,
+    -58.4907
+   ]
+  },
+  "114": {
+   "trips_weekday": 643.0,
+   "trip_id_cov": 0.86,
+   "start_time_cov": 0.86,
+   "median_perp_m": 3.132,
+   "p90_perp_m": 228.55,
+   "frac_within_150": 0.931,
+   "frac_trips_perp_le_50": 0.865,
+   "agencies": [
+    "718"
+   ],
+   "n_days_seen": 5,
+   "pings": 112217,
+   "centroid": [
+    -34.6222,
+    -58.4707
+   ]
+  },
+  "123": {
+   "trips_weekday": 554.5,
+   "trip_id_cov": 0.839,
+   "start_time_cov": 0.839,
+   "median_perp_m": 3.185,
+   "p90_perp_m": 50.685,
+   "frac_within_150": 0.98,
+   "frac_trips_perp_le_50": 0.892,
+   "agencies": [
+    "92"
+   ],
+   "n_days_seen": 5,
+   "pings": 77535,
+   "centroid": [
+    -34.5933,
+    -58.5119
+   ]
+  },
+  "124": {
+   "trips_weekday": 235.5,
+   "trip_id_cov": 0.0,
+   "start_time_cov": 0.0,
+   "median_perp_m": 8.776,
+   "p90_perp_m": 13.187,
+   "frac_within_150": 0.829,
+   "frac_trips_perp_le_50": 0.993,
+   "agencies": [
+    "705"
+   ],
+   "n_days_seen": 5,
+   "pings": 158768,
+   "centroid": [
+    -34.6074,
+    -58.4598
+   ]
+  },
+  "127": {
+   "trips_weekday": 730.0,
+   "trip_id_cov": 0.95,
+   "start_time_cov": 0.95,
+   "median_perp_m": 2.854,
+   "p90_perp_m": 29.05,
+   "frac_within_150": 0.966,
+   "frac_trips_perp_le_50": 0.92,
+   "agencies": [
+    "22"
+   ],
+   "n_days_seen": 5,
+   "pings": 145465,
+   "centroid": [
+    -34.5698,
+    -58.4981
+   ]
+  },
+  "143": {
+   "trips_weekday": 526.0,
+   "trip_id_cov": 0.951,
+   "start_time_cov": 0.951,
+   "median_perp_m": 2.907,
+   "p90_perp_m": 26.422,
+   "frac_within_150": 0.984,
+   "frac_trips_perp_le_50": 0.955,
+   "agencies": [
+    "718"
+   ],
+   "n_days_seen": 5,
+   "pings": 88252,
+   "centroid": [
+    -34.6411,
+    -58.4161
+   ]
+  },
+  "151": {
+   "trips_weekday": 1503.5,
+   "trip_id_cov": 0.424,
+   "start_time_cov": 0.424,
+   "median_perp_m": 4.033,
+   "p90_perp_m": 68.775,
+   "frac_within_150": 0.89,
+   "frac_trips_perp_le_50": 0.878,
+   "agencies": [
+    "708"
+   ],
+   "n_days_seen": 5,
+   "pings": 263943,
+   "centroid": [
+    -34.6003,
+    -58.4214
+   ]
+  },
+  "168": {
+   "trips_weekday": 1068.5,
+   "trip_id_cov": 0.924,
+   "start_time_cov": 0.924,
+   "median_perp_m": 3.253,
+   "p90_perp_m": 79.162,
+   "frac_within_150": 0.965,
+   "frac_trips_perp_le_50": 0.88,
+   "agencies": [
+    "80"
+   ],
+   "n_days_seen": 5,
+   "pings": 217424,
+   "centroid": [
+    -34.5677,
+    -58.44
+   ]
+  },
+  "169": {
+   "trips_weekday": 855.0,
+   "trip_id_cov": 0.904,
+   "start_time_cov": 0.904,
+   "median_perp_m": 2.716,
+   "p90_perp_m": 32.737,
+   "frac_within_150": 0.986,
+   "frac_trips_perp_le_50": 0.965,
+   "agencies": [
+    "33"
+   ],
+   "n_days_seen": 5,
+   "pings": 117520,
+   "centroid": [
+    -34.5734,
+    -58.5463
+   ]
+  },
+  "180": {
+   "trips_weekday": 2386.0,
+   "trip_id_cov": 0.793,
+   "start_time_cov": 0.793,
+   "median_perp_m": 3.72,
+   "p90_perp_m": 96.729,
+   "frac_within_150": 0.956,
+   "frac_trips_perp_le_50": 0.802,
+   "agencies": [
+    "737"
+   ],
+   "n_days_seen": 5,
+   "pings": 331175,
+   "centroid": [
+    -34.6828,
+    -58.5163
+   ]
+  },
+  "184": {
+   "trips_weekday": 705.5,
+   "trip_id_cov": 0.658,
+   "start_time_cov": 0.658,
+   "median_perp_m": 2.941,
+   "p90_perp_m": 38.426,
+   "frac_within_150": 0.966,
+   "frac_trips_perp_le_50": 0.93,
+   "agencies": [
+    "743"
+   ],
+   "n_days_seen": 5,
+   "pings": 90083,
+   "centroid": [
+    -34.5436,
+    -58.487
+   ]
+  },
+  "188": {
+   "trips_weekday": 1487.0,
+   "trip_id_cov": 0.924,
+   "start_time_cov": 0.924,
+   "median_perp_m": 3.272,
+   "p90_perp_m": 46.668,
+   "frac_within_150": 0.966,
+   "frac_trips_perp_le_50": 0.912,
+   "agencies": [
+    "21"
+   ],
+   "n_days_seen": 5,
+   "pings": 210908,
+   "centroid": [
+    -34.6732,
+    -58.4233
+   ]
+  },
+  "194": {
+   "trips_weekday": 1392.5,
+   "trip_id_cov": 0.833,
+   "start_time_cov": 0.833,
+   "median_perp_m": 4.567,
+   "p90_perp_m": 109.779,
+   "frac_within_150": 0.959,
+   "frac_trips_perp_le_50": 0.86,
+   "agencies": [
+    "709"
+   ],
+   "n_days_seen": 5,
+   "pings": 246499,
+   "centroid": [
+    -34.444,
+    -58.6326
+   ]
+  },
+  "197": {
+   "trips_weekday": 1109.5,
+   "trip_id_cov": 0.868,
+   "start_time_cov": 0.868,
+   "median_perp_m": 3.148,
+   "p90_perp_m": 45.829,
+   "frac_within_150": 0.929,
+   "frac_trips_perp_le_50": 0.902,
+   "agencies": [
+    "718"
+   ],
+   "n_days_seen": 5,
+   "pings": 165544,
+   "centroid": [
+    -34.6988,
+    -58.311
+   ]
+  },
+  "1": {
+   "trips_weekday": 410.0,
+   "trip_id_cov": 0.914,
+   "start_time_cov": 0.914,
+   "median_perp_m": 3.502,
+   "p90_perp_m": 74.141,
+   "frac_within_150": 0.974,
+   "frac_trips_perp_le_50": 0.836,
+   "agencies": [
+    "34"
+   ],
+   "n_days_seen": 5,
+   "pings": 72218,
+   "centroid": [
+    -34.6346,
+    -58.5253
+   ]
+  },
+  "15": {
+   "trips_weekday": 1273.0,
+   "trip_id_cov": 0.853,
+   "start_time_cov": 0.853,
+   "median_perp_m": 4.388,
+   "p90_perp_m": 113.113,
+   "frac_within_150": 0.944,
+   "frac_trips_perp_le_50": 0.842,
+   "agencies": [
+    "55"
+   ],
+   "n_days_seen": 5,
+   "pings": 243700,
+   "centroid": [
+    -34.5445,
+    -58.5066
+   ]
+  },
+  "21": {
+   "trips_weekday": 2587.5,
+   "trip_id_cov": 0.891,
+   "start_time_cov": 0.891,
+   "median_perp_m": 3.621,
+   "p90_perp_m": 92.085,
+   "frac_within_150": 0.956,
+   "frac_trips_perp_le_50": 0.859,
+   "agencies": [
+    "716"
+   ],
+   "n_days_seen": 5,
+   "pings": 400042,
+   "centroid": [
+    -34.5544,
+    -58.5381
+   ]
+  },
+  "87": {
+   "trips_weekday": 906.5,
+   "trip_id_cov": 0.91,
+   "start_time_cov": 0.91,
+   "median_perp_m": 2.853,
+   "p90_perp_m": 7.93,
+   "frac_within_150": 0.956,
+   "frac_trips_perp_le_50": 0.953,
+   "agencies": [
+    "22"
+   ],
+   "n_days_seen": 5,
+   "pings": 142766,
+   "centroid": [
+    -34.5251,
+    -58.5731
+   ]
+  },
+  "91": {
+   "trips_weekday": 984.0,
+   "trip_id_cov": 0.937,
+   "start_time_cov": 0.937,
+   "median_perp_m": 2.939,
+   "p90_perp_m": 27.386,
+   "frac_within_150": 0.945,
+   "frac_trips_perp_le_50": 0.915,
+   "agencies": [
+    "712"
+   ],
+   "n_days_seen": 5,
+   "pings": 114290,
+   "centroid": [
+    -34.677,
+    -58.4672
+   ]
+  },
+  "100": {
+   "trips_weekday": 1209.0,
+   "trip_id_cov": 0.885,
+   "start_time_cov": 0.885,
+   "median_perp_m": 3.477,
+   "p90_perp_m": 143.879,
+   "frac_within_150": 0.951,
+   "frac_trips_perp_le_50": 0.874,
+   "agencies": [
+    "707"
+   ],
+   "n_days_seen": 5,
+   "pings": 195417,
+   "centroid": [
+    -34.6362,
+    -58.3763
+   ]
+  },
+  "128": {
+   "trips_weekday": 993.5,
+   "trip_id_cov": 0.842,
+   "start_time_cov": 0.842,
+   "median_perp_m": 4.16,
+   "p90_perp_m": 40.868,
+   "frac_within_150": 0.982,
+   "frac_trips_perp_le_50": 0.915,
+   "agencies": [
+    "31"
+   ],
+   "n_days_seen": 5,
+   "pings": 125014,
+   "centroid": [
+    -34.6274,
+    -58.4141
+   ]
+  },
+  "181": {
+   "trips_weekday": 893.0,
+   "trip_id_cov": 0.865,
+   "start_time_cov": 0.865,
+   "median_perp_m": 2.933,
+   "p90_perp_m": 48.309,
+   "frac_within_150": 0.931,
+   "frac_trips_perp_le_50": 0.9,
+   "agencies": [
+    "37"
+   ],
+   "n_days_seen": 5,
+   "pings": 151417,
+   "centroid": [
+    -34.6216,
+    -58.5125
+   ]
+  }
+ },
+ "warnings_current_lines": {
+  "124": "línea actual que se mantiene pese a no cumplir: pocos viajes (236/día hábil < 300); trip_id 0% < 60%; start_time 0% (el segmentador corta por start_time); solo 83% de puntos <=150 m",
+  "151": "línea actual que se mantiene pese a no cumplir: trip_id 42% < 60%; start_time 42% (el segmentador corta por start_time); solo 89% de puntos <=150 m"
+ },
+ "eligible_not_picked": [
+  "2",
+  "8",
+  "10",
+  "12",
+  "17",
+  "19",
+  "24",
+  "34",
+  "45",
+  "55",
+  "59",
+  "61",
+  "63",
+  "64",
+  "67",
+  "68",
+  "78",
+  "93",
+  "95",
+  "101",
+  "103",
+  "105",
+  "108",
+  "109",
+  "111",
+  "117",
+  "118",
+  "126",
+  "130",
+  "132",
+  "134",
+  "140",
+  "145",
+  "166"
+ ],
+ "excluded": {
+  "4": "pocos viajes (142/día hábil < 300); trip_id 0% < 60%; start_time 0% (el segmentador corta por start_time); solo 90% de puntos <=150 m",
+  "7": "solo 84% de puntos <=150 m",
+  "22": "solo 91% de puntos <=150 m; solo 79% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "25": "pocos viajes (248/día hábil < 300); trip_id 0% < 60%; start_time 0% (el segmentador corta por start_time)",
+  "31": "solo 90% de puntos <=150 m; solo 75% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "32": "solo 86% de puntos <=150 m; solo 70% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "37": "solo 73% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "44": "solo 89% de puntos <=150 m; solo 76% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "49": "solo 79% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "51": "perp mediano 28 m > 15 m; solo 47% de puntos <=150 m; solo 53% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "53": "solo 90% de puntos <=150 m",
+  "57": "solo 88% de puntos <=150 m",
+  "60": "solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "65": "solo 90% de puntos <=150 m; solo 67% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "70": "solo 89% de puntos <=150 m; solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "71": "solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "76": "solo 90% de puntos <=150 m; solo 72% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "79": "perp mediano 2972 m > 15 m; solo 47% de puntos <=150 m; solo 41% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "80": "solo 78% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "84": "trip_id 14% < 60%; start_time 14% (el segmentador corta por start_time); solo 81% de puntos <=150 m",
+  "86": "solo 84% de puntos <=150 m; solo 77% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "96": "solo 90% de puntos <=150 m",
+  "97": "solo 83% de puntos <=150 m; solo 70% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "102": "trip_id 34% < 60%; start_time 34% (el segmentador corta por start_time); solo 91% de puntos <=150 m",
+  "115": "solo 80% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "119": "solo 87% de puntos <=150 m; solo 58% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "129": "trip_id 57% < 60%; start_time 57% (el segmentador corta por start_time); solo 91% de puntos <=150 m",
+  "133": "solo 87% de puntos <=150 m",
+  "135": "solo 92% de puntos <=150 m; solo 65% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "136": "solo 89% de puntos <=150 m",
+  "146": "solo 74% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "150": "solo 87% de puntos <=150 m; solo 79% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "152": "solo 80% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "153": "pocos viajes (282/día hábil < 300)",
+  "154": "pocos viajes (238/día hábil < 300)",
+  "158": "solo 86% de puntos <=150 m",
+  "159": "perp mediano 1010 m > 15 m; solo 33% de puntos <=150 m; solo 23% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "160": "solo 75% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "161": "solo 87% de puntos <=150 m; solo 76% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "163": "pocos viajes (145/día hábil < 300); solo 79% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "164": "solo 91% de puntos <=150 m",
+  "172": "solo 75% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "174": "solo 74% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "176": "solo 92% de puntos <=150 m",
+  "177": "solo 84% de puntos <=150 m",
+  "178": "solo 91% de puntos <=150 m; solo 76% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "179": "solo 83% de puntos <=150 m; solo 66% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "182": "solo 90% de puntos <=150 m",
+  "185": "solo 90% de puntos <=150 m",
+  "193": "solo 75% de puntos <=150 m; solo 65% de viajes con perp mediano <=50 m (recorrido incompleto/ramales faltantes)",
+  "195": "solo 88% de puntos <=150 m"
+ },
+ "lines_1_199_without_shape": [
+  "3",
+  "5",
+  "6",
+  "11",
+  "13",
+  "14",
+  "16",
+  "18",
+  "23",
+  "27",
+  "30",
+  "35",
+  "36",
+  "38",
+  "40",
+  "43",
+  "48",
+  "52",
+  "54",
+  "58",
+  "66",
+  "69",
+  "72",
+  "73",
+  "75",
+  "77",
+  "81",
+  "82",
+  "83",
+  "89",
+  "90",
+  "94",
+  "99",
+  "104",
+  "112",
+  "116",
+  "120",
+  "121",
+  "122",
+  "125",
+  "131",
+  "137",
+  "138",
+  "139",
+  "141",
+  "142",
+  "144",
+  "147",
+  "148",
+  "149",
+  "155",
+  "156",
+  "157",
+  "162",
+  "165",
+  "167",
+  "170",
+  "171",
+  "173",
+  "175",
+  "183",
+  "186",
+  "187",
+  "189",
+  "190",
+  "191",
+  "192",
+  "196",
+  "198",
+  "199"
+ ]
+}
