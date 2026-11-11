@@ -218,6 +218,14 @@ def train_phase3(
     except Exception as e:
         print(f"      WARN: no se pudieron cargar shape lengths: {e}. Usando dist_remaining sin normalizar.")
 
+    # Pipeline v2: el assemble escribe ml_dir/shape_lengths.json (largos con los que se normalizó el parquet,
+    # recorridos de proyectoconsola/data/line_shapes). Si existe, reemplaza a los del line_shapes.json legacy.
+    v2_lengths_path = ml_dir / "shape_lengths.json"
+    if v2_lengths_path.exists():
+        with open(v2_lengths_path, encoding="utf-8") as _f:
+            shape_lengths = json.load(_f)
+        print(f"      Shape lengths v2: {len(shape_lengths)} shapes ({v2_lengths_path})")
+
     actual_device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     use_amp = actual_device == "cuda"
     print(f"      Device: {actual_device} | AMP: {use_amp}")

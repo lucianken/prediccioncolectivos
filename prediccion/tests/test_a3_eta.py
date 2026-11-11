@@ -22,6 +22,9 @@ def sample_a3_inputs():
         "time_since_start": torch.randn(BATCH, 1),
         "ts_age_s": torch.zeros(BATCH, 1),
         "has_active_bus": torch.ones(BATCH, 1),
+        "schedule_dev_norm": torch.zeros(BATCH, 1),
+        "time_since_last_bus_s": torch.zeros(BATCH, 1),
+        "last_bus_found": torch.zeros(BATCH, 1),
     }
 
 

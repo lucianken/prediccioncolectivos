@@ -56,3 +56,9 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Pipeline v2: datos grandes fuera de git (se versionan solo lines.json y line_metrics.json)
+data/ml/v2/*
+!data/ml/v2/lines.json
+!data/ml/v2/line_metrics.json
+data/ml/v2_smoke*/

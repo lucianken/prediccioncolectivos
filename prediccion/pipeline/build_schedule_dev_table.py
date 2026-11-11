@@ -18,19 +18,24 @@ import sys
 from pathlib import Path
 
 
-def main() -> None:
-    parquet_path = Path("data/ml/training/eta_train.parquet")
-    out_path = Path("data/ml/schedule_dev_medians.json")
+def build_medians(parquet_path: Path, out_path: Path, force: bool = False) -> dict:
+    """
+    Calcula y guarda {ramal_id: {bucket: mediana_time_since_start}} desde un parquet de train.
+    `ramal_id` es el shape_id (en v2: el recorrido elegido por geometría).
+    Con force=False y out_path existente, no recalcula (comportamiento histórico del CLI).
+    """
+    parquet_path = Path(parquet_path)
+    out_path = Path(out_path)
 
-    if out_path.exists():
+    if out_path.exists() and not force:
         with open(out_path, encoding="utf-8") as f:
             existing = json.load(f)
         n_ramales = len(existing)
         n_buckets_total = sum(len(v) for v in existing.values())
         avg_buckets = n_buckets_total / n_ramales if n_ramales else 0
-        print(f"schedule_dev_medians.json ya existe — saltando recálculo.")
+        print(f"{out_path.name} ya existe — saltando recálculo.")
         print(f"  Ramales: {n_ramales}, buckets promedio por ramal: {avg_buckets:.1f}")
-        return
+        return existing
 
     if not parquet_path.exists():
         print(f"ERROR: {parquet_path} no encontrado.", file=sys.stderr)
