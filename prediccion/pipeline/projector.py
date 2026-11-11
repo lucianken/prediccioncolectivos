@@ -191,3 +191,86 @@ def project_trip(
             valid_points.append(pt)
     trip.points = valid_points
     return trip
+
+
+# ── Opción A (ARQUITECTURA.md §4.1): recorrido elegido por geometría ─────────
+
+MIN_FORWARD_FRAC = 0.6        # fracción mínima de avance "hacia adelante" para aceptar un recorrido
+_STEP_MOVING_M = 30.0         # pasos menores se consideran ruido de proyección / coche detenido
+_STEP_JUMP_M = 5_000.0        # pasos mayores son saltos (recorridos con bucles), no cuentan
+
+
+def _forward_fraction(dists: "np.ndarray", perps: "np.ndarray", max_perp_error_m: float) -> float:
+    """
+    Fracción del avance neto (en metros) que va en el sentido del recorrido.
+    1.0 = todo hacia adelante; 0.0 = el coche recorre el shape al revés (vuelta
+    proyectada sobre la ida, que comparte calles pero con sentido contrario).
+    Sin información (coche detenido, <2 puntos válidos) devuelve 1.0.
+    """
+    ok = perps <= max_perp_error_m
+    d = dists[ok]
+    if len(d) < 2:
+        return 1.0
+    steps = np.diff(d)
+    mag = np.abs(steps)
+    moving = (mag >= _STEP_MOVING_M) & (mag <= _STEP_JUMP_M)
+    fwd = float(steps[moving & (steps > 0)].sum())
+    bwd = float(-steps[moving & (steps < 0)].sum())
+    total = fwd + bwd
+    return fwd / total if total > 0 else 1.0
+
+
+def best_shape_for_trip(
+    lats,
+    lons,
+    shape_indices: "dict[str, ShapeIndex]",
+    max_perp_error_m: float = MAX_PERP_ERROR_M,
+    min_forward_frac: float = MIN_FORWARD_FRAC,
+    prescreen_points: int = 16,
+    prescreen_keep: int = 3,
+) -> "tuple[str | None, float]":
+    """
+    Elige, entre los recorridos de una línea, el que mejor explica el viaje COMPLETO.
+
+    Criterio: menor error perpendicular mediano (sobre todos los puntos del viaje)
+    entre los recorridos recorridos "hacia adelante" (>= min_forward_frac del avance
+    neto en el sentido del shape). Empates (mediana igual en bins de 10 m) se resuelven por error medio
+    acotado a 150 m. Si ninguno cumple, se devuelve el de menor error
+    sin restricción de sentido. No usa route_id ni direction_id.
+
+    Para líneas con muchos recorridos se hace un pre-filtro barato con
+    `prescreen_points` puntos equiespaciados y solo los `prescreen_keep` mejores se
+    proyectan con todos los puntos.
+
+    Retorna (shape_id, median_perp_m). (None, inf) si no hay shapes o puntos.
+    """
+    lats = np.asarray(lats, dtype=np.float64)
+    lons = np.asarray(lons, dtype=np.float64)
+    if len(lats) == 0 or not shape_indices:
+        return None, float("inf")
+
+    def _score(sub_lats, sub_lons, ids):
+        out = []
+        for sid in ids:
+            d, p = shape_indices[sid].project_many(sub_lats, sub_lons)
+            frac = _forward_fraction(d, p, max_perp_error_m)
+            out.append((sid, float(np.median(p)), frac, float(np.minimum(p, max_perp_error_m).mean())))
+        return out
+
+    def _key(r):
+        # error mediano en bins de 10 m (ruido GPS); si empatan (p.ej. tramo compartido > 50 % del viaje),
+        # desempata el error medio acotado, que sí ve la parte donde los recorridos divergen
+        return (round(r[1] / 10.0), r[3])
+
+    ids = list(shape_indices.keys())
+    if len(ids) > prescreen_keep and len(lats) > 2 * prescreen_points:
+        sel = np.linspace(0, len(lats) - 1, prescreen_points).astype(int)
+        pre = _score(lats[sel], lons[sel], ids)
+        pre.sort(key=lambda r: (r[2] < min_forward_frac,) + _key(r))
+        ids = [r[0] for r in pre[:prescreen_keep]]
+
+    scored = _score(lats, lons, ids)
+    ok = [r for r in scored if r[2] >= min_forward_frac]
+    pool = ok if ok else scored
+    best = min(pool, key=_key)
+    return best[0], best[1]
