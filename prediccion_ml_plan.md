@@ -1,3 +1,5 @@
+> **HISTÓRICO desde 2026-11-10.** El plan vigente es `ARQUITECTURA.md`. Este doc sigue siendo la referencia del *porqué* de las decisiones (§2, §7, §7b, §9, §11), pero el estado, las fases y todo lo que depende de route_id / `ramal_lookup` quedaron sin efecto. Copia intacta en `docs_old/2026-11-10/`.
+
 # Plan ML/DL: Identificación de Ramal y Predicción de ETA
 
 **Última actualización:** 2026-06-03
