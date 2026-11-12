@@ -54,3 +54,42 @@ Por punto (bien / no cubierta): P 246 (+75) / 364 (+73); T 245 (+72) / 380 (+125
 ## Conclusion
 - La cobertura explica una parte menor: ~10 s de los 75 s de sesgo y ~23 s de los 255 s de MAE, concentrada en 1, 87 y 181. El 90 % de las filas esta bien cubierto y igual da +65 s.
 - Causa principal: generalizacion entre lineas (nivel de velocidad propio de cada linea no visto en train), con sdn=0 como factor menor y que apunta al lado contrario. Mas lineas de train (diversidad) y/o un descriptor de linea observable (velocidad tipica reciente) serian los candidatos; ampliar la cobertura de la grilla aporta poco.
+
+---
+
+# Seguimiento: el largo del shape como causa del sesgo por linea
+
+Script: `prediccion/v2/diag/heldout_length.py`. Resultados: `heldout_length_results.json`. Scatter: `heldout_length_scatter.png`. Sin entrenar.
+
+## 1. Que entra al modelo (codigo)
+- `eta_dataset.py`: `dist_remaining_norm = dist_remaining_m / shape_len` (largo del ramal); `trajectory` col 0 = `dist_along_norm` (clipeada a [0,1]), col 1 = velocidad/30, col 2 = dt/30. `dist_remaining_m` se emite en el batch pero **`A3ETAModel.forward` no lo usa**: no hay ningun input en metros ni el largo del shape. Los demas: hora/dow, `time_since_start`, `ts_age_s`, has_bus, `schedule_dev_norm` (=0 en heldout), tiempo desde ultimo bus.
+- Unica fuente de escala absoluta: la lat/lon de P y T en la grilla (posicion, no distancia; la distancia solo se podria inferir comparando celdas P y T, y en lineas no vistas esas celdas tienen peso bajo).
+- Hipotesis confirmada a nivel de codigo.
+
+## 2. Largo medio vs sesgo por linea (E2, 100k filas por set; largo ponderado por filas)
+| grupo | n lineas | Pearson | Spearman |
+|---|---|---|---|
+| control (heldout) | 12 | -0,66 | -0,65 |
+| vistas | 48 | -0,72 | -0,64 |
+En vistas el sesgo es chico (rango -91 a +20 s; la 88, de 121 km, es -91 y la 194, de 87 km, -49), pero con la misma pendiente: cortas ~0/+, largas negativas. En control la pendiente es mucho mayor: 68 (11,6 km) +292, 128 (14,2) +255, 12 (12,9) +104, ..., 15 (54,4 km) -158. Las vistas "aprendieron" su largo por la grilla/identidad de recorrido; las de control no.
+
+## 3. Por fila en heldout
+| bucket largo | n | L medio | sesgo | sesgo relativo mediano |
+|---|---|---|---|---|
+| <12 km | 13.463 | 11,6 | +292 | +37 % |
+| 12-15 | 19.243 | 13,3 | +153 | +19 % |
+| 15-20 | 22.817 | 17,7 | +49 | +8 % |
+| 20-30 | 20.407 | 23,8 | +46 | +6 % |
+| 30-40 | 11.337 | 37,0 | +43 | +4 % |
+| >40 | 12.733 | 51,3 | -148 | -15 % |
+Spearman error por fila: contra largo -0,33; contra `dist_remaining_m` +0,10; contra `dist_remaining_m / L` (=norm) +0,22. El **signo** lo explica el largo (corto +, largo -), no la distancia en metros: por bucket de `dist_remaining_m` el sesgo es + hasta 10 km y solo pasa a - en >10 km (que son casi todas lineas largas, L medio 31 km). El error absoluto crece con la distancia (MAE 83 a 678 s), como es esperable.
+
+## 4. Contrafactual: sustituir el largo por el tipico (27,5 km = media por fila de vistas)
+Se renormalizan `dist_remaining_norm` y la col 0 de la trayectoria como si todos los shapes midieran 27,5 km (el modelo ve entonces lo que veria una linea de 27,5 km con esa distancia en metros).
+- Vistas, sin reentrenar: MAE 114,6 -> 157,6 s y sesgo -17 -> -40 s. El sesgo por linea pasa a depender fuerte del largo: **cortas subestiman, largas sobreestiman** (102 -181, 26 -205, 123 -230; 88 +312, 85 +171, 74 +155), correlacion largo-sesgo Pearson +0,76 / Spearman +0,94 (antes -0,72 / -0,64); el cambio de sesgo contra L/L_tipico: Pearson +0,80 / Spearman +0,94. El modelo usa la escala normalizada como proxy de metros: es muy sensible a ella.
+- El signo es el opuesto al de heldout y consistente con la hipotesis: en heldout el modelo ve norm real (d/L) y asume implicitamente largo ~tipico, con lo que una linea corta parece tener mas metros por delante (sobreestima); aca se le achican los metros a las cortas (subestima).
+- Heldout con largo tipico (inferencia con escala "en metros" comun): MAE 254,6 -> 218,2 s, sesgo +75 -> -22 s. Las extremas se corrigen casi a cero (68 +292 -> +3, 128 +255 -> +4, 15 -158 -> 0, 1 +124 -> +13), pero otras pasan a subestimar (12 -142, 64 -114, 109 -93, 181 -95) y la 87 sube (+180 -> +249). Correlacion largo-sesgo en control: -0,66 -> +0,42 (Spearman +0,40).
+
+## Conclusion
+- Confirmado: el A3 no recibe metros ni largo; en vistas la grilla le permite inferirlo, en control no. El efecto largo-sesgo es de signo correcto (cortas +, largas -) y explica el patron de las extremas (68, 128, 12, 15), con r ~ -0,65 en control; pero no todo: 87 (+180, 32,8 km), 1 (+124) y 181 (-74) no encajan con el largo, y el contrafactual solo corrige parte (MAE -14 %, no recupera el nivel de vistas ~115 s).
+- Mejora candidata (no implementada): dar al modelo `dist_remaining_m` (log o escalado) ademas / en vez del normalizado, y el largo como feature; es un cambio de input, se entrena aparte.
