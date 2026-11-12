@@ -56,7 +56,7 @@ def main():
                         help="E1c: CityGridEncoder (grilla aprendida de ~500 m con la lat/lon de P y T interpoladas "
                              "sobre el shape). Apagado por defecto.")
     parser.add_argument("--resume", action="store_true",
-                        help="Reanudar desde eta_a3_best.pt si existe (recuperación tras corte)")
+                        help="Reanudar desde eta_a3_last.pt (modelo, optimizador, scheduler, RNG y época; falla si la receta cambió)")
     parser.add_argument("--max-groups", type=int, default=None,
                         help="Limitar a N row groups por epoch (para iteración rápida). Ej: --max-groups 30 ≈ 10%% del dato")
     parser.add_argument("--fleet-same-dir-cap", type=int, default=None,

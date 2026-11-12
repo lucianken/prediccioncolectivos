@@ -20,7 +20,11 @@ import torch
 
 
 def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, max_groups: int | None,
-          unk_line_p: float, workers: int, lines_file: Path, device: str = "cuda", seed: int = 0) -> dict:
+          unk_line_p: float, workers: int, lines_file: Path, device: str = "cuda", seed: int = 0,
+          resume: bool = False, stop_after_epoch: int | None = None, lr_trace: list | None = None,
+          shapes_dir=None) -> dict:
+    """resume: retoma desde out_dir/path_eta_last.pt (guardado atómico al final de cada época; ver models/resume.py).
+    stop_after_epoch / lr_trace: ganchos de test (cortar el run; registrar el LR de cada paso)."""
     from prediccion.models.eta_dataset import collate_identity
     from prediccion.models.path_eta import (PathETADataset, PathETAModel, build_shape_table, load_shape_points,
                                             pinball, run_model)
@@ -33,7 +37,7 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     import pyarrow.parquet as pq
     train_lines = sorted({str(x) for x in pq.read_table(train_p, columns=["line"])["line"].to_pylist()}, key=int)
     geo_lines = sorted({*map(str, lf["train"]), *map(str, lf.get("heldout", []))}, key=int)   # solo geometría
-    ids, lat, lon, off = build_shape_table(load_shape_points(geo_lines))
+    ids, lat, lon, off = build_shape_table(load_shape_points(geo_lines, shapes_dir))
     model = PathETAModel(ids, lat, lon, off, train_lines)
     dev = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     model.to(dev)
@@ -50,8 +54,20 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, steps_per_epoch=steps, epochs=epochs, pct_start=0.3,
                                                 anneal_strategy="cos", div_factor=10, final_div_factor=100)
     best, best_ep, hist = float("inf"), 0, []
+    from prediccion.models import resume as R
+    last_p = out_dir / "path_eta_last.pt"
+    config = {"model": "PathETAModel", "epochs": epochs, "scheduler": "onecycle", "lr": lr, "batch_size": batch_size,
+              "train_data": R.data_fingerprint(train_p), "val_data": R.data_fingerprint(val_p),
+              "max_groups": max_groups, "unk_line_p": unk_line_p, "seed": seed, "train_lines": train_lines}
+    start_ep = 1
+    if resume and last_p.exists():
+        st = R.load_last(last_p, model=model, optimizer=opt, scheduler=sched, config=config)
+        best, best_ep, hist, start_ep = st["best"], st["best_epoch"], st["history"], st["epoch"] + 1
+        print(f"reanudando desde la época {st['epoch']} (last.pt); sigue la {start_ep}/{epochs}", flush=True)
+    elif resume:
+        print(f"WARN: --resume pero no existe {last_p.name}: se empieza de cero", flush=True)
     t0 = time.time()
-    for ep in range(1, epochs + 1):
+    for ep in range(start_ep, epochs + 1):
         te = time.time()
         model.train()
         tot, n, done = 0.0, 0, 0
@@ -65,6 +81,8 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            if lr_trace is not None:
+                lr_trace.append(opt.param_groups[0]["lr"])
             opt.step()
             if sched.last_epoch < steps * epochs - 1:     # len() del loader es aproximado: no pasarse del total
                 sched.step()
@@ -84,12 +102,17 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         if is_best:
             best, best_ep = val_mae, ep
             torch.save({**model.checkpoint_dict(), "epoch": ep, "val_mae_s": val_mae}, out_dir / "path_eta_best.pt")
-        torch.save({**model.checkpoint_dict(), "epoch": ep, "val_mae_s": val_mae}, out_dir / "path_eta_last.pt")
         lr_now = opt.param_groups[0]["lr"]
         hist.append({"epoch": ep, "train_pinball": tot / max(n, 1), "val_mae_s": val_mae, "lr": lr_now,
                      "epoch_s": time.time() - te})
         print(f"ep {ep:>2}/{epochs} train_pinball={tot / max(n, 1):7.1f} val_mae={val_mae:7.1f}s lr={lr_now:.2e} "
               f"{time.time() - te:5.0f}s{' *' if is_best else ''}", flush=True)
+        # last.pt: estado completo de reanudación + los campos que usa PathETAModel.from_checkpoint (sirve para evaluar)
+        R.save_last(last_p, model=model, optimizer=opt, scheduler=sched, epoch=ep, best=best, best_epoch=best_ep,
+                    history=hist, config=config,
+                    top={k: v for k, v in model.checkpoint_dict().items() if k != "model_state_dict"})
+        if stop_after_epoch is not None and ep >= stop_after_epoch:
+            return {"stopped_after_epoch": ep}
     total = time.time() - t0
     res = {"model": "PathETAModel", "epochs": epochs, "batch_size": batch_size, "lr": lr, "best_epoch": best_ep,
            "best_val_mae_s": best, "last_val_mae_s": hist[-1]["val_mae_s"], "training_time_s": total,
@@ -111,9 +134,10 @@ def main(argv=None):
     ap.add_argument("--unk-line-p", type=float, default=0.1)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--resume", action="store_true", help="retomar desde <out-dir>/path_eta_last.pt")
     a = ap.parse_args(argv)
     train(a.ml_dir, a.out_dir or a.ml_dir / "models_path", a.epochs, a.batch_size, a.lr, a.max_groups,
-          a.unk_line_p, a.workers, a.lines_file, a.device)
+          a.unk_line_p, a.workers, a.lines_file, a.device, resume=a.resume)
     return 0
 
 

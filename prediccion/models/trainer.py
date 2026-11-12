@@ -163,8 +163,15 @@ def train_phase3(
     fleet_same_dir_cap: int | None = None,
     scheduler_type: str = "plateau",
     city_grid: bool = False,
+    stop_after_epoch: int | None = None,
+    lr_trace: list | None = None,
 ) -> dict[str, object]:
     """
+    stop_after_epoch: corta el run después de esa época (simula un corte; se reanuda con resume=True).
+    lr_trace: si es una lista, se le agrega el LR de cada paso de optimización (para tests de reanudación).
+    Reanudación: al final de cada época se guarda output_dir/eta_a3_last.pt de forma atómica (modelo, optimizador,
+    scheduler, época, mejor, historial, RNG y config); resume=True retoma de ahí (ver models/resume.py).
+
     Entrena A3ETAModel con L1Loss + mixed precision + early stopping.
 
     Lee:
@@ -329,16 +336,24 @@ def train_phase3(
 
     best_ckpt_path = output_dir / "eta_a3_best.pt"
 
-    if resume and best_ckpt_path.exists():
-        ckpt = torch.load(best_ckpt_path, map_location=actual_device)
-        model.load_state_dict(ckpt["model_state_dict"])
-        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
-        best_val_mae = ckpt.get("val_mae_s", float("inf"))
-        best_epoch   = ckpt.get("epoch", 0)
-        start_epoch  = best_epoch + 1
-        print(f"      Resumiendo desde epoch {best_epoch} (val MAE={best_val_mae:.1f}s)")
+    from prediccion.models import resume as _resume
+    last_ckpt_path = output_dir / "eta_a3_last.pt"
+    run_config = {
+        "model": "A3ETAModel", "epochs": epochs, "scheduler": scheduler_type, "lr": lr, "batch_size": batch_size,
+        "train_data": _resume.data_fingerprint(train_parquet),
+        "val_data": _resume.data_fingerprint(val_parquet) if has_val else None,
+        "d_model": d_model, "use_fleet": use_fleet, "city_grid": city_grid, "max_groups": max_groups,
+        "fleet_same_dir_cap": fleet_same_dir_cap, "patience": patience,
+    }
+    if resume and last_ckpt_path.exists():
+        st = _resume.load_last(last_ckpt_path, model=model, optimizer=optimizer, scheduler=scheduler,
+                               config=run_config)
+        best_val_mae, best_epoch = st["best"], st["best_epoch"]
+        start_epoch, history = st["epoch"] + 1, st["history"]
+        no_improve = st["extra"].get("no_improve", 0)
+        print(f"      Reanudando desde la época {st['epoch']} (last.pt); sigue la {start_epoch}/{epochs}")
     elif resume:
-        print("      WARN: --resume pero no existe eta_a3_best.pt — arrancando desde cero")
+        print(f"      WARN: --resume pero no existe {last_ckpt_path.name} — arrancando desde cero")
     onnx_path = output_dir / "eta_a3_final.onnx"
     metrics_path = output_dir / "eta_a3_metrics.json"
 
@@ -446,6 +461,8 @@ def train_phase3(
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    if lr_trace is not None:
+                        lr_trace.append(optimizer.param_groups[0]["lr"])
                     scaler.step(optimizer)
                     scaler.update()
                     if _onecycle and scheduler.last_epoch < _steps_per_epoch * epochs - 1:
@@ -534,6 +551,7 @@ def train_phase3(
     print(f"\n{'Epoch':>5}  {'Train MAE':>11}  {'Val MAE':>11}  {'Naive':>9}  {'0-500m':>9}  {'500m-2km':>9}  {'2km+':>9}  {'Under<500m':>11}  {'LR':>9}  {'Best':>5}")
     print("-" * 107)
 
+    epoch = start_epoch - 1
     for epoch in range(start_epoch, epochs + 1):
         train_mae = _run_epoch(train_loader, train_mode=True, epoch=epoch)
         val_mae = float("inf")
@@ -580,6 +598,14 @@ def train_phase3(
             "val_mae_by_bucket": val_by_bucket if has_val else None,
             "lr": current_lr,
         })
+
+        _resume.save_last(last_ckpt_path, model=model, optimizer=optimizer, scheduler=scheduler, epoch=epoch,
+                          best=best_val_mae, best_epoch=best_epoch, history=history, config=run_config,
+                          extra={"no_improve": no_improve})
+        if stop_after_epoch is not None and epoch >= stop_after_epoch:
+            if _sys.platform == "win32":
+                ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            return {"stopped_after_epoch": epoch, "last_path": str(last_ckpt_path)}
 
         if no_improve >= patience:
             print(f"\nEarly stopping en epoch {epoch} (sin mejora por {patience} épocas).")

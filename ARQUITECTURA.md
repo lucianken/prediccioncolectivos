@@ -238,6 +238,18 @@ foreach ($s in "seen","heldout") { & $PY -m prediccion.eval --model a3:data/ml/v
 ```
 ~27 min por época con `--batch-size 1024` (~147 M filas); ~5–6 h si corta por paciencia hacia la época 12. Con `--batch-size 256` sería ~100 min por época (no entra en una noche). Ojo: batch 1024 da 4× menos actualizaciones por época; si converge peor, probar `--scheduler onecycle` o subir `--lr`. El `.pt` queda también archivado con nombre (`eta_a3_nofleet_gfull_ep<N>_mae<M>s_<ts>.pt`).
 
+### Entrenar el subconjunto y reanudar un corte (A3 y modelo por tramos)
+```powershell
+& $PY -m prediccion.v2.assemble --only-lines 26,39,42,92,124,151,168,50,106,107,108,132 --dest data/ml/v2_sub --train-start 2026-07-20 --val-sample-frac 0.4
+& $PY -m prediccion.train --phase 1 --ml-dir data/ml/v2_sub --skip-build                  # A1
+& $PY -m prediccion.train --phase 3 --ml-dir data/ml/v2_sub --no-fleet --city-grid --device cuda --batch-size 1024 --epochs 12 --lr 1e-3 --scheduler onecycle --patience 99
+& $PY -m prediccion.train_path --ml-dir data/ml/v2_sub --epochs 12 --batch-size 1024 --lr 2e-3
+& $PY -m prediccion.eval --model path:data/ml/v2_sub/models_path/path_eta_best.pt --set seen --lines 26,39,42,92,124,151,168,50,106,107,108,132 --tag sub --out-dir data/ml/v2_sub/eval
+```
+(Lanzar los entrenamientos desacoplados con `Start-Process` y log; una tarea en segundo plano se corta a las 2 h.)
+
+**Reanudar.** Al final de cada época los dos trainers escriben `last.pt` de forma atómica (a `.tmp` y `os.replace`: un corte durante el guardado deja intacto el anterior): `eta_a3_last.pt` en `<ml-dir>/models/` y `path_eta_last.pt` en `<ml-dir>/models_path/`. Contiene modelo, optimizador, estado del scheduler (OneCycle o plateau), época, mejor métrica y mejor época, historial, estado del RNG (torch, numpy, python) y la config del run. El `best.pt` se sigue guardando aparte. Para retomar, relanzar **el mismo comando agregando `--resume`**: sigue en la época siguiente con el LR que le tocaba (el scheduler restaura su paso). Si el run se cortó a mitad de una época se pierde solo esa época. Si la config guardada no coincide con la actual (épocas, scheduler, lr, batch, datos —tamaño y fecha de los parquet—, d_model, grilla, etc.) falla con un mensaje que lista las diferencias. En CPU la reanudación es exacta (los tests `test_resume.py` comparan pesos y LR por paso contra un run sin corte); en GPU con varios workers de DataLoader el orden de filas de la época reanudada no es idéntico (RNG propio de cada worker), pero modelo, optimizador, LR y RNG del proceso principal sí. `last.pt` del modelo por tramos también se puede evaluar (`--model path:<last.pt>`). Ganchos de test: `stop_after_epoch` y `lr_trace`.
+
 ## 11. Ideas a testear para el modelo final (anotadas 2026-11-11, no implementadas)
 
 Importantes para el modelo óptimo; cada una entra a la escalera como **un solo cambio** contra el último modelo bueno, medido con la vara de §5.
