@@ -42,6 +42,7 @@ def sample_pairs(
     ts: np.ndarray,
     k: int,
     seed: int,
+    seg: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Elige hasta k pares (i, j), i<j, con dist[j]-dist[i] >= 100 m y ts[j] > ts[i].
@@ -49,6 +50,8 @@ def sample_pairs(
     Estratificado por distancia restante en 5 buckets (100-500 m, 0,5-1, 1-2, 2-5, 5+ km):
     cada bucket aporta ~k/5; si uno tiene menos candidatos, el resto se reparte entre los demás.
     Si hay k candidatos o menos se devuelven todos. Determinístico dado (dists, ts, k, seed).
+    seg (opcional, un id por punto): P y F tienen que tener el mismo id (mismo tramo continuo; un hueco de datos
+    que no se unió separa tramos). Con seg=None el comportamiento es el de siempre.
     """
     n = len(dists)
     if n < 2 or k <= 0:
@@ -56,6 +59,8 @@ def sample_pairs(
     ii, jj = np.triu_indices(n, 1)
     d = dists[jj] - dists[ii]
     ok = (d >= MIN_DIST_M) & (ts[jj] > ts[ii])
+    if seg is not None:
+        ok &= seg[jj] == seg[ii]
     ii, jj, d = ii[ok], jj[ok], d[ok]
     m = len(ii)
     if m == 0:

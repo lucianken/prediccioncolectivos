@@ -30,7 +30,7 @@ from prediccion.pipeline.shapes_io import resolve_label_line_index
 from prediccion.pipeline.features import N_FLEET
 from prediccion.v2.pairs import trip_seed
 from prediccion.v2.rows import trip_rows, add_trip_to_passage_cache
-from prediccion.v2.segmenter import segment_geometric
+from prediccion.v2.segmenter import GAP_S, START_UNKNOWN_M, segment_geometric
 from prediccion.v2.shapes import LineShapes
 
 CARRY_WINDOW_S = 900
@@ -54,6 +54,7 @@ def _paths(out_dir: Path, day: str) -> dict[str, Path]:
     return {
         "parquet": d / f"{day}.parquet",
         "trips": d / f"{day}.trips.parquet",
+        "waiting": d / f"{day}.waiting.parquet",
         "meta": d / f"{day}.meta.json",
         "carry": d / f"{day}.carry.json",
     }
@@ -174,6 +175,7 @@ def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineS
     """
     Segmenta cada vehículo en viajes. Setea line_number/agency_id (por sufijo del label).
     method="geo" (default v2): segmentador geométrico, no usa trip_id ni start_time (v2/segmenter.py).
+    method="geo2" (v2b): el mismo con segmenter_version=2 (une huecos, arranca al salir de cabecera, start_unknown).
     stats (solo method="geo"): acumula por línea pings / depot / moving_total / moving_valid.
     method="trip_id": segmentador viejo (start_time/start_date/direction_id); solo para validación/comparación.
     """
@@ -184,13 +186,16 @@ def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineS
         if not info:
             continue
         carry_ts = rec.get("carry_ts", 0)
-        if method == "geo":
+        if method in ("geo", "geo2"):
             found, vs = segment_geometric(vid, rec["obs"], shapes.indices(info["line"]) if shapes else {},
-                                          return_stats=True)
+                                          return_stats=True, segmenter_version=2 if method == "geo2" else 1)
             if stats is not None:
                 a = stats.setdefault(info["line"], {"pings": 0, "depot": 0, "moving_total": 0, "moving_valid": 0})
-                for k in a:
+                for k in ("pings", "depot", "moving_total", "moving_valid"):
                     a[k] += vs[k]
+                if method == "geo2":
+                    a.setdefault("gaps", []).extend(vs["gaps"])
+                    a.setdefault("waits", []).extend(vs["waits"])
         else:
             obs = [dict(zip(_OBS_KEYS, o)) for o in rec["obs"]]
             found = segment_vehicle_history(vid, obs)
@@ -223,7 +228,11 @@ def geometry_for_trip(trip, line_indices: dict[str, ShapeIndex], max_perp: float
 
 # ── process_day ──────────────────────────────────────────────────────────────
 
-def _make_schema(include_fleet: bool):
+WAITING_SCHEMA_FIELDS = ("vehicle_id", "line", "shape_id", "wait_start_ts", "wait_end_ts", "depart_ts",
+                         "n_pings", "wait_s", "trip_start_ts")
+
+
+def _make_schema(include_fleet: bool, start_unknown: bool = False):
     import pyarrow as pa
     fields = [
         pa.field("line", pa.string()), pa.field("shape_id", pa.string()),
@@ -237,6 +246,8 @@ def _make_schema(include_fleet: bool):
         pa.field("traj_len", pa.int8()), pa.field("time_since_last_bus_s", pa.float32()),
         pa.field("last_bus_found", pa.bool_()), pa.field("ts_p", pa.int64()),
     ]
+    if start_unknown:
+        fields.append(pa.field("start_unknown", pa.bool_()))   # solo segmentación geo2 (time_since_start = NaN si True)
     if include_fleet:
         fields += [pa.field("fleet_flat", pa.list_(pa.float32(), N_FLEET * 5)),
                    pa.field("n_fleet", pa.int8())]
@@ -326,7 +337,9 @@ def process_day(
             carry = None
 
     vehicles, stats, fleet = read_day(fp, label_map, lineset, carry, interval_s, include_fleet)
-    trips = segment_vehicles(vehicles, label_index, shapes, segmentation)
+    geo2 = segmentation == "geo2"
+    seg_stats: dict = {}
+    trips = segment_vehicles(vehicles, label_index, shapes, segmentation, seg_stats if geo2 else None)
     trips.sort(key=lambda t: t.start_time)
 
     passage_cache: dict = {}
@@ -334,8 +347,9 @@ def process_day(
         for sid, entries in carry.get("passages", {}).items():
             passage_cache[sid] = [(e[0], e[1], e[2], e[3]) for e in entries]
 
-    schema = _make_schema(include_fleet)
+    schema = _make_schema(include_fleet, start_unknown=geo2)
     chunks: list[dict] = []
+    wait_recs: list[dict] = []
     trip_recs: list[dict] = []
     per_line: dict[str, dict] = {ln: {"trips": 0, "trips_shaped": 0, "rows": 0} for ln in lines}
 
@@ -363,10 +377,22 @@ def process_day(
             dist = g["dist"][v]
             sid = g["shape_id"]
             length = idx[sid].total_length_m
+            su, seg = False, None
+            if geo2:
+                su = bool(dist[0] > START_UNKNOWN_M)         # el viaje no arranca en su cabecera
+                rec["start_dist_m"] = float(dist[0])
+                # tramos continuos: un hueco entre puntos válidos que NO se unió separa tramos (los pares no lo cruzan)
+                jg = [tuple(g) for g in getattr(trip, "joined_gaps", [])]
+                brk = np.zeros(len(pts_ts) - 1, dtype=bool)
+                for q in np.flatnonzero(np.diff(pts_ts) > GAP_S):
+                    a_, b_ = int(pts_ts[q]), int(pts_ts[q + 1])
+                    brk[q] = not any(a_ <= g1 and b_ >= g0 for g0, g1 in jg)     # el hueco no coincide con uno unido
+                seg = np.concatenate([[0], np.cumsum(brk)]).astype(np.int64)
             cols = trip_rows(
                 line=ln, shape_id=sid, shape_length_m=length, vehicle_id=trip.vehicle_id,
                 ts=pts_ts, frame_ts=pts_fts, speed=pts_sp, dist=dist, k_pairs=k_pairs,
-                seed=trip_seed(day, trip.vehicle_id, trip.start_time), passage_cache=passage_cache)
+                seed=trip_seed(day, trip.vehicle_id, trip.start_time), passage_cache=passage_cache,
+                start_unknown=su, seg=seg)
             if cols is not None:
                 if include_fleet:
                     p_pos = np.searchsorted(pts_ts, cols["ts_p"])
@@ -376,6 +402,19 @@ def process_day(
                 rec["n_rows"] = len(cols["ts_p"])
                 pl["rows"] += rec["n_rows"]
             add_trip_to_passage_cache(passage_cache, sid, trip.vehicle_id, dist, pts_ts)
+            rec["start_unknown"] = su
+        elif geo2:
+            rec["start_unknown"] = False
+        if geo2:
+            rec["n_joined_gaps"] = len(getattr(trip, "joined_gaps", []))
+            w = getattr(trip, "waiting", None)
+            if w:
+                wait_recs.append({
+                    "vehicle_id": trip.vehicle_id, "line": ln,
+                    "shape_id": rec["shape_id"] or (w["shape_candidates"][0] if w["shape_candidates"] else ""),
+                    "wait_start_ts": w["start_ts"], "wait_end_ts": w["end_ts"], "depart_ts": w["depart_ts"],
+                    "n_pings": w["n_pings"], "wait_s": w["end_ts"] - w["start_ts"],
+                    "trip_start_ts": int(trip.start_time)})
         trip_recs.append(rec)
 
     # Concatenar, mezclar filas (semilla por día) y escribir en row groups
@@ -398,6 +437,18 @@ def process_day(
         pq.write_table(pa.Table.from_pylist(trip_recs), str(ttmp))
         os.replace(ttmp, paths["trips"])
 
+    if geo2:
+        # esperas en cabecera previas a la salida (no son parte del viaje; quedan para el problema "cuándo sale")
+        wtmp = paths["waiting"].with_name(paths["waiting"].name + ".tmp")
+        wtbl = (pa.Table.from_pylist(wait_recs) if wait_recs else pa.table({
+            "vehicle_id": pa.array([], pa.string()), "line": pa.array([], pa.string()),
+            "shape_id": pa.array([], pa.string()), "wait_start_ts": pa.array([], pa.int64()),
+            "wait_end_ts": pa.array([], pa.int64()), "depart_ts": pa.array([], pa.int64()),
+            "n_pings": pa.array([], pa.int64()), "wait_s": pa.array([], pa.int64()),
+            "trip_start_ts": pa.array([], pa.int64())}))
+        pq.write_table(wtbl, str(wtmp))
+        os.replace(wtmp, paths["waiting"])
+
     _atomic_json(make_carry(vehicles, day, lines, passage_cache), paths["carry"])
 
     meta = {
@@ -408,6 +459,14 @@ def process_day(
                        for ln, s in stats.items()},
         "elapsed_s": round(time.time() - t0, 1),
     }
+    if geo2:
+        gl = [g for a in seg_stats.values() for g in a.get("gaps", [])]
+        meta["geo2"] = {"gaps_joined": sum(g["joined"] and g["kind"] == "gap" for g in gl),
+                        "gaps_cut": sum(not g["joined"] and g["kind"] == "gap" for g in gl),
+                        "off_joined": sum(g["joined"] and g["kind"] == "off" for g in gl),
+                        "off_cut": sum(not g["joined"] and g["kind"] == "off" for g in gl),
+                        "n_waiting": len(wait_recs),
+                        "n_start_unknown": sum(bool(r.get("start_unknown")) for r in trip_recs)}
     _atomic_json(meta, paths["meta"])
     return {**meta, "status": "processed"}
 

@@ -44,15 +44,19 @@ def trip_rows(
     k_pairs: int,
     seed: int,
     passage_cache: dict | None = None,
+    start_unknown: bool = False,
+    seg: np.ndarray | None = None,
 ) -> dict | None:
     """
     Devuelve dict de columnas (arrays de largo n_rows) o None si el viaje no da pares.
     `ts`, `dist`, ... son los puntos válidos (perp <= 150 m) en orden cronológico.
     Semántica por fila idéntica a features.make_training_rows_eta; solo cambia que se
     muestrean k_pairs por viaje en vez de todos.
+    start_unknown (segmentador v2b): el viaje no arranca en su cabecera, así que time_since_start no es real y se
+    guarda NaN (nunca un 0 falso). seg: id de tramo continuo por punto; los pares no cruzan tramos distintos.
     """
     L = max(float(shape_length_m), 1.0)
-    pi, fj = sample_pairs(dist, ts, k_pairs, seed)
+    pi, fj = sample_pairs(dist, ts, k_pairs, seed, seg)
     m = len(pi)
     if m == 0:
         return None
@@ -104,7 +108,9 @@ def trip_rows(
         "dow": dow,
         "has_active_bus": np.ones(m, dtype=bool),
         "observed_eta_s": eta,
-        "time_since_start": (p_ts - ts[0]).astype(np.float32),
+        "time_since_start": (np.full(m, np.nan, dtype=np.float32) if start_unknown
+                             else (p_ts - ts[0]).astype(np.float32)),
+        "start_unknown": np.full(m, bool(start_unknown), dtype=bool),
         "ts_age_s": np.minimum(frame_ts[pi] - p_ts, 600).astype(np.float32),
         "traj_flat": traj.reshape(m, TRAJ_K * 3),
         "traj_len": hist_len.astype(np.int8),

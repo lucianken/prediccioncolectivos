@@ -54,6 +54,7 @@ def build_medians(parquet_path: Path, out_path: Path, force: bool = False) -> di
         WITH deduped AS (
             SELECT DISTINCT ramal_id, dist_along_norm, time_since_start
             FROM read_parquet('{str(parquet_path).replace(chr(92), '/')}')
+            WHERE time_since_start IS NOT NULL AND NOT isnan(time_since_start)   -- v2b: start_unknown = NaN
         )
         SELECT
             ramal_id,
