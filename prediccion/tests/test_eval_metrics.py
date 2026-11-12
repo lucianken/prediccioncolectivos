@@ -64,3 +64,22 @@ def test_a0_usa_piso_de_velocidad():
 def test_eta_bucket_de_make_eval_coincide_con_los_buckets_de_la_tabla():
     assert eta_bucket(np.array([1.0, 299.9, 300.0, 599.0, 600.0, 1199.0, 1200.0, 7000.0])).tolist() == \
         [0, 0, 1, 1, 2, 2, 3, 3]
+
+
+def test_desglose_por_fase_separa_inicio_y_detenido_sin_tocar_las_metricas_globales():
+    from prediccion.eval import compute_phase_breakdown, phase_masks
+    tss = np.array([100.0, 100.0, 1000.0, 1000.0, np.nan])
+    along = np.array([5000.0, 5000.0, 5000.0, 500.0, 5000.0])       # fila 3: <1 km del inicio aunque pasaron 1000 s
+    speed = np.array([0.0, 8.0, 0.2, 8.0, 8.0])
+    start, stopped = phase_masks(tss, along, speed)
+    assert start.tolist() == [True, True, False, True, False]
+    assert stopped.tolist() == [True, False, True, False, False]
+    true = np.array([100.0, 100.0, 100.0, 100.0, 100.0])
+    pred = np.array([200.0, 100.0, 130.0, 100.0, 100.0])
+    ph = compute_phase_breakdown(pred, true, start, stopped)
+    assert ph["inicio de viaje"]["n"] == 3 and ph["resto del viaje"]["n"] == 2
+    assert ph["inicio de viaje"]["mae"] == pytest.approx(100.0 / 3)
+    assert ph["P detenido"]["mae"] == pytest.approx(65.0)
+    assert ph["global sin inicio de viaje"]["mae"] == pytest.approx(15.0)
+    assert ph["global"]["mae"] == pytest.approx(compute_metrics(pred, true, along)["global"]["mae"])
+    assert ph["inicio y detenido"]["n"] + ph["inicio y en movimiento"]["n"] == ph["inicio de viaje"]["n"]

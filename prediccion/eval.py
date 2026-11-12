@@ -11,6 +11,7 @@ Modelos:
   a0          naive: dist_remaining / max(speed_mps en P, v_floor)  (v_floor = 3 m/s)
   a0c[:v]     naive de velocidad constante (default 7 m/s, el "naive" histórico de 672 s)
   a1:<pkl>    A1Baseline; se consulta con la posición REAL de P (dist_along_m), no con 0 como evaluate_a1
+  path:<pt>   PathETAModel (modelo por tramos, models/path_eta.py)
   a3:<pt>     A3ETAModel (checkpoint .pt del trainer). Sin flota (el v2 no la trae). d_model se infiere
               del checkpoint. schedule_dev_norm sale de --sdn (default: <ml_dir del checkpoint>/schedule_dev_medians.json,
               o el del v2 evaluado si no existe).
@@ -38,6 +39,10 @@ ETA_BUCKETS_S = [("0-5 min", 0.0, 300.0), ("5-10 min", 300.0, 600.0), ("10-20 mi
 DIST_BUCKETS_M = [("<500 m", 0.0, 500.0), ("0,5-2 km", 500.0, 2000.0), ("2-5 km", 2000.0, 5000.0),
                   ("5+ km", 5000.0, math.inf)]
 UNDER_THRESHOLD_S = 60.0
+# Desglose por fase del viaje (solo reporte; no cambia los números de la vara)
+START_TIME_S = 300.0      # P en los primeros 5 min del viaje (time_since_start)...
+START_DIST_M = 1000.0     # ...o a menos de 1 km del inicio del shape
+STOPPED_MPS = 0.5         # P detenido: velocidad < 0,5 m/s
 A0_V_FLOOR_MPS = 3.0
 
 
@@ -76,6 +81,43 @@ def compute_metrics(pred, true, dist) -> dict:
         m = (dist >= lo) & (dist < hi)
         out["by_dist"][label] = _stats(pred[m], true[m])
     return out
+
+
+def phase_masks(time_since_start, dist_along_m, speed_mps) -> tuple[np.ndarray, np.ndarray]:
+    """(inicio_de_viaje, detenido) como máscaras booleanas por fila de eval."""
+    tss = np.nan_to_num(np.asarray(time_since_start, dtype=np.float64), nan=np.inf)
+    start = (tss < START_TIME_S) | (np.asarray(dist_along_m, dtype=np.float64) < START_DIST_M)
+    stopped = np.asarray(speed_mps, dtype=np.float64) < STOPPED_MPS
+    return start, stopped
+
+
+def compute_phase_breakdown(pred, true, start, stopped) -> dict:
+    """
+    Error por fase del viaje: (a) inicio de viaje vs resto, (b) P detenido vs en movimiento, el cruce de ambos y
+    el global SIN las filas de inicio de viaje (cuánto baja el error medio si se las excluye).
+    """
+    pred = np.asarray(pred, dtype=np.float64)
+    true = np.asarray(true, dtype=np.float64)
+    start = np.asarray(start, dtype=bool)
+    stopped = np.asarray(stopped, dtype=bool)
+    sel = {
+        "inicio de viaje": start, "resto del viaje": ~start,
+        "P detenido": stopped, "P en movimiento": ~stopped,
+        "inicio y detenido": start & stopped, "inicio y en movimiento": start & ~stopped,
+        "resto y detenido": ~start & stopped, "resto y en movimiento": ~start & ~stopped,
+        "global": np.ones(len(pred), bool), "global sin inicio de viaje": ~start,
+    }
+    return {k: _stats(pred[m], true[m]) for k, m in sel.items()}
+
+
+def phase_to_markdown(phase: dict) -> str:
+    hdr = "| fase | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) |"
+    rows = ["**Por fase del viaje** (inicio = primeros 5 min o <1 km del inicio del shape; detenido = <0,5 m/s)", "",
+            hdr, "|---|---:|---:|---:|---:|---:|---:|"]
+    for label, s_ in phase.items():
+        rows.append(f"| {label} | {s_['n']} | {_fmt(s_['mae'])} | {_fmt(s_['p50'])} | {_fmt(s_['p90'])} | "
+                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} |")
+    return "\n".join(rows) + "\n"
 
 
 def _fmt(v, nd=1):
@@ -176,7 +218,7 @@ def predict_a3(parquet_path: Path, ckpt_path: Path, shape_lengths: dict, sdn_pat
 def load_eval_df(path: Path):
     import pyarrow.parquet as pq
     cols = ["line", "ramal_id", "dist_along_m", "dist_remaining_m", "speed_mps", "hour_sin", "hour_cos", "dow",
-            "observed_eta_s"]
+            "observed_eta_s", "time_since_start"]
     return pq.read_table(path, columns=cols).to_pandas()
 
 
@@ -189,7 +231,7 @@ def _model_name(spec: str) -> str:
 
 def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None = None,
              sdn: Path | None = None, out_dir: Path | None = None, eval_path: Path | None = None,
-             v_floor: float = A0_V_FLOOR_MPS) -> dict:
+             v_floor: float = A0_V_FLOOR_MPS, tag: str | None = None) -> dict:
     v2_dir = Path(v2_dir)
     path = eval_path or (v2_dir / "eval" / f"eval_{which}.parquet")
     out_dir = Path(out_dir or v2_dir / "eval")
@@ -218,6 +260,9 @@ def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None 
     elif kind == "a1":
         from prediccion.models.a1_baseline import A1Baseline
         pred = predict_a1(df, A1Baseline.load(arg))
+    elif kind == "path":
+        from prediccion.models.path_eta import predict_path
+        pred = predict_path(path, Path(arg), len(df))
     elif kind == "a3":
         lengths_p = v2_dir / "shape_lengths.json"
         with open(lengths_p, encoding="utf-8") as f:
@@ -228,21 +273,24 @@ def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None 
         sdn_path = sdn or (sibling if sibling.exists() else v2_dir / "schedule_dev_medians.json")
         pred = predict_a3(path, Path(arg), lengths, sdn_path if Path(sdn_path).exists() else None, len(df))
     else:
-        raise SystemExit(f"modelo desconocido: {model_spec} (a0 | a0c[:v] | a1:<pkl> | a3:<pt>)")
+        raise SystemExit(f"modelo desconocido: {model_spec} (a0 | a0c[:v] | a1:<pkl> | a3:<pt> | path:<pt>)")
 
     true = df["observed_eta_s"].to_numpy(np.float64)
     dist = df["dist_remaining_m"].to_numpy(np.float64)
     m = compute_metrics(pred[keep], true[keep], dist[keep])
+    start, stopped = phase_masks(df["time_since_start"], df["dist_along_m"], df["speed_mps"])
+    result_phase = compute_phase_breakdown(pred[keep], true[keep], start[keep], stopped[keep])
     result = {"model": model_spec, "set": which, "eval_file": str(sub_path), "lines": lines,
               "n": int(keep.sum()), "elapsed_s": round(time.time() - t0, 1),
-              "date": time.strftime("%Y-%m-%d"), "metrics": m}
+              "date": time.strftime("%Y-%m-%d"), "metrics": m, "phase": result_phase}
     if tmp_filtered is not None:
         tmp_filtered.unlink(missing_ok=True)
     result["eval_file"] = str(eval_path or (v2_dir / "eval" / f"eval_{which}.parquet"))
-    stem = f"{_model_name(model_spec)}_{which}_{time.strftime('%Y%m%d')}" + ("_L" + "-".join(lines) if lines else "")
+    stem = f"{_model_name(model_spec)}_{which}_{time.strftime('%Y%m%d')}" + ((("_" + tag) if tag else "_L" + "-".join(lines)) if lines else "")
     with open(out_dir / f"{stem}.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=1, ensure_ascii=False)
     md = metrics_to_markdown(f"{model_spec} sobre eval_{which} (n={result['n']})", m)
+    md = md + "\n\n" + phase_to_markdown(result_phase)
     (out_dir / f"{stem}.md").write_text(md + "\n", encoding="utf-8")
     result["json_path"] = str(out_dir / f"{stem}.json")
     result["markdown"] = md
@@ -255,10 +303,12 @@ def main(argv=None):
     ap.add_argument("--set", dest="which", choices=["seen", "heldout"], required=True)
     ap.add_argument("--v2-dir", type=Path, default=DEFAULT_V2_DIR)
     ap.add_argument("--lines", default=None, help="filtrar líneas (coma), p.ej. 39")
+    ap.add_argument("--tag", default=None, help="sufijo del archivo de salida cuando se usa --lines (default: _L<lineas>)")
+    ap.add_argument("--out-dir", type=Path, default=None, help="directorio de salida (default: <v2-dir>/eval)")
     ap.add_argument("--sdn", type=Path, default=None, help="schedule_dev_medians.json a usar con a3")
     ap.add_argument("--v-floor", type=float, default=A0_V_FLOOR_MPS)
     a = ap.parse_args(argv)
-    r = run_eval(a.model, a.which, a.v2_dir, a.lines.split(",") if a.lines else None, a.sdn, v_floor=a.v_floor)
+    r = run_eval(a.model, a.which, a.v2_dir, a.lines.split(",") if a.lines else None, a.sdn, out_dir=a.out_dir, v_floor=a.v_floor, tag=a.tag)
     print(r["markdown"])
     print(f"\n-> {r['json_path']}")
     return 0
