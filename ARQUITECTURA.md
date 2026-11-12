@@ -65,7 +65,31 @@ Hoy los números no son comparables: A3 72 s (16,5 M filas val, solo 39), A1 158
 - **Baselines en el mismo conjunto:** A0 naive (distancia / velocidad, con piso de velocidad razonable), A1 (reentrenado con el train v2; es barato), A3 actual ep21 (solo sobre la 39, como referencia histórica). Cuándo Subo se suma cuando exista su grabación.
 - Script único `python -m prediccion.eval ...` que toma un modelo y escribe `data/ml/v2/eval/<modelo>_<fecha>.json` + tabla markdown. Resultados que importan se anotan en §7.
 
-## 6. Escalera de experimentos (sin flota)
+## 6. Plan de modelado (replanteado 2026-11-12)
+
+### 6.1 Por qué se replantea
+E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación → grilla, después metros, después tránsito), cada uno reaccionando a un diagnóstico. Es un máximo local. Los síntomas ("no sabe dónde está", "no sabe los metros", "no generaliza a líneas no vistas", "no ve el tránsito del camino") tienen **una sola causa**: A3 es una regresión global sobre escalares normalizados, y el problema tiene otra estructura.
+
+**Estructura del problema:** el tiempo de llegada es la **suma del tiempo de cada tramo** del camino entre el coche (P) y el objetivo (T). Cada tramo tiene un comportamiento típico (hora, día) más el estado actual del tránsito. Por eso la tabla A1 (suma por tramos) le gana a A3: tiene la estructura correcta, no más información.
+
+### 6.2 Pasos, en orden
+1. **Techo y cobertura (sin entrenar).** Antes de construir, medir cuánto se puede ganar:
+   - *Ruido de etiqueta:* el pasaje se interpola entre pings de ~60 s (error P50 ~24 s). Nadie baja de eso.
+   - *Tránsito, con la tabla de tránsito por celda (§11.1):* para cada fila de eval, recorrer los tramos/celdas del camino P→T y usar la velocidad observada de **otros** coches en esa celda donde la haya; donde no, la velocidad típica de A1. Dos versiones: **oráculo** (coches que pasan en los minutos siguientes: techo, usa futuro) y **realista** (últimos ~10 min: lo que tiene producción).
+   - *Cobertura:* fracción del camino con información real, por línea y hora. En tramos de una sola línea la información es, con suerte, el coche de adelante; esto mide en cuántos casos el tránsito puede aportar algo.
+   - **Decide:** si oráculo ≈ A1, el tránsito no es prioridad; si el oráculo baja mucho y la cobertura es alta, sí. Duda abierta del usuario sobre el oráculo: se intenta igual y se interpreta con la cobertura.
+2. **Infraestructura de iteración (una vez, no es experimento).**
+   - Subconjunto chico fijo para comparar ideas en ~30–45 min: **train 12 líneas: 26, 39, 42, 92, 124, 151, 168, 50, 106, 107, 108, 132** · **control 3: 12 (corta), 15 (larga, 54 km), 128 (corta)**. Todas ya están en el dataset v2 armado. Ventana de train acotada (p. ej. 6–8 semanas) dentro del período de train; la vara (§5) no cambia.
+   - Entrenamiento estándar fijo: presupuesto fijo de épocas, lr con schedule programado (coseno/onecycle), sin early stopping sobre una val ruidosa. Corrige el defecto que dejó a E2 subentrenado.
+   - Las 48 líneas solo para confirmar al ganador.
+3. **Modelo por tramos del camino.** El camino P→T partido en tramos fijos (250–500 m). Cada tramo: embedding aprendido compartido entre líneas (la grilla, pero sobre el camino), hora/día, y —según el paso 1— tránsito observado en el tramo. Más el estado del coche (velocidad, antigüedad GPS, detenido). Salida: tiempo por tramo sumado + un ajuste no-por-tramo (cabecera, demoras). Es la forma de los sistemas de ETA de la industria (DiDi WDR, Uber DeepETA, Google Maps). Resuelve por construcción metros/largo, ubicación, generalización a líneas que pasan por tramos conocidos y tránsito sobre el camino; puede reproducir A1, así que no debería quedar por debajo.
+4. **Comparar en el subconjunto chico** A1 / A3+grilla (E1c) / modelo por tramos, con la vara de siempre. Escalar a 48 líneas solo el ganador.
+
+### 6.3 Qué se descarta y qué se reusa
+- **Se descarta:** seguir agregando inputs a A3 (metros, E3a/E3b como parche).
+- **Se reusa:** pipeline v2 (corte geométrico, recorridos), vara de medir, tabla de tránsito, la grilla (como embedding del tramo), y E0–E2 como referencia.
+
+### 6.4 Escalera anterior (histórica, E0–E2 corridos)
 
 Cada escalón es una corrida nocturna y responde una pregunta. Se corta donde deja de haber mejora.
 
