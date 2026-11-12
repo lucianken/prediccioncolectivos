@@ -90,6 +90,12 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
    - **Nota sobre las líneas de control (abierto):** en producción no hay líneas nuevas: se entrena siempre con todas. Lo que sí aparece son **modificaciones de recorrido o ramales nuevos** de líneas existentes, y tramos poco recorridos. Las líneas de control son un proxy imperfecto de eso. Pendiente definir una prueba más fiel (p. ej. dejar afuera un ramal o un tramo de una línea vista, o recorridos sintéticos).
 4. **Comparar en el subconjunto chico** A1 / A3+grilla (E1c) / modelo por tramos, con la vara de siempre. Escalar a 48 líneas solo el ganador.
 
+5. **Arreglo del corte de viajes (problema de datos, no de modelo).** Medido en el paso 2: el inicio de viaje tiene 1,3–1,4× el error del resto en los tres modelos, por dos defectos del segmentador v2:
+   - **A. Viajes que arrancan a mitad de recorrido (~13 % de las filas):** un hueco de datos > 5 min corta el viaje y el siguiente arranca con `time_since_start` ≈ 0 aunque el coche lleve media hora. Arreglo: **unir el hueco** si después el coche sigue avanzando sobre el mismo recorrido con un avance físicamente posible para el tiempo transcurrido (mismo viaje, el tiempo sigue desde la salida real). Si no se puede unir, el viaje queda marcado **"inicio desconocido"** (flag explícito) en vez de un `time_since_start` falso.
+   - **B. La espera en cabecera queda dentro del viaje:** hoy se corta solo con > 10 min detenido, así que esperas de 3–9 min cuentan como viaje. Arreglo: el viaje arranca cuando el coche **sale de la zona de cabecera** (~300 m sobre el recorrido) y avanza. Las posiciones previas son el estado **"esperando en cabecera"**: es otro problema (cuándo sale), que se trata aparte y no contamina la predicción del recorrido.
+   - **Validación antes de entrenar:** % de viajes que empiezan lejos de la cabecera (debería bajar mucho desde ~13 %), coherencia de `time_since_start` con la distancia recorrida, y duración de viajes por línea consistente con el recorrido.
+   - Cambia los datos: el antes y el después no se comparan directamente. Se rearma el subconjunto con el segmentador nuevo y se re-miden A1 / A3+grilla / por tramos con la misma receta, **después** de cerrar la comparación con semillas del paso 4.
+
 ### 6.3 Qué se descarta y qué se reusa
 - **Se descarta:** seguir agregando inputs a A3 (metros, E3a/E3b como parche).
 - **Se reusa:** pipeline v2 (corte geométrico, recorridos), vara de medir, tabla de tránsito, la grilla (como embedding del tramo), y E0–E2 como referencia.
