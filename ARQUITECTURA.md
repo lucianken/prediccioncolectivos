@@ -137,6 +137,14 @@ MAE (s) por bucket de ETA real **0–5 / 5–10 / 10–20 / 20+ min**, y % de su
 **Lectura E1c:** darle la ubicación física de P y T (grilla aprendida de ~500 m, sin ramal ni sentido) es lo que faltaba: el A3 pasa de 105,6 a 90,7 s de MAE global y **le gana a A1 (96,7 s) en los buckets de 5–10, 10–20 y 20+ min**, y por distancia en los cuatro tramos (<500 m: 48 vs 54; 5+ km: 147 vs 151). La anticorrelación ida/vuelta del error de nivel baja de −0,60 a −0,14 (muestra de train; diag en `data/ml/v2/diag/e1c_tables.md`) y el MAE a >2 km de 141 a 124 s en train (A1 133). Una sola corrida: falta repetir con otra semilla y probar en `eval_heldout`/otras líneas antes de darlo por cerrado.
 | — | — | — | — | — |
 
+**Paso 6.2.1, techo y cobertura (2026-11-12, `data/ml/v2/diag/TECHO_TRANSITO.md`, subconjunto 12+3 líneas):**
+- Ruido de etiqueta chico: estimado ~6–19 s de MAE (cota superior 18,6 s con hueco de 120 s).
+- Cobertura de tránsito 97–99 % del camino; los tramos de una sola línea son ~3 % de los pasos (casi todo es compartido).
+- Sustituir la velocidad típica por la observada por celda (500 m × 2 min) **no le gana a A1**: la mejor mezcla gana 2,2 % con oráculo (usa futuro) y 1,2 % realista. Ni en tramos de una línea, ni con la misma línea, ni con otras.
+- Límite: es una sustitución directa en un sumador por tramos, no un modelo aprendido, con celdas gruesas y velocidad solo en movimiento. No descarta que un modelo aprendido saque algo del tránsito, pero no hay señal fuerte a la vista.
+- El error que queda está en otro lado: **cabecera** (MAE 143 s a <5 min de la salida vs 105 s el resto), **coche detenido** (120 vs 109 s) y variabilidad entre coches.
+- Decisión: tránsito **no es prioridad**. El foco pasa a lo que explica el error: cabecera, paradas, estado del coche.
+
 ## 8. Decisiones previas que siguen vigentes (no re-discutir sin dato nuevo)
 
 Del plan histórico: modelo único para todas las líneas (§7); pinball asimétrica por distancia, q 0,5→0,8 bajo 1 km (§7b); distancia mínima 100 m (§7); `schedule_dev_norm` aporta poco pero positivo (Exp. 2); `time_since_last_bus_s` ambiguo (Exp. 2); umbral "llegando" `pred < 150 s OR dist < 300 m` (Exp. 1, reevaluar con el modelo nuevo); stop-to-stop y Transformer seq2seq postergados (§7, Fase 5); la flota de entrada es la de la agencia (§7).
