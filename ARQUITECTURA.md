@@ -145,6 +145,32 @@ MAE (s) por bucket de ETA real **0–5 / 5–10 / 10–20 / 20+ min**, y % de su
 - El error que queda está en otro lado: **cabecera** (MAE 143 s a <5 min de la salida vs 105 s el resto), **coche detenido** (120 vs 109 s) y variabilidad entre coches.
 - Decisión: tránsito **no es prioridad**. El foco pasa a lo que explica el error: cabecera, paradas, estado del coche.
 
+**Pasos 6.2.2–6.2.4, subconjunto 12+3 líneas (2026-11-12; archivos en `data/ml/v2_sub/`, evals en `data/ml/v2_sub/eval/`).**
+Receta fija: train 2026-07-20 → 2026-09-14 (10,25 M filas, 46 días; todos < 2026-09-15, sin superposición con la validación), val = muestra reproducible del 40 % de la val de siempre en las 12 líneas (2,28 M filas, 25 días), 12 épocas, batch 1024, OneCycle (coseno), sin early stopping. Se toma el **mejor checkpoint sobre esa val** (muestra grande y estable; en los dos modelos coincidió con la última época). Eval = la vara de siempre filtrada: train = `eval_seen` en las 12 líneas (29.779 filas), control = `eval_heldout` en 12, 15, 128 (26.537 filas). MAE (s) por bucket de ETA 0–5 / 5–10 / 10–20 / 20+ min; "Subest. 0–5" = % de subestimaciones >60 s en 0–5 min; entre paréntesis, % de subestimaciones >60 s global.
+
+| Fecha | Experimento | Conjunto | MAE por bucket | Subest. 0–5 | Notas |
+|---|---|---|---|---|---|
+| 2026-11-12 | A1 reentrenado (ventana del subconjunto) | train 12 líneas | 41 / 82 / 125 / 198 | 12,4 % (33,7 %) | global 116,0; sesgo −29; por distancia 62 / 83 / 112 / 192 |
+| 2026-11-12 | A3 + grilla (E1c), 12 líneas, 12 ép. (44,5 min) | train 12 líneas | 42 / 71 / 117 / 195 | 5,1 % (34,8 %) | global 110,5; sesgo −41; por distancia 57 / 76 / 108 / 186 |
+| 2026-11-12 | **Por tramos** (sin tránsito, 21,4 min) | train 12 líneas | **41 / 69 / 111 / 170** | **4,5 %** (28,5 %) | global **101,6**; sesgo −15; por distancia 55 / 72 / 102 / 164 |
+| 2026-11-12 | A1 | control 12, 15, 128 | 73 / 216 / 428 / 1034 | 50,4 % (85,4 %) | global 467; sin tabla para esas líneas: es el naive de 7 m/s |
+| 2026-11-12 | A3 + grilla | control | 76 / 163 / 291 / 541 | 10,3 % (32,3 %) | global 282; sesgo −21 |
+| 2026-11-12 | **Por tramos** | control | 57 / 116 / 185 / 440 | 9,6 % (46,5 %) | global **211**; sesgo −33; por distancia 65 / 107 / 178 / 490 |
+
+Desglose por fase del viaje (MAE s; inicio = primeros 5 min o <1 km del inicio del shape; detenido = <0,5 m/s; solo reporte):
+
+| Conjunto / modelo | inicio | resto | detenido | en movimiento | global sin inicio |
+|---|---|---|---|---|---|
+| train, A1 | 147,5 | 105,7 | 122,6 | 111,6 | 105,7 (global 116,0) |
+| train, A3 + grilla | 136,5 | 102,1 | 115,1 | 107,5 | 102,1 (110,5) |
+| train, por tramos | 125,9 | 93,6 | 105,5 | 99,0 | 93,6 (101,6) |
+| control, A1 | 570,9 | 431,0 | 491,5 | 449,3 | 431,0 (467,4) |
+| control, A3 + grilla | 330,6 | 265,3 | 278,2 | 285,4 | 265,3 (282,3) |
+| control, por tramos | 254,6 | 195,8 | 195,8 | 222,6 | 195,8 (211,1) |
+
+**Lectura.** (1) En líneas vistas el modelo por tramos le gana a A1 y a A3+grilla en casi todo (global −12 % vs A1, −8 % vs A3; −14 % en 20+ min vs A1) y tiene el menor % de subestimaciones >60 s global; en 0–5 min empata con A1 en MAE (41) y con A3 en subestimaciones. Es una sola corrida por modelo (sin repetir semillas) y la val del modelo por tramos saltó entre épocas finales (86 → 98 → 82 s con lr casi nula), señal de que no está bien condicionado: el ruido entre corridas no está medido. (2) En control gana por mucho a A3 (211 vs 282) y a A1, aunque el control es solo de 3 líneas y con sesgo y subestimaciones mayores que A3 (46 % vs 32 % global): generaliza mejor en nivel pero subestima más. Línea desconocida = índice de "línea no vista" (se entrena con 10 % de dropout de la línea); la geometría de las líneas de control está en la tabla de tramos y la grilla da el lugar. (3) Inicio de viaje: el error es 1,3–1,4× el del resto en los tres modelos; excluirlo baja el MAE medio de A1 de 116,0 a 105,7 s (−9 %), de A3 de 110,5 a 102,1 y del modelo por tramos de 101,6 a 93,6. El ajuste global del modelo por tramos no cierra esa brecha: inicio 125,9 vs resto 93,6. (4) Por qué es el inicio (A1, `eval_seen` de 12 líneas): 26 % de las filas de eval cumplen "inicio", pero solo 9 % son inicio verdadero (<5 min Y <1 km del shape; MAE 172 s); 13 % tienen tss <5 min pero ya están a >1 km del shape (viajes que el segmentador empieza a mitad de recorrido tras un corte; MAE 122 s) y 2 % llevan >5 min dentro del primer km (MAE 161 s). Las filas a <200 m del inicio del shape (1.555) tienen MAE 200–210 s y sesgo −62 / −110 s (detenidas): el coche espera en la cabecera dentro del viaje, hasta 5–10 min, porque el segmentador solo corta tras >10 min detenido; A1 ignora esa espera. El segundo término es que `time_since_start` mide desde el primer punto válido (a ≤150 m del shape), no desde la salida de cabecera, y en el 52 % de las filas con time_since_start ≈ 0 (primer punto válido del viaje) ese punto está a >1 km del inicio del shape.
+- Receta: A3 usó el trainer actual (pérdida pinball de val como criterio de "mejor"), el modelo por tramos su propio loop (`prediccion/train_path.py`, MAE de val como criterio) con lr 2e-3 contra 1e-3 del A3; no son idénticos en lr ni en métrica de selección.
+
 ## 8. Decisiones previas que siguen vigentes (no re-discutir sin dato nuevo)
 
 Del plan histórico: modelo único para todas las líneas (§7); pinball asimétrica por distancia, q 0,5→0,8 bajo 1 km (§7b); distancia mínima 100 m (§7); `schedule_dev_norm` aporta poco pero positivo (Exp. 2); `time_since_last_bus_s` ambiguo (Exp. 2); umbral "llegando" `pred < 150 s OR dist < 300 m` (Exp. 1, reevaluar con el modelo nuevo); stop-to-stop y Transformer seq2seq postergados (§7, Fase 5); la flota de entrada es la de la agencia (§7).

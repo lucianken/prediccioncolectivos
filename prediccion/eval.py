@@ -224,7 +224,7 @@ def load_eval_df(path: Path):
 
 def _model_name(spec: str) -> str:
     kind, _, arg = spec.partition(":")
-    if kind in ("a1", "a3"):
+    if kind in ("a1", "a3", "path"):
         return f"{kind}_{Path(arg).stem}"
     return kind if not arg else f"{kind}{arg}"
 
