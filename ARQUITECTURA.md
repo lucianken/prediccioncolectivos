@@ -99,6 +99,12 @@ MAE (s) por bucket de ETA real **0–5 / 5–10 / 10–20 / 20+ min**, y % de su
 
 **Lectura E1:** K=32 rinde igual que K=64 → K=32 alcanza. El pipeline v2 (geometría, sin trip_id) no empeora: iguala o mejora apenas al A3 viejo. Pero **ningún A3 le gana a A1 en la 39** salvo en subestimaciones. Hipótesis: A3 no sabe *dónde* está el coche en la ciudad (solo distancia normalizada), y A1 sí (velocidad típica por tramo, hora y día).
 
+| 2026-11-12 | E2 A3 + grilla, 48 líneas (corte ep 11, mejor ep 6) | seen (100k) | 46 / 78 / 122 / 211 | 4,5 % | vs A1 42 / 89 / 134 / 213: gana en 5–20 min, pierde en 0–5 |
+| 2026-11-12 | E2 A3 + grilla | heldout (100k) | 93 / 169 / 268 / 488 | 5,9 % | vs A0 68 / 186 / 377 / 890; sesgo +75 s (sobreestima en líneas no vistas) |
+| 2026-11-12 | E2 A3 + grilla | seen, solo 39 | 45 / 70 / 99 / 171 | 3,3 % | **peor que E1c** (38 / 61 / 93 / 153) |
+
+**Lectura E2:** con 48 líneas la 39 empeora respecto de E1c, y en líneas no vistas generaliza a medias (le gana al naive salvo en 0–5 min, con sesgo +75 s). **No es concluyente sobre "más líneas":** E2 cortó por paciencia en la época 11 con la lr fija en 1e-3 (nunca bajó; E1c sí bajó y entrenó 26 épocas), y el error de train seguía bajando → probablemente subentrenado. Sospecha para heldout: celdas de la grilla que ninguna línea de train recorre quedan con embeddings sin entrenar.
+
 **Lectura E1c:** darle la ubicación física de P y T (grilla aprendida de ~500 m, sin ramal ni sentido) es lo que faltaba: el A3 pasa de 105,6 a 90,7 s de MAE global y **le gana a A1 (96,7 s) en los buckets de 5–10, 10–20 y 20+ min**, y por distancia en los cuatro tramos (<500 m: 48 vs 54; 5+ km: 147 vs 151). La anticorrelación ida/vuelta del error de nivel baja de −0,60 a −0,14 (muestra de train; diag en `data/ml/v2/diag/e1c_tables.md`) y el MAE a >2 km de 141 a 124 s en train (A1 133). Una sola corrida: falta repetir con otra semilla y probar en `eval_heldout`/otras líneas antes de darlo por cerrado.
 | — | — | — | — | — |
 
