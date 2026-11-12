@@ -190,3 +190,21 @@ def test_assemble_only_lines_y_dest_no_pisan_el_dataset_principal(world):
     assert set(only["line"]) == {"900"} and set(full["line"]) == {"900", "901"}
     with pytest.raises(ValueError):
         assemble_dataset(world["out"], lines_file, shapes_dir=world["shapes_dir"], dest_dir=dest, only_lines=["902"])
+
+
+def test_assemble_ventana_de_train_acotada_y_muestra_de_val(world):
+    # dos días de train y uno de val: con train_start solo queda el posterior; val se puede submuestrear
+    for d, off in (("2026-09-13", 3), ("2026-09-14", 2), ("2026-09-15", 1)):
+        world["day"](d, BASE - off * 86400, ["900"])
+        _run(world, d, ["900"])
+    lines_file = world["tmp"] / "lines.json"
+    lines_file.write_text(json.dumps({"train": ["900"], "heldout": []}))
+    full = assemble_dataset(world["out"], lines_file, shapes_dir=world["shapes_dir"], dest_dir=world["out"] / "a")
+    win = assemble_dataset(world["out"], lines_file, shapes_dir=world["shapes_dir"], dest_dir=world["out"] / "b",
+                           train_start="2026-09-14", val_sample_frac=0.5)
+    assert full["n_train_days"] == 2 and win["n_train_days"] == 1
+    assert win["train_days"] == ["2026-09-14", "2026-09-14"]
+    assert 0 < win["rows_val"] < full["rows_val"]
+    again = assemble_dataset(world["out"], lines_file, shapes_dir=world["shapes_dir"], dest_dir=world["out"] / "c",
+                             train_start="2026-09-14", val_sample_frac=0.5)
+    assert again["rows_val"] == win["rows_val"]            # la muestra es reproducible

@@ -117,6 +117,9 @@ class ETADataset(IterableDataset):
         self._n_groups: int = min(total_groups, max_groups) if max_groups is not None else total_groups
         rows_per_group = pf.metadata.num_rows / total_groups if total_groups > 0 else 0
         self._approx_len: int = int(rows_per_group * self._n_groups)
+        # cota superior de batches por epoch: cada row group emite ceil(filas / batch) (los días dejan row groups
+        # chicos, así que el promedio subestima); la necesita OneCycleLR para no quedarse sin pasos
+        self._n_batches: int = sum(-(-pf.metadata.row_group(i).num_rows // yield_batch_size) for i in range(self._n_groups))
         schema_names = set(pf.schema_arrow.names)
         skip = {"fleet_flat", "n_fleet"} if not use_fleet else set()
         self._read_cols: list[str] = _BASE_COLS + [
@@ -160,8 +163,7 @@ class ETADataset(IterableDataset):
         )
 
     def __len__(self) -> int:
-        import math
-        return math.ceil(self._approx_len / self._yield_batch_size)
+        return self._n_batches
 
     @property
     def approx_batches(self) -> int:

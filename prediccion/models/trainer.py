@@ -448,7 +448,7 @@ def train_phase3(
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                     scaler.step(optimizer)
                     scaler.update()
-                    if _onecycle:
+                    if _onecycle and scheduler.last_epoch < _steps_per_epoch * epochs - 1:
                         scheduler.step()
                 else:
                     errors = torch.abs(pred - eta_target)

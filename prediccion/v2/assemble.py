@@ -38,7 +38,10 @@ def split_days(days, val_start: str = VAL_START, val_end: str = VAL_END, exclude
     return train, val
 
 
-def _write_filtered(days: list[str], daily_dir: Path, lines: set[str], out_path: Path) -> dict[str, int]:
+def _write_filtered(days: list[str], daily_dir: Path, lines: set[str], out_path: Path,
+                    sample_frac: float | None = None, seed: int = 0) -> dict[str, int]:
+    """sample_frac (0-1): se queda con esa fracción de las filas, al azar con semilla fija por día (reproducible)."""
+    import numpy as np
     import pyarrow as pa
     import pyarrow.compute as pc
     import pyarrow.parquet as pq
@@ -55,6 +58,11 @@ def _write_filtered(days: list[str], daily_dir: Path, lines: set[str], out_path:
         tbl = tbl.filter(pc.is_in(tbl["line"], value_set=line_arr))
         if len(tbl) == 0:
             continue
+        if sample_frac is not None and sample_frac < 1.0:
+            rng = np.random.default_rng([seed, int(day.replace("-", ""))])
+            tbl = tbl.filter(pa.array(rng.random(len(tbl)) < sample_frac))
+            if len(tbl) == 0:
+                continue
         if writer is None:
             writer = pq.ParquetWriter(str(tmp), tbl.schema)
         writer.write_table(tbl, row_group_size=250_000)
@@ -80,6 +88,9 @@ def assemble_dataset(
     sdn: bool = True,
     dest_dir: Path | str | None = None,
     only_lines=None,
+    train_start: str | None = None,
+    val_sample_frac: float | None = None,
+    val_seed: int = 20261112,
 ) -> dict:
     from prediccion.pipeline.build_dataset import EXCLUDED_DAYS
     from prediccion.v2.day import read_meta
@@ -108,9 +119,14 @@ def assemble_dataset(
         if m and not m.get("include_fleet") is None:
             days.append(d)
     train_days, val_days = split_days(days, val_start, val_end, excluded)
+    if train_start is not None:
+        # ventana de train acotada (subconjunto de iteración, ARQUITECTURA §6.2.2): solo días >= train_start.
+        # Sigue siendo < val_start, así que no se superpone con la validación.
+        train_days = [d for d in train_days if d >= train_start]
 
     c_train = _write_filtered(train_days, daily, train_lines, train_dir / "eta_train.parquet")
-    c_val = _write_filtered(val_days, daily, train_lines, train_dir / "eta_val.parquet")
+    c_val = _write_filtered(val_days, daily, train_lines, train_dir / "eta_val.parquet",
+                         sample_frac=val_sample_frac, seed=val_seed)
 
     shapes = LineShapes(shapes_dir or DEFAULT_LINE_SHAPES_DIR)
     lengths = shapes.lengths(sorted(train_lines | heldout))
@@ -142,11 +158,15 @@ def main(argv=None):
     ap.add_argument("--lines-file", type=Path, default=None, help="default: <v2-dir>/lines.json")
     ap.add_argument("--only-lines", default=None, help="entrenar con un subconjunto de las líneas train (p.ej. 39)")
     ap.add_argument("--dest", type=Path, default=None, help="directorio de salida (default: --v2-dir)")
+    ap.add_argument("--train-start", default=None, help="primer día de train (ventana acotada); default: todo el período")
+    ap.add_argument("--val-sample-frac", type=float, default=None,
+                    help="fracción de filas de val que se conserva (muestra reproducible); default: todas")
     ap.add_argument("--val-start", default=VAL_START)
     ap.add_argument("--val-end", default=VAL_END)
     a = ap.parse_args(argv)
     s = assemble_dataset(a.v2_dir, a.lines_file or a.v2_dir / "lines.json", val_start=a.val_start, val_end=a.val_end,
-                         dest_dir=a.dest, only_lines=a.only_lines.split(",") if a.only_lines else None)
+                         dest_dir=a.dest, only_lines=a.only_lines.split(",") if a.only_lines else None,
+                         train_start=a.train_start, val_sample_frac=a.val_sample_frac)
     print(f"train {s['rows_train']:,} filas ({s['n_train_days']} días), val {s['rows_val']:,} filas ({s['n_val_days']} días)")
 
 
