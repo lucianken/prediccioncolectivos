@@ -133,11 +133,12 @@ def main(argv=None):
     ap.add_argument("--max-groups", type=int, default=None)
     ap.add_argument("--unk-line-p", type=float, default=0.1)
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--resume", action="store_true", help="retomar desde <out-dir>/path_eta_last.pt")
     a = ap.parse_args(argv)
     train(a.ml_dir, a.out_dir or a.ml_dir / "models_path", a.epochs, a.batch_size, a.lr, a.max_groups,
-          a.unk_line_p, a.workers, a.lines_file, a.device, resume=a.resume)
+          a.unk_line_p, a.workers, a.lines_file, a.device, seed=a.seed, resume=a.resume)
     return 0
 
 

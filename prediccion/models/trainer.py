@@ -164,9 +164,13 @@ def train_phase3(
     scheduler_type: str = "plateau",
     city_grid: bool = False,
     stop_after_epoch: int | None = None,
+    select_by: str = "pinball",
+    seed: int | None = None,
     lr_trace: list | None = None,
 ) -> dict[str, object]:
     """
+    select_by: criterio para elegir el mejor checkpoint sobre val: "pinball" (default histórico: la pérdida de val)
+      o "mae" (MAE de val en segundos, comparable con otros modelos). seed: fija torch/numpy al inicio (None = no).
     stop_after_epoch: corta el run después de esa época (simula un corte; se reanuda con resume=True).
     lr_trace: si es una lista, se le agrega el LR de cada paso de optimización (para tests de reanudación).
     Reanudación: al final de cada época se guarda output_dir/eta_a3_last.pt de forma atómica (modelo, optimizador,
@@ -195,6 +199,12 @@ def train_phase3(
     from prediccion.models.eta_dataset import ETADataset, collate_identity
 
     logger = logging.getLogger(__name__)
+    if select_by not in ("pinball", "mae"):
+        raise ValueError(f"select_by inválido: {select_by!r} (pinball | mae)")
+    if seed is not None:
+        import numpy as np
+        torch.manual_seed(seed)
+        np.random.seed(seed)
     logger.info(f"[train_phase3] Starting with config: epochs={epochs}, batch_size={batch_size}, lr={lr}, device={device}, patience={patience}")
 
     ml_dir = Path(ml_dir)
@@ -343,7 +353,7 @@ def train_phase3(
         "train_data": _resume.data_fingerprint(train_parquet),
         "val_data": _resume.data_fingerprint(val_parquet) if has_val else None,
         "d_model": d_model, "use_fleet": use_fleet, "city_grid": city_grid, "max_groups": max_groups,
-        "fleet_same_dir_cap": fleet_same_dir_cap, "patience": patience,
+        "fleet_same_dir_cap": fleet_same_dir_cap, "patience": patience, "select_by": select_by, "seed": seed,
     }
     if resume and last_ckpt_path.exists():
         st = _resume.load_last(last_ckpt_path, model=model, optimizer=optimizer, scheduler=scheduler,
@@ -404,6 +414,8 @@ def train_phase3(
             bucket_counts = {"0_500m": 0,   "500m_2km": 0,   "2km_plus": 0,   "under_500m": 0}
             naive_sum = 0.0
             naive_n   = 0
+            abs_sum   = 0.0
+            abs_n     = 0
 
         # Acumuladores de timing para el intervalo actual
         acc = {"fetch": 0.0, "todev": 0.0, "fwd": 0.0, "bwd": 0.0, "total": 0.0}
@@ -490,6 +502,8 @@ def train_phase3(
 
                     # Naive baseline: dist_remaining_m / 7 m/s (fallback de A1)
                     naive_pred = dist_rem_m / 7.0
+                    abs_sum += errors.sum().item()
+                    abs_n   += errors.numel()
                     naive_sum += (naive_pred - eta_target).abs().sum().item()
                     naive_n   += eta_target.shape[0]
 
@@ -545,6 +559,7 @@ def train_phase3(
                 bucket_sums["under_500m"] / n_500 if n_500 > 0 else 0.0
             )
             by_bucket["naive_mae"] = naive_sum / naive_n if naive_n > 0 else 0.0
+            by_bucket["mae_s"] = abs_sum / abs_n if abs_n > 0 else 0.0      # MAE de val en segundos (no la pinball)
             return (total_loss / n if n > 0 else float("inf")), by_bucket
         return total_loss / n if n > 0 else float("inf")
 
@@ -565,6 +580,8 @@ def train_phase3(
                 scheduler.step(train_mae)
 
         monitor = val_mae if has_val else train_mae
+        if has_val and select_by == "mae":
+            monitor = val_by_bucket["mae_s"]
         is_best = monitor < best_val_mae
         if is_best:
             best_val_mae = monitor

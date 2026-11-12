@@ -55,6 +55,9 @@ def main():
     parser.add_argument("--city-grid", action="store_true",
                         help="E1c: CityGridEncoder (grilla aprendida de ~500 m con la lat/lon de P y T interpoladas "
                              "sobre el shape). Apagado por defecto.")
+    parser.add_argument("--select-by", default="pinball", choices=["pinball", "mae"],
+                        help="criterio del mejor checkpoint: pinball de val (default histórico) o MAE de val en segundos")
+    parser.add_argument("--seed", type=int, default=None, help="semilla de torch/numpy (default: sin fijar)")
     parser.add_argument("--resume", action="store_true",
                         help="Reanudar desde eta_a3_last.pt (modelo, optimizador, scheduler, RNG y época; falla si la receta cambió)")
     parser.add_argument("--max-groups", type=int, default=None,
@@ -148,6 +151,8 @@ def _run_phase3(args):
         fleet_same_dir_cap=getattr(args, "fleet_same_dir_cap", None),
         scheduler_type=getattr(args, "scheduler", "plateau"),
         city_grid=getattr(args, "city_grid", False),
+        select_by=getattr(args, "select_by", "pinball"),
+        seed=getattr(args, "seed", None),
     )
     val_mae = metrics.get("val_mae_min")
     val_str = f"{val_mae:.2f} min" if val_mae is not None else "N/A"

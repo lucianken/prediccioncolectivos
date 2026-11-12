@@ -131,3 +131,18 @@ def test_a3_reanudar_con_otra_receta_falla(ml_dir, tmp_path):
     _a3(ml_dir, tmp_path / "r", stop_after_epoch=1)
     with pytest.raises(ValueError, match="no se puede reanudar"):
         _a3(ml_dir, tmp_path / "r", epochs=N_EPOCHS + 1, resume=True)
+
+
+def test_a3_select_by_mae_elige_la_epoca_de_menor_mae_de_val_y_la_semilla_reproduce(ml_dir, tmp_path):
+    def run(out):
+        _a3(ml_dir, out, select_by="mae", seed=3)
+        return torch.load(out / "eta_a3_last.pt", weights_only=False)
+
+    a = run(tmp_path / "a")
+    maes = [h["val_mae_by_bucket"]["mae_s"] for h in a["history"]]
+    assert a["best_epoch"] == 1 + int(np.argmin(maes))
+    assert a["best"] == pytest.approx(min(maes), rel=1e-6)                     # "mejor" = MAE de val en segundos
+    b = run(tmp_path / "b")
+    assert [h["val_mae_by_bucket"]["mae_s"] for h in b["history"]] == pytest.approx(maes, rel=1e-6)   # misma semilla
+    with pytest.raises(ValueError, match="select_by"):
+        _a3(ml_dir, tmp_path / "c", select_by="otro")
