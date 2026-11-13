@@ -103,6 +103,8 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
    - **Validación antes de entrenar:** % de viajes que empiezan lejos de la cabecera (debería bajar mucho desde ~13 %), coherencia de `time_since_start` con la distancia recorrida, y duración de viajes por línea consistente con el recorrido.
    - Cambia los datos: el antes y el después no se comparan directamente. Se rearma el subconjunto con el segmentador nuevo y se re-miden A1 / A3+grilla / por tramos con la misma receta, **después** de cerrar la comparación con semillas del paso 4.
 
+**Estado de producción:** modelo por tramos exportado para producción (versión inicial `data/ml/export/path_v2b_s0/`, script `prediccion/scripts/export_path_onnx.py`, contrato `prediccion/INFERENCIA_PATH.md`).
+
 ### 6.3 Qué se descarta y qué se reusa
 - **Se descarta:** seguir agregando inputs a A3 (metros, E3a/E3b como parche).
 - **Se reusa:** pipeline v2 (corte geométrico, recorridos), vara de medir, tabla de tránsito, la grilla (como embedding del tramo), y E0–E2 como referencia.
@@ -221,7 +223,7 @@ Del plan histórico: modelo único para todas las líneas (§7); pinball asimét
 - Modelo "en producción": `CLAUDE.md` decía ep24 (72,7 s), el plan dice ep21 (72,5 s). No hay modelo en producción real (`proyectoconsola/lib/eta_predict.js` está roto desde el rediseño).
 - `research_a3w_proyeccion_geometrica.md` habla de 9.165 filas; el parquet real tiene 71,5 M.
 - Split de validación: el código usa último 20 % de días (`build_dataset.py:423`); `ml_timeline.md` dice últimos 7 días. **Ahora manda §5.**
-- `INFERENCE_GUIDE.md` no incluye `schedule_dev_norm` ni `time_since_last_bus_s`, y asume `shape_id` vía ramal_lookup.
+- `docs_old/INFERENCE_GUIDE.md` (sin efecto; reemplazada por `prediccion/INFERENCIA_PATH.md`) no incluye `schedule_dev_norm` ni `time_since_last_bus_s`, y asume `shape_id` vía ramal_lookup.
 - `has_active_bus` es siempre 1 en training (nunca se entrenó el caso sin coche visible).
 
 ## 10. Cómo correr (pipeline v2, vara de medir y escalera E0–E2)
@@ -303,3 +305,4 @@ Importantes para el modelo óptimo; cada una entra a la escalera como **un solo 
 3. **Historia corta en producción.** Guardar en el servidor un caché de los últimos 5–10 min de la flota y darle al modelo lo que convenga (trayectoria del coche, velocidades recientes por celda). Qué conviene no se sabe todavía: lo deciden los experimentos 1 y 2.
 4. **Evaluación sobre paradas (postergado a propósito).** Lo que importa al usuario es la llegada a la parada, no a un punto cualquiera. La vara se mantiene en puntos cualquiera para no romper la comparación entre experimentos. Cuando el modelo esté estable, sumar una vara sobre paradas *además* (no en reemplazo). Ojo: el pasaje por parada se interpola entre pings de ~60 s (error P50 ~24 s, P90 ~52 s, §7 del plan histórico).
 5. **Ramal desconocido en tiempo real.** En el tramo compartido el coche puede ir a varios ramales. Si T está después de la divergencia hay varios futuros posibles (D3 midió +12 s de error ahí contra +8 s en el resto). Una salida posible es predecir por ramal candidato o con una probabilidad de que el coche pase por T. No se ataca hasta que sea el error dominante.
+6. **Tránsito con grilla más fina.** El oráculo de tránsito con celdas de 500 m y ventanas de 2 min no mejora más de ~2 % con la calidad de datos actual; experimento futuro: celdas más chicas / grilla más densa.

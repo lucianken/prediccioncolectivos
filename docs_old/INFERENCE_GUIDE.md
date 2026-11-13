@@ -1,3 +1,5 @@
+> **Sin efecto desde 2026-11-13:** guía del A3 viejo (ramal conocido). Vigente: `prediccion/INFERENCIA_PATH.md`.
+
 # Guía de inferencia — eta_a3_final.onnx
 
 ## Qué hace el modelo
