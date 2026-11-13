@@ -127,12 +127,9 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
 
 **Estado de la asignación (2026-11-13):** dataset `data/ml/v2c` armado con `--assign geo3` (§4.5: pings válidos con T = 45 m y shape más cercano + M = 20 m; recorrido del viaje elegido solo entre los compatibles; segmentación geo2 sin cambios). Subconjunto `data/ml/v2c_sub` y eval `data/ml/v2c/eval` con la misma receta que v2b. Modelo por tramos con L1 (LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1) en `data/ml/v2c_sub/runs/`, evaluado en `data/ml/v2c/eval` junto con los L1 de v2b (`data/ml/v2b_sub/runs_l1`) en el mismo eval; tabla por bandas de ETA real (principal 3–7 min) en `data/ml/v2c_sub/runs/comparacion.md`. Lanzador: `prediccion/scripts/run_v2c.py`. El modelo exportado a producción es el de v2c (`path_v2c_l1_s1`, ver «Estado de producción»).
 
-**Próximo experimento planificado (corre inmediatamente después de v2c): "Paradas por tramo".**
-- *Hipótesis:* el error se concentra en paradas y cabeceras más que en tránsito (el techo de tránsito es bajo, §7). La cantidad de paradas en cada tramo de 250 m del camino explica tiempo de detención que la memoria por tramo solo aprende donde hay datos.
-- *Cambio único:* entrada nueva por tramo del camino = cantidad de paradas del recorrido dentro del tramo y, si resulta trivial de calcular, distancia del inicio del tramo a la próxima parada. Fuente: las paradas por recorrido que ya tiene `proyectoconsola` (`data/line_shapes/{N}.json`, `ramales[].stops`) o la misma fuente desde la que se generan los shapes. Se aplica la regla de §4.5: la feature es causal y compartida, es decir, se calcula con datos que la app también tiene, y las constantes y los datos van en el export.
-- *Receta:* igual que v2c (datos `v2c_sub`, pérdida L1, LR 2e-3, 12 épocas, semillas 0 y 1).
-- *Comparación:* contra v2c L1 en el mismo eval. Banda principal 3–7 min de ETA real; secundaria, heldout (líneas no vistas), porque es donde una feature transferible debería ayudar más.
-- *Criterio:* se adopta si mejora la banda 3–7 min más que la diferencia entre semillas.
+**Decisión: paradas por tramo (2026-11-13).** La feature `--stops-feature` queda activada en los entrenamientos siguientes: no cuesta nada en líneas vistas y ayuda en generalización (resultado en §7). Producción no cambia ahora: las 12 líneas habilitadas son todas vistas y sumar la feature exige portar a la app el cálculo de paradas por tramo. Se porta junto con el próximo modelo (escalado a 30–40 líneas).
+
+**Próximo paso en curso: "Oráculo de ramal".** Replay en condiciones de producción que compara la regla de asignación vigente (§4.5, ramal desconocido en tiempo real) contra el ramal conocido de antemano (el ramal ex post usado como oráculo). Acota cuánto ganaría la predicción si se conociera el ramal en tiempo real, por ejemplo vía CuandoSubo en las líneas donde su ramal es correcto. Las métricas se registran en §7 cuando estén.
 
 **Próximo paso propuesto:** evaluación en condiciones de producción por replay de días posteriores al entrenamiento grabados por el NUC, con la regla de candidatos de producción (`INFERENCIA_PATH.md`: sentido, shapes del usuario, pasa seguro / puede venir) contra el paso real del coche por el punto. Es la vara fija para lo que siga.
 
@@ -278,6 +275,16 @@ MAE en seen por inicio de viaje (desconocido / conocido): A3 v2b 128 / 104; A3 v
 | Pings de viajes con recorrido descartados (no compatibles) | 1,42 % | 3,08 % |
 
 De 46.785 viajes emparejados (mismo coche e inicio), 768 (1,6 %) cambian de recorrido elegido; sobre ellos y el resto se pierden 50.116 de 2.982.732 pings válidos (1,7 %). Lo descartado de más son sobre todo coches parados a ~75–115 m de la cabecera o del final del recorrido (estacionados; en v2b generaban filas con la etiqueta de un coche que no está en el recorrido), pings sobre otro ramal o sentido más cercano y pings de la calle paralela. Ejemplos revisados (2026-08-12, hora local UTC−3; recorrido y distancias en m): línea 151, coche 96230, 14:48:48, (-34,62880, -58,37909): v2b lo asignaba al recorrido 19481773 a 129 m y otro recorrido de la línea (4020850) pasa a 1 m; línea 151, coche 97380, 15:54:44, (-34,61010, -58,40878): 95 m al recorrido elegido y 24 m al más cercano; línea 15, coche 33659, 08:12:36, (-34,45473, -58,69512): 55 m al elegido y 3 m al más cercano; línea 15, coche 35941, 19:59:52: viaje de 175 pings con el coche parado a ~100 m del recorrido (mediana de perp 105 m): 32 filas en v2b, 0 en v2c.
+
+- **Paradas por tramo (2026-11-13).** Entrada nueva por tramo de 250 m: cantidad de paradas del recorrido dentro del tramo (opción `--stops-feature`). Recetas idénticas a v2c L1 (datos `v2c_sub`, LR 2e-3, 12 épocas, semillas 0 y 1). Eval `data/ml/v2c/eval`, banda de ETA real 3–7 min, media de 2 semillas; comparación en `data/ml/v2c_sub/runs_stops/comparacion.md`. Cada celda: MAE (s) (% llega antes >60 s).
+
+| Modelo | seen (12 líneas de train) | heldout (líneas no vistas 12, 15, 128) |
+|---|---|---|
+| v2c L1 | 55,8 (15,3 %) | 87,9 (18,9 %) |
+| v2c L1 con paradas por tramo | 55,7 (14,9 %) | 82,3 (15,3 %) |
+| Diferencia entre semillas | 0,7 | 4,0 |
+
+  **Lectura:** en seen el efecto es nulo (0,1 s contra 0,7 s entre semillas). En heldout mejora 5,6 s (6 %), por encima de los 4,0 s entre semillas: supera el criterio por poco. En líneas entrenadas la memoria por tramo ya captura el efecto de las paradas; la feature es transferible y ayuda en recorridos no vistos o con pocos datos.
 
 ## 8. Decisiones previas que siguen vigentes (no re-discutir sin dato nuevo)
 
