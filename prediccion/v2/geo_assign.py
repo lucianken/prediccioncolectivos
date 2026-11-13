@@ -17,8 +17,14 @@ Reglas
     <= (mínimo error perpendicular entre TODOS los shapes de la línea) + MARGIN_M. La primera cota admite el ruido
     de GPS; la segunda descarta la calle paralela (a ~100-130 m) cuando otro shape explica mucho mejor el ping.
     Ida y vuelta por la misma calle tienen error casi igual: ambos son compatibles (el sentido sale del historial).
-  Sentido: con los pings propios de los últimos HISTORY_WINDOW_S más el ping actual, proyectados sobre el shape
-    (ver `direction_from_history`).
+  Sentido por geometría (sin historial): si todos los shapes compatibles con la posición tienen ahí el mismo rumbo
+    local (diferencias <= HEADING_TOL_DEG) y ninguno pasa por ese punto también en sentido opuesto, el coche va en ese
+    sentido (`direction_from_geometry`). Calle de un solo sentido o tronco compartido en un solo sentido: sentido conocido
+    desde el primer ping.
+  Sentido por historial: cuando la geometría no alcanza (ida y vuelta por la misma calle, avenida de doble mano
+    compartida, bucles), con los pings propios de los últimos HISTORY_WINDOW_S más el ping actual, proyectados sobre el
+    shape (ver `direction_from_history`). Un historial que contradice un shape (`sentido_incoherente`) lo descarta
+    aunque la geometría dé el sentido.
 """
 
 from __future__ import annotations
@@ -35,6 +41,7 @@ MIN_FORWARD_FRAC = 0.6       # fracción mínima del avance neto (m) que va en e
 MIN_NET_FORWARD_M = 40.0     # avance neto mínimo (último menos primero de los pings cercanos) para dar el sentido
 STEP_MOVING_M = 30.0         # pasos menores son ruido de proyección / coche detenido
 STEP_JUMP_M = 5_000.0        # pasos mayores son saltos (recorridos con bucles) y no cuentan
+HEADING_TOL_DEG = 45.0       # rumbos locales de shapes compatibles a <= este ángulo: misma orientación (sentido por geometría)
 # Paradas (posición exacta, sin ruido de GPS): se asocian a recorridos por nombre
 STOP_MAX_PERP_M = 100.0      # parada asociada por nombre: perp máximo al shape
 STOP_FALLBACK_PERP_M = 25.0  # parada sin recorridos asociados por nombre: se asocia al shape a <= esta distancia
@@ -52,6 +59,7 @@ def manifest_params() -> dict:
         "min_near_pings": MIN_NEAR_PINGS, "min_near_frac": MIN_NEAR_FRAC, "min_forward_frac": MIN_FORWARD_FRAC,
         "min_net_forward_m": MIN_NET_FORWARD_M, "step_moving_m": STEP_MOVING_M, "step_jump_m": STEP_JUMP_M,
         "stop_max_perp_m": STOP_MAX_PERP_M, "stop_fallback_perp_m": STOP_FALLBACK_PERP_M,
+        "heading_tol_deg": HEADING_TOL_DEG,
     }
 
 
@@ -91,6 +99,71 @@ def compatible_shapes(lat: float, lon: float, shapes: dict, tol_m: float = TOL_M
     out = [(sid, p, d) for sid, (d, p) in pr.items() if p <= lim]
     out.sort(key=lambda r: r[1])
     return out
+
+
+# ── Sentido por geometría: sin historial ─────────────────────────────────────
+
+M_PER_DEG_LAT = 111_320.0
+
+
+def angle_diff_deg(a: float, b: float) -> float:
+    """Diferencia entre dos rumbos en grados, en [0, 180]."""
+    d = abs(a - b) % 360.0
+    return min(d, 360.0 - d)
+
+
+def shape_heading(shape, lat: float, lon: float, max_perp: float, tol_deg: float = HEADING_TOL_DEG) -> "tuple[float, bool]":
+    """
+    Rumbo local del shape en el punto (lat, lon): (rumbo en grados, 0 = norte, horario; doble_sentido).
+    El rumbo es el del segmento no degenerado más cercano al punto (el primero si empatan). doble_sentido = True si
+    otro segmento del mismo shape a <= max_perp del punto va en sentido opuesto (diferencia > 180 - tol_deg): el shape
+    pasa por ahí en los dos sentidos (bucle, ida y vuelta dentro del mismo recorrido) y su orientación no es única.
+    `shape` debe exponer `pts` ((n, 2) lat, lon); opcional `mpd` (metros por grado de latitud).
+    """
+    pts = np.asarray(shape.pts, dtype=np.float64)
+    mpd = float(getattr(shape, "mpd", M_PER_DEG_LAT))
+    a, b = pts[:-1], pts[1:]
+    mlon = mpd * np.cos(np.radians((a[:, 0] + b[:, 0]) / 2.0))
+    ab_y = (b[:, 0] - a[:, 0]) * mpd
+    ab_x = (b[:, 1] - a[:, 1]) * mlon
+    dot = ab_x * ab_x + ab_y * ab_y
+    valid = dot > 1e-9
+    ap_y = (lat - a[:, 0]) * mpd
+    ap_x = (lon - a[:, 1]) * mlon
+    t = np.clip(np.where(valid, (ap_x * ab_x + ap_y * ab_y) / np.where(valid, dot, 1.0), 0.0), 0.0, 1.0)
+    perp = np.where(valid, np.hypot(ap_x - t * ab_x, ap_y - t * ab_y), np.inf)
+    heading = np.degrees(np.arctan2(ab_x, ab_y)) % 360.0
+    i = int(np.argmin(perp))
+    h = float(heading[i])
+    near = valid & (perp <= max_perp)
+    two_way = bool(any(angle_diff_deg(h, float(x)) > 180.0 - tol_deg for x in heading[near]))
+    return h, two_way
+
+
+def direction_from_geometry(lat: float, lon: float, shapes: dict, tol_m: float = TOL_M, margin_m: float = MARGIN_M,
+                            tol_deg: float = HEADING_TOL_DEG) -> bool:
+    """
+    True si el sentido del coche en (lat, lon) es conocido por geometría: hay al menos un shape compatible con la
+    posición (`compatible_shapes`), ninguno pasa por ahí en los dos sentidos (`shape_heading`) y todos tienen el mismo
+    rumbo local (diferencia entre cualquier par <= tol_deg). Entonces todos los shapes compatibles van hacia adelante
+    sin necesidad de historial. False si hay orientaciones opuestas o cruzadas entre los compatibles (ida y vuelta por
+    la misma calle, doble mano compartida, esquinas donde los recorridos doblan distinto): el sentido sale del historial.
+    """
+    pr = project_all(lat, lon, shapes)
+    if not pr:
+        return False
+    lim = float(compat_limit(min(p for _, p in pr.values()), tol_m, margin_m))
+    hs = []
+    for sid, (_, p) in pr.items():
+        if p > lim:
+            continue
+        h, two_way = shape_heading(shapes[sid], lat, lon, lim, tol_deg)
+        if two_way:
+            return False
+        hs.append(h)
+    if not hs:
+        return False
+    return all(angle_diff_deg(x, y) <= tol_deg for i, x in enumerate(hs) for y in hs[i + 1:])
 
 
 # ── Sentido: a partir de pings pasados ───────────────────────────────────────

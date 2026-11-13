@@ -1,5 +1,5 @@
 {
- "contract_version": "2.0",
+ "contract_version": "2.1",
  "model_version": "path_v2b_s0",
  "checkpoint": {
   "path": "data/ml/v2b_sub/runs/path_lr2e-3_s0/path_eta_best.pt",
@@ -62,6 +62,7 @@
   "168": 12
  },
  "start_unknown": true,
+ "stops_feature": false,
  "constants": {
   "seg_base_m": 250.0,
   "max_seg": 160,
@@ -93,14 +94,15 @@
   "step_moving_m": 30.0,
   "step_jump_m": 5000.0,
   "stop_max_perp_m": 100.0,
-  "stop_fallback_perp_m": 25.0
+  "stop_fallback_perp_m": 25.0,
+  "heading_tol_deg": 45.0
  },
  "n_shapes": 47,
  "n_cells": 4043,
  "files": {
   "path_eta.onnx": {
-   "bytes": 2640908,
-   "sha256": "bc4eb9d73a549b6e83f85027c75d6b1dbd9030f1574c90cccafc296172eb5cbd"
+   "bytes": 2640909,
+   "sha256": "3a7f45c12011d5e228780e991bf384227ef33f3ef5708ce30212233bcfe071e1"
   },
   "lines/106.json": {
    "bytes": 61008,

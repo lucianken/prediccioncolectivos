@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-CONTRACT_VERSION = "2.0"
+CONTRACT_VERSION = "2.1"
 STATE_NAMES = ["speed_norm", "stopped", "ts_age_norm", "time_since_start_norm", "dist_along_norm_50km",
                "time_since_last_bus_norm", "last_bus_found", "dist_remaining_norm", "start_unknown"]
 

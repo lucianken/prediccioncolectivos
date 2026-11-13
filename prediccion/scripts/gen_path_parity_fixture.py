@@ -18,7 +18,8 @@ import math
 import random
 from pathlib import Path
 
-from prediccion.inference.path_reference import load_bundle, predict_from_raw
+from prediccion.inference.path_reference import load_bundle, predict_from_raw, snap_to_route
+from prediccion.v2 import geo_assign as G
 
 M_PER_DEG = 111320.0
 BASE_TS = 1784214000  # 2026-07-16 ~15:00 UTC, dia habil
@@ -27,7 +28,8 @@ BASE_TS = 1784214000  # 2026-07-16 ~15:00 UTC, dia habil
 def _norm(r: dict) -> dict:
     return {
         "status": r["status"], "eta_s": r["eta_s"], "shape_id": r["shape_id"], "en_cabecera": r["en_cabecera"],
-        "group": r["group"], "depends_on": r["depends_on"], "compatible": r["compatible"], "provisional": r["provisional"],
+        "group": r["group"], "depends_on": r["depends_on"], "sense": r["sense"], "compatible": r["compatible"],
+        "provisional": r["provisional"],
         "discarded": r["discarded"],
         "candidates": [{k: (float(v) if isinstance(v, float) else v) for k, v in c.items()} for c in r["candidates"]],
     }
@@ -223,6 +225,79 @@ def _assign_scenarios(bundle, add, rnd):
                         add(f"{tag}/exclusivo_de_{oid}/punto", line, _veh(sh, d_b, now - 10), user, now, hist)
 
 
+def _geo_sense_scenarios(bundle, add, rnd):
+    """Sentido por geometría (contrato 2.1), todos sin historial:
+      geo_un_shape        calle que recorre un solo shape (mano única)         -> viene (seguro)
+      geo_tronco_todos    tronco de un solo sentido, parada de todos los ramales -> viene (seguro)
+      geo_bifurcacion     tronco de un solo sentido, la parada solo la sirve un ramal (se bifurca después) -> puede venir
+      ida_y_vuelta        misma calle en los dos sentidos                       -> provisional
+    """
+    now = BASE_TS + 33333
+    for line, shapes in bundle.lines.items():
+        items = list(shapes.items())
+        done = {"un": 0, "todos": 0, "bif": 0, "iv": 0}
+        for sid, sh in items:
+            L = sh.length_m
+            tag = f"{line}/{sid}"
+            for d in range(500, int(L) - 2500, 250):
+                la, lo = sh.latlon_at(d)
+                comp = [c[0] for c in G.compatible_shapes(la, lo, shapes)]
+                if sid not in comp:
+                    continue
+                geo = G.direction_from_geometry(la, lo, shapes)
+                veh = {"lat": la, "lon": lo, "speed_mps": 6.0, "ts": now - 10}
+                if geo and len(comp) == 1 and done["un"] < 1:
+                    done["un"] += 1
+                    add(f"{tag}/geo_un_shape_sin_historial", line, veh, sh.latlon_at(d + 1200), now)
+                elif geo and len(comp) >= 2 and (done["todos"] < 1 or done["bif"] < 1):
+                    # parada adelante: ¿la sirven todos los compatibles (tronco) o solo este (después de la bifurcación)?
+                    for du in range(d + 400, min(int(L) - 100, d + 6000), 200):
+                        ula, ulo = sh.latlon_at(du)
+                        on_all = all(shapes[c].project(ula, ulo)[1] <= 20
+                                     and shapes[c].project(ula, ulo)[0] > shapes[c].project(la, lo)[0] + 100 for c in comp)
+                        only_me = all(shapes[c].project(ula, ulo)[1] > 200 for c in comp if c != sid)
+                        if on_all and done["todos"] < 1:
+                            done["todos"] += 1
+                            add(f"{tag}/geo_tronco_todos_sin_historial", line, veh, (ula, ulo), now, user_kind="parada",
+                                stop_recorridos=[shapes[c].name for c in comp])
+                            break
+                        if only_me and done["bif"] < 1:
+                            done["bif"] += 1
+                            add(f"{tag}/geo_bifurcacion_sin_historial", line, veh, (ula, ulo), now, user_kind="parada",
+                                stop_recorridos=[sh.name])
+                            break
+                elif not geo and len(comp) >= 2 and done["iv"] < 1:
+                    hs = [G.shape_heading(shapes[c], la, lo, G.TOL_M)[0] for c in comp]
+                    if any(G.angle_diff_deg(hs[0], h) > 135 for h in hs[1:]):
+                        done["iv"] += 1
+                        add(f"{tag}/geo_ida_y_vuelta_sin_historial", line, veh, sh.latlon_at(d + 1200), now)
+
+    # línea 168, parada "Gascón y Corrientes" (la sirven los dos recorridos hacia el norte por Gascón): coche sin
+    # historial sobre el tramo de un solo sentido, 300 m a 2,5 km antes de la parada
+    if "168" in bundle.lines:
+        shapes = bundle.lines["168"]
+        stop = (-34.6033362, -58.4241505)
+        names = [sh.name for sh in shapes.values() if sh.project(*stop)[1] <= 20]
+        a = next(sh for sh in shapes.values() if sh.project(*stop)[1] <= 20)
+        d_s = a.project(*stop)[0]
+        for back in (300, 1000, 2500):
+            add(f"168/gascon_y_corrientes/sin_historial_{back}m", "168", _veh(a, d_s - back, now - 10), stop, now,
+                user_kind="parada", stop_recorridos=names)
+
+
+def _snap_cases(bundle, rnd):
+    """Ajuste del punto del usuario al recorrido (snap_to_route): puntos a 0..300 m de un shape."""
+    out = []
+    for line, shapes in bundle.lines.items():
+        for sid, sh in list(shapes.items())[:2]:
+            for off in (0.0, 15.0, 40.0, 50.0, 120.0, 300.0):
+                d = rnd.uniform(200, sh.length_m - 200)
+                la, lo = _offset(*sh.latlon_at(d), off * rnd.choice([-1, 1]), rnd.uniform(-5, 5))
+                r = snap_to_route(bundle, line, la, lo)
+                out.append({"line": line, "point": [la, lo], "expected": r})
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--export", required=True)
@@ -299,6 +374,7 @@ def main():
 
     _scenarios(bundle, add, rnd)
     _assign_scenarios(bundle, add, rnd)
+    _geo_sense_scenarios(bundle, add, rnd)
 
     # linea fuera del modelo y velocidad ausente
     sh = next(iter(bundle.lines["39"].values()))
@@ -308,7 +384,7 @@ def main():
     add("velocidad_ausente", "39", {"lat": la, "lon": lo, "speed_mps": None, "ts": BASE_TS - 20}, (ula, ulo), BASE_TS)
 
     out = {"model_version": bundle.manifest["model_version"], "contract_version": bundle.manifest["contract_version"],
-           "tolerance_s": 0.5, "n_cases": len(cases), "cases": cases}
+           "tolerance_s": 0.5, "n_cases": len(cases), "cases": cases, "snaps": _snap_cases(bundle, rnd)}
     p = Path(a.out)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
@@ -321,6 +397,14 @@ def main():
         g = c["expected"]["group"]
         groups[g] = groups.get(g, 0) + 1
     print(f"{len(cases)} casos -> {p} ({p.stat().st_size / 1024:.0f} KB); estados: {by}; grupos: {groups}")
+    geo = {}
+    for c in cases:
+        if "/geo_" in c["name"] or "gascon" in c["name"] or "ida_vuelta" in c["name"]:
+            k = c["name"].split("/")[-1] if "gascon" not in c["name"] else "gascon"
+            k = k if "ida_vuelta" not in c["name"] else "ida_vuelta/" + k
+            geo.setdefault(k, {}).setdefault(str(c["expected"]["group"]), 0)
+            geo[k][str(c["expected"]["group"])] += 1
+    print("sentido por geometría:", geo)
 
 
 if __name__ == "__main__":

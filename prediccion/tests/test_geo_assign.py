@@ -105,6 +105,64 @@ def test_mascaras_vectorizadas_coinciden_con_la_version_por_ping():
         assert scalar == {s for s, m in masks.items() if m[i]}
 
 
+# ── sentido por geometría (sin historial) ───────────────────────────────────
+
+def _ns(east_m: float, north_from: float, north_to: float):
+    """Calle norte-sur a `east_m` metros al este de LON0, de north_from a north_to (en ese sentido), un punto cada 100 m."""
+    step = 100.0 if north_to > north_from else -100.0
+    return [_pt(east_m, n) for n in np.arange(north_from, north_to + step / 2, step)]
+
+
+def test_calle_de_un_solo_sentido_da_el_sentido_por_geometria_sin_historial():
+    # par de calles de mano única: la ida por una calle, la vuelta por la paralela a 110 m
+    shapes = {"ida": ShapeIndex(_ew(0)), "vuelta": ShapeIndex(_ew(110, reverse=True))}
+    la, lo = _pt(1500, 4)
+    assert _ids(G.compatible_shapes(la, lo, shapes)) == {"ida"}
+    assert G.direction_from_geometry(la, lo, shapes) is True
+    # el mismo coche, sobre la calle de la vuelta
+    la, lo = _pt(1500, 106)
+    assert G.direction_from_geometry(la, lo, shapes) is True
+
+
+def test_ida_y_vuelta_por_la_misma_calle_requiere_historial():
+    shapes = _line()
+    la, lo = _pt(1500, 2)
+    assert G.direction_from_geometry(la, lo, shapes) is False
+    # sin historial el sentido sigue desconocido en cada shape
+    assert G.direction_from_history([(1000, la, lo)], shapes["ida"]) == (False, "sin_sentido")
+
+
+def test_tronco_compartido_en_un_solo_sentido_da_el_sentido_aunque_despues_se_bifurquen():
+    # dos ramales van juntos hacia el este por la misma calle y después uno dobla al norte
+    tronco = _ew(0, length_m=2000)
+    a = ShapeIndex(tronco + [_pt(2000 + x, 0) for x in (100.0, 200.0, 300.0)])
+    b = ShapeIndex(tronco + _ns(2000, 100, 1000))
+    shapes = {"a": a, "b": b}
+    la, lo = _pt(1000, 3)
+    assert _ids(G.compatible_shapes(la, lo, shapes)) == {"a", "b"}
+    assert G.direction_from_geometry(la, lo, shapes) is True
+
+
+def test_recorrido_que_pasa_dos_veces_por_la_misma_calle_en_sentidos_opuestos_requiere_historial():
+    # un solo shape que va y vuelve por la misma calle (cabecera en el extremo): su orientación ahí no es única
+    loop = ShapeIndex(_ew(0, length_m=2000) + _ew(5, reverse=True, length_m=2000))
+    la, lo = _pt(1000, 2)
+    assert G.direction_from_geometry(la, lo, {"x": loop}) is False
+
+
+def test_recorridos_cruzados_no_dan_sentido_por_geometria():
+    # en un cruce, un shape va al este y otro al norte: rumbos a 90 grados, no se decide por geometría
+    shapes = {"este": ShapeIndex(_ew(0)), "norte": ShapeIndex(_ns(1500, -1500, 1500))}
+    la, lo = _pt(1500, 0)
+    assert _ids(G.compatible_shapes(la, lo, shapes)) == {"este", "norte"}
+    assert G.direction_from_geometry(la, lo, shapes) is False
+
+
+def test_coche_lejos_de_todo_recorrido_no_tiene_sentido_por_geometria():
+    la, lo = _pt(1500, 400)
+    assert G.direction_from_geometry(la, lo, _line()) is False
+
+
 # ── pipeline: máscara `valid` de geometry_for_trip ──────────────────────────
 
 class _P:

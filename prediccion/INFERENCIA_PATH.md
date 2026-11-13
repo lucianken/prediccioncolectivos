@@ -1,4 +1,4 @@
-# Inferencia del modelo por tramos en el navegador (contrato 2.0)
+# Inferencia del modelo por tramos en el navegador (contrato 2.1)
 
 Spec para implementar en JS (`onnxruntime-web`) la predicción de ETA del modelo por tramos (`models/path_eta.py`, ARQUITECTURA §6.2).
 Especificación ejecutable: `prediccion/inference/path_reference.py` (`predict_from_raw`), probada contra el pipeline de eval en `prediccion/tests/test_path_export.py`. Ante duda, manda el código de referencia.
@@ -9,7 +9,9 @@ Reemplaza a `INFERENCE_GUIDE.md` (A3 viejo, ramal conocido; en `docs_old/`).
 
 ## 1. Archivos exportados
 
-`python -m prediccion.scripts.export_path_onnx --ckpt <best.pt> --out <dir>` (repetible con cualquier checkpoint; verifica ONNX vs PyTorch y que la geometría de `line_shapes` coincida con las celdas del checkpoint). Versión activa: `data/ml/export/path_v2c_l1_s1/` (pérdida L1, entrenada sobre v2c); anteriores: `path_v2b_s0/`, `path_v2b_pinv_s0/`. El manifest declara `contract_version` 2.0 (1.x usaba tolerancia de 150 m y constantes propias del cliente).
+`python -m prediccion.scripts.export_path_onnx --ckpt <best.pt> --out <dir>` (repetible con cualquier checkpoint; verifica ONNX vs PyTorch y que la geometría de `line_shapes` coincida con las celdas del checkpoint). Versión activa: `data/ml/export/path_v2c_l1_s1/` (pérdida L1, entrenada sobre v2c); anteriores: `path_v2b_s0/`, `path_v2b_pinv_s0/`. El manifest declara `contract_version` 2.1 (1.x usaba tolerancia de 150 m y constantes propias del cliente).
+
+Versiones: el mayor cambia si cambia el significado de una salida o de un campo existente; el menor, con agregados compatibles. 2.1 agrega el sentido por geometría (`assignment.heading_tol_deg`, §4), el campo de salida `sense` y el ajuste del punto del usuario al recorrido (§4); los grupos (`seguro`, `puede_venir`, `provisional`) y sus códigos no cambian de significado. Un cliente 2.0 sobre un manifest 2.1 sigue siendo correcto pero conservador (deja provisionales coches cuyo sentido ya da la geometría). El cliente 2.1 exige `heading_tol_deg`.
 
 | archivo | contenido | tamaño (v2c_l1_s1) |
 |---|---|---|
@@ -41,7 +43,7 @@ El grafo recibe los tramos ya armados y devuelve el ETA; el cliente solo arma ge
 | `dist_along` normalizada, `stopped`, `dist_remaining` normalizada | derivadas | derivadas por candidato |
 | `time_since_last_bus`, `last_bus_found` ("coche de adelante") | tiempo desde que el viaje anterior de otro coche pasó por T (tope 3600 s), sobre el shape elegido ex post | **parcial**: solo con historial de otros coches guardado por el cliente (§6); si no, `3600 s` y `found = 0` |
 | escala de la suma de tramos (10.ª componente del estado) | `log1p(suma)/8` | la calcula el ONNX |
-| historial del propio coche (`traj_flat`) | lo usa el A3 viejo; este modelo no lo usa | obligatorio para conocer el sentido (§4) |
+| historial del propio coche (`traj_flat`) | lo usa el A3 viejo; este modelo no lo usa | necesario para el sentido solo donde la geometría no lo da (§4) |
 | flota / tránsito / `schedule_dev` | no entran en este modelo | — |
 
 Medido sobre 20.000 filas de eval (v2b, MAE de la red): real 102,4 s; forzando `start_unknown = 1` y `time_since_start = 0` 103,1 s (+0,65); además sin coche de adelante 103,5 s. Las condiciones de producción cuestan < 1 % del error. El 16 % de las filas de eval ya tiene `start_unknown = 1`.
@@ -63,10 +65,14 @@ Proyección de un punto sobre un shape (`Shape.project`): distancia acumulada co
 
 ### Asignación de ping a recorrido y sentido (`geo_assign.py`)
 
-Parámetros en `manifest.assignment` (el cliente las lee del manifest, sin valores propios, y rechaza un manifest sin alguno de ellos o con contract_version distinta de 2.x; la referencia verifica que coincidan con el módulo): `tol_m` (T), `margin_m` (M), `history_window_s`, `min_near_pings`, `min_near_frac`, `min_forward_frac`, `min_net_forward_m`, `step_moving_m`, `step_jump_m`, `stop_max_perp_m`, `stop_fallback_perp_m`.
+Parámetros en `manifest.assignment` (el cliente las lee del manifest, sin valores propios, y rechaza un manifest sin alguno de ellos o con contract_version distinta de 2.x; la referencia verifica que coincidan con el módulo): `tol_m` (T), `margin_m` (M), `history_window_s`, `min_near_pings`, `min_near_frac`, `min_forward_frac`, `min_net_forward_m`, `step_moving_m`, `step_jump_m`, `stop_max_perp_m`, `stop_fallback_perp_m`, `heading_tol_deg`.
 
 - **Shapes compatibles con una posición** (`compatible_shapes(lat, lon, shapes)`): perp ≤ `tol_m` y perp ≤ (mínima perp entre TODOS los shapes de la línea) + `margin_m`. La tolerancia admite el ruido de GPS; el margen descarta la calle paralela cuando otro shape explica mucho mejor la posición. Ida y vuelta por la misma calle son ambas compatibles. Se aplica igual al ping del coche y al punto del usuario (GPS o toque en el mapa).
-- **Sentido** (`direction_from_history(pings, shape)`): pings propios de los últimos `history_window_s` anteriores al ping actual, más el ping actual, proyectados sobre el shape. Se exige: ≥ `min_near_pings` a ≤ `tol_m` (si no, `sin_sentido`); ≥ `min_near_frac` de los pings de la ventana a ≤ `tol_m` y `forward_fraction ≥ min_forward_frac` (pasos de entre `step_moving_m` y `step_jump_m`, metros avanzados / totales); avance neto (último menos primero de los pings cercanos) ≥ `min_net_forward_m`. Con avance neto ≤ −`min_net_forward_m`, `forward_fraction` bajo o pings lejos del shape: `sentido_incoherente`; con avance neto entre −`min_net_forward_m` y +`min_net_forward_m`: `sin_sentido`. La ventana se mide respecto del ping actual (no de la hora de la consulta). Sin historial o coche quieto no hay sentido confirmado: se aplica el ETA provisional (abajo).
+- **Rumbo local de un shape** (`shape_heading(shape, lat, lon, lim)`): rumbo (grados, 0 = norte, horario; `atan2(dx, dy)` con la misma métrica de ángulo pequeño) del segmento no degenerado de menor distancia perpendicular al punto (el primero si empatan). El shape es **de doble sentido en ese punto** si otro de sus segmentos a ≤ `lim` difiere en más de 180° − `heading_tol_deg` (bucle o ida y vuelta dentro del mismo recorrido).
+- **Sentido por geometría** (`direction_from_geometry(lat, lon, shapes)`): con `lim` = límite de compatibilidad de la posición (`min(tol_m, mínima perp + margin_m)`), el sentido es conocido sin historial si hay ≥ 1 shape compatible, ninguno es de doble sentido en ese punto y los rumbos de todos los compatibles difieren de a pares en ≤ `heading_tol_deg` (45°). Entonces todos los compatibles van hacia adelante. Si hay rumbos opuestos o cruzados entre compatibles (ida y vuelta por la misma calle, doble mano compartida, esquinas donde los recorridos doblan distinto), el sentido sale del historial.
+- **Sentido por historial** (`direction_from_history(pings, shape)`): pings propios de los últimos `history_window_s` anteriores al ping actual, más el ping actual, proyectados sobre el shape. Se exige: ≥ `min_near_pings` a ≤ `tol_m` (si no, `sin_sentido`); ≥ `min_near_frac` de los pings de la ventana a ≤ `tol_m` y `forward_fraction ≥ min_forward_frac` (pasos de entre `step_moving_m` y `step_jump_m`, metros avanzados / totales); avance neto (último menos primero de los pings cercanos) ≥ `min_net_forward_m`. Con avance neto ≤ −`min_net_forward_m`, `forward_fraction` bajo o pings lejos del shape: `sentido_incoherente`; con avance neto entre −`min_net_forward_m` y +`min_net_forward_m`: `sin_sentido`. La ventana se mide respecto del ping actual (no de la hora de la consulta).
+- **Combinación por shape compatible:** historial hacia adelante → adelante. `sin_sentido` (historial insuficiente o coche quieto) con sentido por geometría → adelante. `sin_sentido` sin sentido por geometría → sentido desconocido (ETA provisional, abajo). `sentido_incoherente` → descartado aunque la geometría dé el sentido (el historial contradice ese shape: otro ramal, desvío o marcha atrás).
+- **Ajuste del punto del usuario al recorrido** (`snap_to_route(bundle, línea, lat, lon)`, GPS o toque en el mapa): el punto más cercano entre los shapes de la línea (proyección y `latlon_at`); `on_route` = perp ≤ `tol_m`. Con `on_route` el punto ajustado es el punto del usuario; sin `on_route` no se usa (el toque no se acepta; con GPS se avisa que la ubicación no está sobre el recorrido y se sugiere elegir una parada). Las paradas no se ajustan.
 - **Paradas** (posición exacta, no es un ping): se asocian por nombre de recorrido a ≤ `stop_max_perp_m`; sin coincidencia por nombre, al shape a ≤ `stop_fallback_perp_m`.
 
 ### Reglas de candidatos
@@ -76,19 +82,23 @@ Parámetros en `manifest.assignment` (el cliente las lee del manifest, sin valor
 - Parada elegida (`user_kind = "parada"`): los shapes cuyo nombre figura en `stop_recorridos` (con perp ≤ `stop_max_perp_m`). Sin coincidencia por nombre (o sin `stop_recorridos`): los shapes a ≤ `stop_fallback_perp_m`. El resto: `no_sirve_parada`.
 - Ubicación GPS o toque en el mapa (`user_kind = "punto"`): los shapes compatibles con la posición (regla de arriba); el resto: `paralela` o, si perp > `tol_m`, `usuario_fuera_del_recorrido`.
 
-**Shapes compatibles de un coche**: shapes compatibles con la posición del ping (`compatible_shapes`) y con sentido conocido y hacia adelante (`direction_from_history`). El resto de los shapes de la línea: `coche_fuera_del_recorrido`.
+**Shapes compatibles de un coche**: shapes compatibles con la posición del ping (`compatible_shapes`) con sentido conocido y hacia adelante (por geometría o por historial, combinación de arriba). Los shapes no compatibles con la posición: `coche_fuera_del_recorrido`.
 
 **Orden en cada shape compatible**: si no sirve el punto del usuario, no pasa (motivo de `user_shapes`). Si sirve: `rem = d_T − d_P`; `rem < 0` no pasa (`ya_paso`); `0 ≤ rem < 100` pasa como "llegando"; `rem ≥ 100` pasa como candidato con ETA.
 
 **Estado y grupo del coche**:
 
 - Sin shapes compatibles y sin shapes de sentido desconocido: `sin_sentido` si algún shape es compatible con la posición (todos `sentido_incoherente`); si no, `sin_candidatos`. Sin ETA.
-- **ETA provisional** (sin ningún shape compatible): los shapes compatibles con la posición del coche cuyo motivo es `sin_sentido` (ambos sentidos de la calle) se evalúan igual que los compatibles (servicio del punto, `rem`, ETA) y se informan en `provisional` (`{shape_id, name, short_name, passes, reason}`). Si el usuario queda adelante (`rem ≥ 0`) en alguno: `status = provisional`, `group = provisional`, `depends_on = []`, ETA = **mínimo** entre los que pasan (`0` y "llegando" si alguno tiene `rem < 100`), `en_cabecera` con la misma regla. Si en ninguno queda adelante: `pasado` (alguno con `rem < 0`) o `sin_candidatos`, sin ETA. Los `sentido_incoherente` no participan. Con ≥ 1 shape compatible el coche sigue la clasificación normal y `provisional` queda vacío.
+- **ETA provisional** (sin ningún shape compatible: el sentido no sale ni de la geometría ni del historial): los shapes compatibles con la posición del coche cuyo motivo es `sin_sentido` (ambos sentidos de la calle) se evalúan igual que los compatibles (servicio del punto, `rem`, ETA) y se informan en `provisional` (`{shape_id, name, short_name, passes, reason}`). Si el usuario queda adelante (`rem ≥ 0`) en alguno: `status = provisional`, `group = provisional`, `depends_on = []`, ETA = **mínimo** entre los que pasan (`0` y "llegando" si alguno tiene `rem < 100`), `en_cabecera` con la misma regla. Si en ninguno queda adelante: `pasado` (alguno con `rem < 0`) o `sin_candidatos`, sin ETA. Los `sentido_incoherente` no participan. Con ≥ 1 shape compatible el coche sigue la clasificación normal y `provisional` queda vacío.
 - Ningún compatible pasa: `pasado` si alguno tenía `rem < 0`; si no, `sin_candidatos`. Sin ETA.
-- Todos los compatibles pasan: grupo `seguro`. Solo algunos: grupo `puede_venir`, con `depends_on` = shapes compatibles que pasan (el ramal del que depende el arribo).
+- Grupos (dos incertidumbres separadas: el **sentido**, casi siempre conocido por geometría, y el **ramal/destino**, desconocido en tronco compartido):
+  - `seguro` ("viene"): sentido conocido y **todos** los shapes compatibles en ese sentido pasan por el punto. El ramal puede ser desconocido: si todos pasan, el coche viene igual.
+  - `puede_venir`: sentido conocido y solo **algunos** shapes compatibles pasan; `depends_on` = shapes compatibles que pasan (el ramal del que depende el arribo).
+  - `provisional` ("sentido sin confirmar"): solo cuando el sentido no sale ni de la geometría ni del historial (regla de arriba).
+- `sense`: `geometria` si `direction_from_geometry` es verdadero en la posición del coche, `historial` si no (con grupo `seguro` o `puede_venir`), `null` en el resto.
 - Con grupo, el ETA anunciado es el **mínimo** de los ETA de los shapes que pasan (el error grave es que el colectivo llegue antes de lo anunciado); `llegando` (ETA 0) si algún shape que pasa tiene `0 ≤ rem < 100`. Los shapes con bucles pueden proyectar al pasaje equivocado; el historial lo acota pero es una limitación conocida.
 
-Salida de `predict_from_raw`: `status` (`ok | llegando | provisional | pasado | sin_sentido | sin_candidatos | linea_fuera_del_modelo`), `eta_s`, `shape_id`, `candidates`, `en_cabecera`, `group` (`seguro | puede_venir | provisional | null`), `depends_on`, `compatible` y `provisional` (`{shape_id, passes, reason}`) y `discarded` (`{shape_id, reason}`). Motivos: `coche_fuera_del_recorrido`, `sin_sentido`, `sentido_incoherente`, `no_sirve_parada`, `paralela`, `usuario_fuera_del_recorrido`, `ya_paso`.
+Salida de `predict_from_raw`: `status` (`ok | llegando | provisional | pasado | sin_sentido | sin_candidatos | linea_fuera_del_modelo`), `eta_s`, `shape_id`, `candidates`, `en_cabecera`, `group` (`seguro | puede_venir | provisional | null`), `depends_on`, `sense` (`geometria | historial | null`), `compatible` y `provisional` (`{shape_id, passes, reason}`) y `discarded` (`{shape_id, reason}`). Motivos: `coche_fuera_del_recorrido`, `sin_sentido`, `sentido_incoherente`, `no_sirve_parada`, `paralela`, `usuario_fuera_del_recorrido`, `ya_paso`.
 
 ## 5. `start_unknown` en producción
 
@@ -103,7 +113,7 @@ Si el cliente guarda pings recientes de otros coches de la línea `[(ts, lat, lo
 - **Línea fuera del modelo** (`manifest.lines`): no predecir (el índice 0 "desconocida" no se usa en producción). Hoy: 26, 39, 42, 50, 92, 106, 107, 108, 124, 132, 151, 168.
 - **Coche ya pasó** (`rem < 0` en todos los compatibles que sirven el punto): "ya pasó", sin ETA.
 - **`rem < 100 m`**: "llegando"; el modelo no se entrenó por debajo de 100 m.
-- **Coche quieto en cabecera** (`speed < 0,5` y `d_P < 300 m`, con sentido conocido: avanzó ≥ 40 m en la ventana; `en_cabecera = true`): el modelo no predice cuándo sale el coche (ARQUITECTURA §6.2.5.B). Mostrar "en cabecera" y el ETA como cota inferior. Sin sentido confirmado: ETA provisional con la marca "en cabecera".
+- **Coche quieto en cabecera** (`speed < 0,5` y `d_P < 300 m`, con sentido conocido por geometría o historial; `en_cabecera = true`): el modelo no predice cuándo sale el coche (ARQUITECTURA §6.2.5.B). Mostrar "en cabecera" y el ETA como cota inferior. Sin sentido confirmado: ETA provisional con la marca "en cabecera".
 - **Ping viejo**: se descuenta la antigüedad (§3.6). Con ping de más de ~10 min, no predecir.
 - **Camino > 39,5 km**: tramos de múltiplo de 250 m (§3.2); sigue válido.
 - **Coche fuera del recorrido** (ningún shape compatible con su posición: depósito, desvío, calle paralela): no predecir.
@@ -111,4 +121,4 @@ Si el cliente guarda pings recientes de otros coches de la línea `[(ts, lat, lo
 
 ## 8. Paridad (versión inicial)
 
-ONNX vs PyTorch sobre 1.000 filas seen + 1.000 heldout de `data/ml/v2b/eval`: diferencia máxima 0,002 s (tolerancia 0,5 s). Referencia numpy desde lat/lon crudos (P y T reconstruidos sobre el shape, hora desde `ts_p`) vs eval: < 0,5 s en las filas reconstruibles. Para validar el JS: reproducir los casos de `test_path_export.py` y comparar contra `predict_from_raw`.
+ONNX vs PyTorch sobre 1.000 filas seen + 1.000 heldout de `data/ml/v2b/eval`: diferencia máxima 0,002 s (tolerancia 0,5 s). Referencia numpy desde lat/lon crudos (P y T reconstruidos sobre el shape, hora desde `ts_p`) vs eval: < 0,5 s en las filas reconstruibles. Para validar el JS: reproducir los casos de `test_path_export.py` y comparar contra `predict_from_raw`. El fixture de paridad (`gen_path_parity_fixture.py`) incluye el sentido por geometría sin historial (calle de un solo shape → `seguro`; tronco de un solo sentido con parada de todos los ramales → `seguro`; parada después de la bifurcación → `puede_venir`; ida y vuelta por la misma calle → `provisional`; línea 168 en Gascón y Corrientes → `seguro`) y casos de `snap_to_route` (`snaps`).

@@ -64,6 +64,15 @@ class ShapeIndex:
         # Mask de segmentos degenerados (< 1 mm)
         self._valid = ab_dot > 1e-9
 
+    @property
+    def pts(self) -> "np.ndarray":
+        """Puntos del shape (N, 2) lat, lon (los usa geo_assign.shape_heading)."""
+        return self._pts
+
+    @property
+    def mpd(self) -> float:
+        return _M_PER_DEG_LAT
+
     def project(self, lat: float, lon: float) -> tuple[float, float]:
         """
         Retorna (dist_along_shape_m, perp_error_m) para un punto.

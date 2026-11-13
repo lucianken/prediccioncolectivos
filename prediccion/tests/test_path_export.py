@@ -349,3 +349,53 @@ def test_punto_cerca_de_un_shape_paralelo_descarta_la_paralela():
         if found:
             break
     assert found
+
+
+# ── sentido por geometría (contrato 2.1) ────────────────────────────────────────────────────────────────────────
+
+@needs_data
+def test_coche_sin_historial_en_tramo_de_un_solo_sentido_viene_desde_la_primera_consulta():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    shapes = b.lines["168"]
+    stop = (-34.6033362, -58.4241505)   # Gascón y Corrientes: la sirven los dos recorridos que suben por Gascón
+    names = [sh.name for sh in shapes.values() if sh.project(*stop)[1] <= 20]
+    assert len(names) == 2
+    a = next(sh for sh in shapes.values() if sh.name == names[0])
+    d_s = a.project(*stop)[0]
+    ts = 1.79e9
+    for back in (300, 1000, 2500):
+        out = predict_from_raw(b, "168", _veh_at(a, d_s - back, ts), stop, ts, user_kind="parada", stop_recorridos=names)
+        assert out["status"] == "ok" and out["group"] == "seguro" and out["sense"] == "geometria", back
+        assert out["provisional"] == [] and out["eta_s"] > 0
+
+
+@needs_data
+def test_coche_sin_historial_donde_ida_y_vuelta_comparten_la_calle_sigue_provisional():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from prediccion.v2 import geo_assign as G
+    b = load_bundle(EXPORT)
+    a = next(iter(b.lines["39"].values()))
+    ts = 1.79e9
+    veh = _veh_at(a, 4000, ts)
+    assert not G.direction_from_geometry(veh["lat"], veh["lon"], b.lines["39"])
+    out = predict_from_raw(b, "39", veh, a.latlon_at(6000), ts)
+    assert out["group"] == "provisional" and out["sense"] is None
+    # con historial que avanza, el sentido sale del historial
+    out = predict_from_raw(b, "39", veh, a.latlon_at(6000), ts, history=_hist(a, ts, [3400, 3700]))
+    assert out["group"] in ("seguro", "puede_venir") and out["sense"] == "historial"
+
+
+@needs_data
+def test_historial_que_contradice_la_geometria_descarta_el_shape():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    shapes = b.lines["168"]
+    stop = (-34.6033362, -58.4241505)
+    a = next(sh for sh in shapes.values() if sh.project(*stop)[1] <= 20)
+    d_s = a.project(*stop)[0]
+    ts = 1.79e9
+    # el coche retrocede sobre el tramo de mano única (desvío o ruido): el historial lo descarta, no se lista
+    out = predict_from_raw(b, "168", _veh_at(a, d_s - 1000, ts), stop, ts, history=_hist(a, ts, [d_s - 400, d_s - 700]),
+                           user_kind="parada")
+    assert out["group"] is None and any(k["reason"] == "sentido_incoherente" for k in out["discarded"])
