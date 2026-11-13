@@ -1,5 +1,5 @@
 {
- "contract_version": "1.2",
+ "contract_version": "2.0",
  "model_version": "path_v2b_pinv_s0",
  "checkpoint": {
   "path": "data/ml/v2b_sub/runs_l1/path_pinv_lr2e-3_s0/path_eta_best.pt",
@@ -80,18 +80,27 @@
   "min_rem_m": 100.0,
   "m_per_deg_lat": 111320.0,
   "tz_offset_s": -10800,
-  "max_perp_m": 150.0,
-  "min_forward_frac": 0.6,
-  "user_max_perp_m": 100.0,
-  "history_window_s": 900,
   "terminal_zone_m": 300.0
+ },
+ "assignment": {
+  "tol_m": 45.0,
+  "margin_m": 20.0,
+  "history_window_s": 900,
+  "min_near_pings": 2,
+  "min_near_frac": 0.8,
+  "min_forward_frac": 0.6,
+  "min_net_forward_m": 40.0,
+  "step_moving_m": 30.0,
+  "step_jump_m": 5000.0,
+  "stop_max_perp_m": 100.0,
+  "stop_fallback_perp_m": 25.0
  },
  "n_shapes": 47,
  "n_cells": 4043,
  "files": {
   "path_eta.onnx": {
-   "bytes": 2640909,
-   "sha256": "b597ad275e4479e9a4d7b406fff1725bd4c315d1b73a2f6dbf388f2066fc10ae"
+   "bytes": 2640908,
+   "sha256": "498e99e8c6a9ed7632421013c597eddd69c533ac9c2d50fbee96ffb8bcb6ebca"
   },
   "lines/106.json": {
    "bytes": 61008,

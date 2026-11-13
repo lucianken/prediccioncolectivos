@@ -35,7 +35,7 @@ Fuera de alcance por ahora: producción/serving (se resuelve cuando el modelo si
 Cambios respecto del actual (`prediccion/pipeline/build_dataset.py`), en orden de importancia:
 
 ### 4.1 Recorrido por geometría, sin route_id
-Implementar la **opción A** de `research_a3w_proyeccion_geometrica.md`: `best_shape_for_trip(lats, lons, shapes_de_la_línea) → (shape_id, median_perp)` usando `ShapeIndex.project_many`. Se elige el recorrido con menor error perpendicular mediano sobre el viaje completo (en training se conoce el viaje entero). Se mantiene el filtro de puntos con `perp > 150 m` (`project_trip`), que corta solo los tramos donde el coche se aparta del recorrido elegido. Esto reemplaza a `route_shape_map`/`load_ramal_map()` y elimina el `skip if not sh_id`.
+Implementar la **opción A** de `research_a3w_proyeccion_geometrica.md`: `best_shape_for_trip(lats, lons, shapes_de_la_línea) → (shape_id, median_perp)` usando `ShapeIndex.project_many`. Se elige el recorrido con menor error perpendicular mediano sobre el viaje completo (en training se conoce el viaje entero). Con `--assign legacy` (default, v2/v2b) se mantiene el filtro de puntos con `perp > 150 m` (`project_trip`); con `--assign geo3` la validez de cada ping la define §4.5. Esto reemplaza a `route_shape_map`/`load_ramal_map()` y elimina el `skip if not sh_id`.
 Consecuencias aceptadas (documentadas en ese research): en tramos compartidos la elección puede ser arbitraria → ruido de normalización, no sesgo; los labels siguen siendo válidos.
 
 ### 4.2 Máximo de pares por viaje
@@ -51,6 +51,21 @@ Columnas de flota (`fleet_flat`): **opcionales y apagadas por defecto** (las pri
 Sobre el "recorrido incompleto" de 7, 44, 65, 76, 115 y 151 (10–20 % de pings a >150 m): **era en buena parte depósito/garage y traslados**, no un ramal faltante en OSM (esas líneas comparten depósito y se pasan unidades; el coche reporta igual estando guardado). Con pings en movimiento y viajes segmentados el ajuste a 150 m sube a 0,91–0,98 (tabla antes/después en `lines.json`, `depot_study`). Solo 7 (0,91 de pings en movimiento a ≤150 m), 84 (0,93) y 115 (0,87 de viajes con perp mediano ≤50 m) quedan algo por debajo y son las candidatas a ramal o desvío faltante en OSM.
 
 La lista final, el motivo de cada línea, el reparto de las 9 de CABA que pasaron el filtro y las métricas de las 60 líneas van en `data/ml/v2/lines.json` (generado por `python -m prediccion.v2.lines_final`).
+
+### 4.5 Asignación de recorrido y sentido: qué es causal y qué es ex post
+
+**Regla.** La asignación de un ping a recorrido y sentido se define UNA vez, en el pipeline (`prediccion/v2/geo_assign.py`), y la app la porta tal cual. La app no tiene reglas de asignación propias: cualquier cambio se hace en el pipeline y se porta (`path_reference.py` importa el módulo; el cliente usa los mismos valores vía `manifest.json["assignment"]`, contrato 2.0 de `prediccion/INFERENCIA_PATH.md`). El motivo es evitar diferencias entre entrenamiento y servicio (training/serving skew).
+
+**Causal y compartido pipeline/app** (solo usa el ping y pasados del mismo coche):
+- *Posición sobre un shape:* un shape es compatible con un ping si su error perpendicular es ≤ **T = 45 m** y además ≤ (mínimo error perpendicular entre todos los shapes de la línea) + **M = 20 m**. Ida y vuelta por la misma calle son ambas compatibles; la calle paralela (~100–130 m) no.
+- *Proyección* del ping sobre cada shape compatible.
+- *Sentido:* a partir de los pings propios de los últimos 15 min más el actual, por avance sostenido sobre el shape (≥ 80 % de los pings a ≤ T, fracción de avance hacia adelante ≥ 0,6, avance neto ≥ 40 m), no por distancia al shape: en 5,9 % de los viajes la distancia no distingue ida de vuelta.
+
+**Ex post, solo pipeline:** qué recorrido tomó finalmente el viaje y cuándo llegó a cada punto. Se usa solo como etiqueta y condición: cada fila de entrenamiento es "ETA si el coche va por el recorrido X", la misma pregunta que la app responde por cada candidato. Nunca decide qué pings son válidos ni cómo se proyectan. `best_shape_for_trip` elige el recorrido del viaje (menor error mediano con avance hacia adelante) solo entre los shapes compatibles (≥ 50 % de los pings del viaje compatibles); los pings no compatibles con el elegido no generan filas. También es ex post y solo del pipeline el corte de viajes (§4.1, segmentador): define etiquetas y estructura del viaje, y en producción `start_unknown = 1` y `time_since_start = 0` siempre. Por eso el segmentador **sigue con FIT_M = 150 m**: con 45 m fragmenta más (cortes por salida del recorrido ×3,1, huecos no unidos ×2, `start_unknown` +0,9 pp, −42 % de cortes por inversión), sin mejorar los datos.
+
+**Elección de T y M** (`data/ml/v2b/diag/asignacion/ASIGNACION_RECORRIDO.md`, 93,6 M de pings de 15 líneas, 183 días): sobre los pings válidos (≤ 150 m al recorrido asignado ex post) el error perpendicular tiene p50 3,5 m, p90 10,5 m, p95 14,5 m, p99 73 m; 98,4 % está a ≤ 45 m (≈ 3 × p95; 30 m retiene 97,8 %). Entre 45 y 150 m no hay ruido de GPS sino otra calle o un desvío. M = 20 m es algo más que el p95 del ruido: dos shapes distan del ping casi lo mismo salvo que el coche vaya claramente por uno (ramales que comparten tronco empatan por ruido y siguen siendo ambos compatibles); el diagnóstico midió con 10 m que el 0,55 % de los pings a ≤ 45 m tiene otro shape más cerca, que con un margen de 10 m serían descartados sin motivo.
+
+**Estado de la asignación (2026-11-13):** vigente en el dataset `data/ml/v2c` (`--assign geo3`). `data/ml/v2` y `v2b` usan la tolerancia de 150 m (registro de error en §5). Pendiente, no resuelto: retrocesos de la distancia a lo largo > 150 m entre pings válidos consecutivos en 26–34 % de los viajes de las líneas 15, 42, 124 y 92 (8,7 % del total), probablemente bucles del recorrido; afectan la proyección tanto en el pipeline como en la app.
 
 ## 5. Vara de medir (antes de entrenar nada nuevo)
 
@@ -71,6 +86,7 @@ Hoy los números no son comparables: A3 72 s (16,5 M filas val, solo 39), A1 158
 - Modelos entrenados con esa pinball: todos los A3 y por tramos de `data/ml/models/`, `data/ml/v2/models_e2_geo/`, `data/ml/v2_39_k32/`, `data/ml/v2_39_k32_geo/`, `data/ml/v2_39_k64/`, `data/ml/v2_sub/conf/{a3_*,path_*}` y `data/ml/v2b_sub/runs/{a3_*,path_*}` (las corridas E0/E1/E2 de §6.4 y las de §7).
 - Tablas de evaluación de todos los modelos (también A0 y A1) en `data/ml/*/eval*` y las tablas de §7: la columna "subest. >60 s" mide "llega después de lo anunciado > 60 s" y la columna "sobreest. >60 s" mide "llega antes de lo anunciado > 60 s".
 - Las evaluaciones generadas desde 2026-11-13 traen las columnas "llega antes >60 s", "llega después >60 s" y "espera extra media" (claves JSON `pct_llega_antes_60s`, `pct_llega_despues_60s`, `espera_extra_media_s`; `pct_over_60s` y `pct_under_60s` son sus alias históricos).
+**Registro de error (2026-11-13): tolerancia de 150 m y calle paralela.** La máscara de pings válidos (`valid` de `geometry_for_trip`), el filtro de `project_trip` y el criterio de ajuste del segmentador admitían como válido un ping a hasta 150 m del recorrido, que incluye el recorrido de la calle paralela (~100–130 m) y el sentido opuesto del mismo ramal. Medido (`data/ml/v2b/diag/asignacion/ASIGNACION_RECORRIDO.md`): 3,76 % de las filas de `v2b` son sucias (P o F a 45–150 m del recorrido, o con otro recorrido ≥ 10 m más cerca), con ~2 × el MAE de las limpias (banda 3–7 min, seen: 85 contra 53 s; heldout 158 contra 79 s); limpiarlas bajaría el MAE global 3,9–4,5 % y en la banda 3–7 min 2,2–3,4 %. Afecta a los datasets `data/ml/v2/`, `v2b/`, `v2_sub/`, `v2b_sub/`, `v2_39_k32/`, `v2_39_k32_geo/`, `v2_39_k64/` y a todos los modelos y evaluaciones entrenados o construidos sobre ellos: `data/ml/v2/models_e2_geo/`, `data/ml/v2_sub/` (`models*`, `conf/`), `data/ml/v2b_sub/` (`runs/`, `runs_l1/`, `runs_band/`), los eval `data/ml/v2/eval`, `data/ml/v2_sub/eval` y `data/ml/v2b/eval`, y los exportes `data/ml/export/path_v2b_s0` y `path_v2b_pinv_s0`. Corrección: §4.5 (`--assign geo3`, dataset `data/ml/v2c`). Los números de §7 anteriores a esta fecha siguen siendo válidos como comparación entre sí.
 - **Baselines en el mismo conjunto:** A0 naive (distancia / velocidad, con piso de velocidad razonable), A1 (reentrenado con el train v2; es barato), A3 actual ep21 (solo sobre la 39, como referencia histórica). Cuándo Subo se suma cuando exista su grabación.
 - Script único `python -m prediccion.eval ...` que toma un modelo y escribe `data/ml/v2/eval/<modelo>_<fecha>.json` + tabla markdown. Resultados que importan se anotan en §7.
 
@@ -108,6 +124,8 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
 **Opción de pérdida `--loss pinball_band`.** q depende de la distancia restante (entrada del modelo; nunca de la ETA real) y actúa en el rango donde cae la ETA 3–10 min. Banda [d_lo, d_hi] = p10 y p90 de la distancia restante de las filas de `data/ml/v2b_sub` (train) con ETA real 3–10 min (532 m y 2074 m); q = 0,30 dentro de la banda, rampa lineal a 0,5 en los 300 m afuera de cada borde, 0,5 en el resto. d_lo / d_hi / q / rampa quedan en `loss_cfg` del checkpoint y de `path_eta_metrics.json`. Corrida de comparación: modelo por tramos, LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1; lanzador `prediccion/scripts/run_v2b_band.py`, salida en `data/ml/v2b_sub/runs_band/`, tabla en `runs_band/comparacion.md`; resultados en §7.
 
 **Estado de producción:** modelo por tramos exportado para producción: `path_v2b_s0` en `data/ml/export/path_v2b_s0/` (script `prediccion/scripts/export_path_onnx.py`, contrato `prediccion/INFERENCIA_PATH.md`). Entrenado con pinball q 0,5 → 0,8 bajo 1 km; en la banda 3–7 min rinde igual o mejor que L1. Se reemplaza en el próximo reentrenamiento por uno entrenado con L1.
+
+**Estado de la asignación (2026-11-13):** dataset `data/ml/v2c` armado con `--assign geo3` (§4.5: pings válidos con T = 45 m y shape más cercano + M = 20 m; recorrido del viaje elegido solo entre los compatibles; segmentación geo2 sin cambios). Subconjunto `data/ml/v2c_sub` y eval `data/ml/v2c/eval` con la misma receta que v2b. Modelo por tramos con L1 (LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1) en `data/ml/v2c_sub/runs/`, evaluado en `data/ml/v2c/eval` junto con los L1 de v2b (`data/ml/v2b_sub/runs_l1`) en el mismo eval; tabla por bandas de ETA real (principal 3–7 min) en `data/ml/v2c_sub/runs/comparacion.md`. Lanzador: `prediccion/scripts/run_v2c.py`. El modelo exportado a producción sigue siendo `path_v2b_s0` (entrenado con la tolerancia de 150 m, §5) hasta que se exporte el de v2c con el contrato 2.0.
 
 **Próximo paso propuesto:** evaluación en condiciones de producción por replay de días posteriores al entrenamiento grabados por el NUC, con la regla de candidatos de producción (`INFERENCIA_PATH.md`: sentido, shapes del usuario, pasa seguro / puede venir) contra el paso real del coche por el punto. Es la vara fija para lo que siga.
 
@@ -242,6 +260,18 @@ MAE en seen por inicio de viaje (desconocido / conocido): A3 v2b 128 / 104; A3 v
 
   **Conclusión:** la pérdida asimétrica no mejora la información del modelo, solo desplaza el anuncio; un factor posterior logra el mismo desplazamiento con menor MAE y sin reentrenar. Por eso la pérdida es L1 y el ajuste es un parámetro de producto (§5). El factor se calibró sobre el eval; si se usa, se calibra sobre val.
 
+- **Validación de la asignación geo3 (2026-11-13; 5 días 2026-08-11 a 2026-08-15, 15 líneas, segmentación geo2, K=32; `data/ml/v2c/validation`).** Mismos días de `data/ml/v2b`:
+
+| | v2b (150 m) | v2c (geo3: T = 45 m, M = 20 m) |
+|---|---|---|
+| Viajes | 46.881 | 46.929 |
+| Filas | 1.487.183 | 1.484.231 |
+| Filas con `start_unknown` | 15,12 % | 15,35 % |
+| Viajes con `start_unknown` | 15,44 % | 15,83 % |
+| Pings de viajes con recorrido descartados (no compatibles) | 1,42 % | 3,08 % |
+
+De 46.785 viajes emparejados (mismo coche e inicio), 768 (1,6 %) cambian de recorrido elegido; sobre ellos y el resto se pierden 50.116 de 2.982.732 pings válidos (1,7 %). Lo descartado de más son sobre todo coches parados a ~75–115 m de la cabecera o del final del recorrido (estacionados; en v2b generaban filas con la etiqueta de un coche que no está en el recorrido), pings sobre otro ramal o sentido más cercano y pings de la calle paralela. Ejemplos revisados (2026-08-12, hora local UTC−3; recorrido y distancias en m): línea 151, coche 96230, 14:48:48, (-34,62880, -58,37909): v2b lo asignaba al recorrido 19481773 a 129 m y otro recorrido de la línea (4020850) pasa a 1 m; línea 151, coche 97380, 15:54:44, (-34,61010, -58,40878): 95 m al recorrido elegido y 24 m al más cercano; línea 15, coche 33659, 08:12:36, (-34,45473, -58,69512): 55 m al elegido y 3 m al más cercano; línea 15, coche 35941, 19:59:52: viaje de 175 pings con el coche parado a ~100 m del recorrido (mediana de perp 105 m): 32 filas en v2b, 0 en v2c.
+
 ## 8. Decisiones previas que siguen vigentes (no re-discutir sin dato nuevo)
 
 Del plan histórico: modelo único para todas las líneas (§7); pérdida L1 con el ajuste de anuncio en el producto (§5, §7); distancia mínima 100 m (§7); `schedule_dev_norm` aporta poco pero positivo (Exp. 2); `time_since_last_bus_s` ambiguo (Exp. 2); umbral "llegando" `pred < 150 s OR dist < 300 m` (Exp. 1, reevaluar con el modelo nuevo); stop-to-stop y Transformer seq2seq postergados (§7, Fase 5); la flota de entrada es la de la agencia (§7).
@@ -320,6 +350,15 @@ foreach ($s in "seen","heldout") { & $PY -m prediccion.eval --model a3:data/ml/v
 (Lanzar los entrenamientos desacoplados con `Start-Process` y log; una tarea en segundo plano se corta a las 2 h.)
 
 **Reanudar.** Al final de cada época los dos trainers escriben `last.pt` de forma atómica (a `.tmp` y `os.replace`: un corte durante el guardado deja intacto el anterior): `eta_a3_last.pt` en `<ml-dir>/models/` y `path_eta_last.pt` en `<ml-dir>/models_path/`. Contiene modelo, optimizador, estado del scheduler (OneCycle o plateau), época, mejor métrica y mejor época, historial, estado del RNG (torch, numpy, python) y la config del run. El `best.pt` se sigue guardando aparte. Para retomar, relanzar **el mismo comando agregando `--resume`**: sigue en la época siguiente con el LR que le tocaba (el scheduler restaura su paso). Si el run se cortó a mitad de una época se pierde solo esa época. Si la config guardada no coincide con la actual (épocas, scheduler, lr, batch, datos —tamaño y fecha de los parquet—, d_model, grilla, etc.) falla con un mensaje que lista las diferencias. En CPU la reanudación es exacta (los tests `test_resume.py` comparan pesos y LR por paso contra un run sin corte); en GPU con varios workers de DataLoader el orden de filas de la época reanudada no es idéntico (RNG propio de cada worker), pero modelo, optimizador, LR y RNG del proceso principal sí. `last.pt` del modelo por tramos también se puede evaluar (`--model path:<last.pt>`). Ganchos de test: `stop_after_epoch` y `lr_trace`.
+
+### Dataset con asignación geométrica (v2c)
+Mismo comando que v2b más `--assign geo3` y otro `--out-dir` (el lanzador `prediccion/scripts/run_v2c.py` lo corre completo y reanuda):
+```powershell
+& $PY -m prediccion.v2.build --lines-file data/ml/v2/lines.json --lines 26,39,42,92,124,151,168,50,106,107,108,132,12,15,128 --days 2026-03-28:2026-10-14 --pairs-per-trip 32 --workers 3 --segmentation geo2 --assign geo3 --low-priority --out-dir data/ml/v2c --no-assemble
+& $PY -m prediccion.v2.assemble --v2-dir data/ml/v2c --lines-file data/ml/v2c/lines.json --only-lines 26,39,42,92,124,151,168,50,106,107,108,132 --dest data/ml/v2c_sub --train-start 2026-07-20 --val-sample-frac 0.4
+& $PY -m prediccion.v2.make_eval --v2-dir data/ml/v2c --lines-file data/ml/v2c/lines.json --n-per-bucket 7500
+```
+Un día construido con otra asignación (`meta.assign`) se reprocesa. Las constantes T y M están solo en `prediccion/v2/geo_assign.py` y `meta.json` de cada día guarda los parámetros usados.
 
 ## 11. Ideas a testear para el modelo final (anotadas 2026-11-11, no implementadas)
 
