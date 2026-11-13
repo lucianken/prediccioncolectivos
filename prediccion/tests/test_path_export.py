@@ -237,23 +237,50 @@ def test_coche_de_adelante_pasado_por_T_se_detecta_y_sin_pasar_no_se_encuentra()
     assert not found2 and t2 == 3600.0
 
 
-# ── regla de candidatos 1.1: sentido obligatorio, shapes del usuario, grupos ────────────────────────────────────
+# ── regla de candidatos 1.2: sentido obligatorio, shapes del usuario, grupos ────────────────────────────────────
 
 def _veh_at(sh, d, ts, speed=6.0):
     return {"lat": sh.latlon_at(d)[0], "lon": sh.latlon_at(d)[1], "speed_mps": speed, "ts": ts}
 
 
 @needs_data
-def test_sin_historial_no_hay_sentido_ni_eta():
+def test_sin_historial_el_eta_es_provisional_y_el_minimo_entre_los_shapes_posibles():
     from prediccion.inference.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
     out = predict_from_raw(b, "39", _veh_at(sh, 5000, ts), at(8000), ts)
-    assert out["status"] == "sin_sentido" and out["eta_s"] is None and out["group"] is None
-    # coche quieto: tampoco hay avance neto
-    out = predict_from_raw(b, "39", _veh_at(sh, 5000, ts, 0.0), at(8000), ts, history=_hist(sh, ts, [4990, 4995]))
-    assert out["status"] == "sin_sentido"
+    assert out["status"] == "provisional" and out["group"] == "provisional" and out["eta_s"] > 0
+    assert out["compatible"] == [] and any(k["passes"] for k in out["provisional"])
+    assert out["eta_s"] == min(k["eta_s"] for k in out["candidates"])
+    # coche quieto sin avance (en cabecera): mismo criterio, con la marca de cabecera
+    out = predict_from_raw(b, "39", _veh_at(sh, 60, ts, 0.0), at(8000), ts, history=_hist(sh, ts, [58, 59]))
+    assert out["status"] == "provisional" and out["en_cabecera"] is True
+
+
+@needs_data
+def test_provisional_no_lista_al_coche_si_el_usuario_queda_atras_en_todos_los_shapes_posibles():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    sh, at = _scenario(b)
+    ts = 1.79e9
+    out = predict_from_raw(b, "39", _veh_at(sh, 7000, ts), at(6000), ts, only_shapes=[sh.id])
+    assert out["status"] == "pasado" and out["eta_s"] is None and out["group"] is None
+
+
+@needs_data
+def test_con_historial_suficiente_la_clasificacion_provisional_pasa_a_normal():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    sh, at = _scenario(b)
+    ts = 1.79e9
+    veh = _veh_at(sh, 5000, ts)
+    assert predict_from_raw(b, "39", veh, at(8000), ts)["group"] == "provisional"
+    out = predict_from_raw(b, "39", veh, at(8000), ts, history=_hist(sh, ts, [4400, 4700]))
+    assert out["status"] == "ok" and out["group"] in ("seguro", "puede_venir") and out["provisional"] == []
+    # con historial que muestra que el coche se alejó del punto, deja de listarse
+    out = predict_from_raw(b, "39", _veh_at(sh, 7000, ts), at(6000), ts, history=_hist(sh, ts, [6400, 6700]))
+    assert out["status"] == "pasado"
 
 
 @needs_data

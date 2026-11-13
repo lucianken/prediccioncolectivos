@@ -27,7 +27,8 @@ BASE_TS = 1784214000  # 2026-07-16 ~15:00 UTC, dia habil
 def _norm(r: dict) -> dict:
     return {
         "status": r["status"], "eta_s": r["eta_s"], "shape_id": r["shape_id"], "en_cabecera": r["en_cabecera"],
-        "group": r["group"], "depends_on": r["depends_on"], "compatible": r["compatible"], "discarded": r["discarded"],
+        "group": r["group"], "depends_on": r["depends_on"], "compatible": r["compatible"], "provisional": r["provisional"],
+        "discarded": r["discarded"],
         "candidates": [{k: (float(v) if isinstance(v, float) else v) for k, v in c.items()} for c in r["candidates"]],
     }
 
@@ -91,9 +92,15 @@ def _scenarios(bundle, add, rnd):
             hist = _trail(sh, d_p, now - 10, 6, 200, 60)
             ahead = sh.latlon_at(d_p + 1500)
             behind = sh.latlon_at(d_p - 800)
-            # coche sin historial: sin sentido, no se predice
+            # coche sin historial: ETA provisional
             add(f"{tag}/sin_historial", line, veh, ahead, now)
-            # coche quieto con historial sin avance: sin sentido
+            # provisionales: sin historial o con un solo ping previo, punto adelante / atras, parada y punto
+            add(f"{tag}/provisional_adelante_parada", line, veh, ahead, now, None, user_kind="parada", stop_recorridos=[sh.name])
+            add(f"{tag}/provisional_atras", line, veh, behind, now)
+            add(f"{tag}/provisional_un_ping", line, veh, ahead, now, _trail(sh, d_p, now - 10, 1, 10, 60))
+            add(f"{tag}/provisional_cabecera", line, _veh(sh, 80.0, now - 10, 0.0), sh.latlon_at(3000.0), now,
+                _trail(sh, 80.0, now - 10, 2, 5, 60))
+            # coche quieto con historial sin avance: provisional
             add(f"{tag}/quieto_sin_avance", line, {**veh, "speed_mps": 0.0}, ahead, now, _trail(sh, d_p, now - 10, 5, 5, 60))
             # coche con historial que ya paso por el punto
             add(f"{tag}/ya_paso_con_historial", line, veh, behind, now, hist)

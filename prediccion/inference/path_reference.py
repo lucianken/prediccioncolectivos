@@ -21,7 +21,7 @@ import numpy as np
 STATE_FALLBACK_TLB_S = 3600.0
 FALLBACK_M = 250.0       # radio del fallback de "coche de adelante" (ping más cercano a T)
 
-# Reglas de candidatos (contrato 1.1, INFERENCIA_PATH.md §4). No viven en el manifest: son del cliente.
+# Reglas de candidatos (contrato 1.2, INFERENCIA_PATH.md §4). No viven en el manifest: son del cliente.
 MIN_NET_FORWARD_M = 40.0        # avance neto mínimo del coche sobre el shape para dar por conocido su sentido
 POINT_MAX_PERP_M = 40.0         # punto GPS / tocado en el mapa: distancia máxima a un shape para que "pase por ahí"
 POINT_PARALLEL_MARGIN_M = 15.0  # entre los shapes que pasan, se conservan los de perp <= mínima + este margen
@@ -300,7 +300,8 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
     user_kind: "punto" (GPS o mapa) o "parada"; stop_recorridos: nombres de los recorridos que sirven la parada.
 
     Devuelve {"status", "eta_s", "shape_id", "candidates", "en_cabecera", "group", "depends_on", "compatible", "discarded"}.
-      status: ok | llegando (rem < min_rem_m en algún shape que sirve el punto) | pasado (el coche ya pasó al usuario en
+      status: ok | llegando (rem < min_rem_m en algún shape que sirve el punto) | provisional (sin sentido conocido: ETA
+              mínimo entre los shapes de sentido desconocido donde el usuario queda adelante; group "provisional") | pasado (el coche ya pasó al usuario en
               todos sus shapes compatibles) | sin_sentido (sentido aún desconocido) | sin_candidatos | linea_fuera_del_modelo
       group: "seguro" (todos los shapes compatibles del coche sirven el punto y el usuario está adelante) |
              "puede_venir" (solo algunos: depends_on lista los shapes de los que depende) | None.
@@ -309,13 +310,14 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
     """
     c = bundle.const
     empty = {"status": "linea_fuera_del_modelo", "eta_s": None, "shape_id": None, "candidates": [], "en_cabecera": False,
-             "group": None, "depends_on": [], "compatible": [], "discarded": []}
+             "group": None, "depends_on": [], "compatible": [], "provisional": [], "discarded": []}
     if line not in bundle.lines:
         return empty
     age = max(0.0, now_ts - vehicle["ts"])
     us = user_shapes(bundle, line, user, user_kind, stop_recorridos)
     cands, compat, discarded = [], [], []
-    llegando = pasado = near_any = False
+    p_cands, p_compat = [], []   # evaluación provisional: shapes cercanos con sentido aún desconocido (sin_sentido)
+    llegando = pasado = near_any = p_llegando = p_pasado = False
     for sid, sh in bundle.lines[line].items():
         if only_shapes is not None and sid not in only_shapes:
             continue
@@ -325,38 +327,59 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
             continue
         near_any = True
         ok, why = _sense(c, sh, history or [], vehicle, now_ts)
+        prov = (not ok) and why == "sin_sentido"
         if not ok:
             discarded.append({"shape_id": sid, "reason": why})
-            continue
+            if not prov:
+                continue
+        cl, cd = (p_compat, p_cands) if prov else (compat, cands)
         serves, why = us[sid]
         if not serves:
-            compat.append({"shape_id": sid, "passes": False, "reason": why})
-            discarded.append({"shape_id": sid, "reason": why})
+            cl.append({"shape_id": sid, "passes": False, "reason": why})
+            if not prov:
+                discarded.append({"shape_id": sid, "reason": why})
             continue
         d_t, _ = sh.project(*user)
         rem = d_t - d_p
         if rem < 0:
-            pasado = True
-            compat.append({"shape_id": sid, "passes": False, "reason": "ya_paso"})
-            discarded.append({"shape_id": sid, "reason": "ya_paso"})
+            if prov:
+                p_pasado = True
+            else:
+                pasado = True
+            cl.append({"shape_id": sid, "passes": False, "reason": "ya_paso"})
+            if not prov:
+                discarded.append({"shape_id": sid, "reason": "ya_paso"})
             continue
         if rem < c["min_rem_m"]:
-            llegando = True
-            compat.append({"shape_id": sid, "passes": True, "reason": "llegando"})
+            if prov:
+                p_llegando = True
+            else:
+                llegando = True
+            cl.append({"shape_id": sid, "passes": True, "reason": "llegando"})
             continue
         tlb, lbf = last_bus(c, sh, others or [], d_t, vehicle["ts"]) if others else (STATE_FALLBACK_TLB_S, False)
-        cands.append({"shape": sh, "d0": d_p, "rem": rem, "tlb": tlb, "lbf": lbf})
-        compat.append({"shape_id": sid, "passes": True, "reason": None})
-    res = {**empty, "compatible": compat, "discarded": discarded}
-    if not compat:
+        cd.append({"shape": sh, "d0": d_p, "rem": rem, "tlb": tlb, "lbf": lbf})
+        cl.append({"shape_id": sid, "passes": True, "reason": None})
+    res = {**empty, "compatible": compat, "provisional": p_compat, "discarded": discarded}
+    # Sin ningún shape con sentido conocido: ETA provisional si el usuario queda adelante en algún shape de sentido desconocido.
+    provisional = not compat and bool(p_compat)
+    if not compat and not provisional:
         res["status"] = "sin_sentido" if near_any else "sin_candidatos"
         return res
-    if not any(k["passes"] for k in compat):
+    if provisional and not any(k["passes"] for k in p_compat):
+        res["status"] = "pasado" if p_pasado else "sin_candidatos"
+        return res
+    if not provisional and not any(k["passes"] for k in compat):
         res["status"] = "pasado" if pasado else "sin_candidatos"
         return res
-    res["group"] = "seguro" if all(k["passes"] for k in compat) else "puede_venir"
-    if res["group"] == "puede_venir":
-        res["depends_on"] = [k["shape_id"] for k in compat if k["passes"]]
+    if provisional:
+        res["group"] = "provisional"
+    else:
+        res["group"] = "seguro" if all(k["passes"] for k in compat) else "puede_venir"
+        if res["group"] == "puede_venir":
+            res["depends_on"] = [k["shape_id"] for k in compat if k["passes"]]
+    cands = p_cands if provisional else cands
+    llegando = p_llegando if provisional else llegando
     out = []
     if cands:
         etas = eta_on_shapes(bundle, line, cands, vehicle["ts"], vehicle.get("speed_mps", 0.0), min(age, c["ts_age_cap_s"]))
@@ -364,9 +387,9 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
                 "eta_s": max(0.0, float(e) - age), "last_bus_found": k["lbf"]} for k, e in zip(cands, etas)]
     res["candidates"] = out
     if llegando:
-        res["status"], res["eta_s"] = "llegando", 0.0
+        res["status"], res["eta_s"] = ("provisional" if provisional else "llegando"), 0.0
         return res
     best = min(out, key=lambda r: r["eta_s"])
-    res.update(status="ok", eta_s=best["eta_s"], shape_id=best["shape_id"],
+    res.update(status="provisional" if provisional else "ok", eta_s=best["eta_s"], shape_id=best["shape_id"],
                en_cabecera=(vehicle.get("speed_mps", 0.0) or 0.0) < c["stopped_mps"] and best["d_p"] < c["terminal_zone_m"])
     return res
