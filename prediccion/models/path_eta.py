@@ -356,8 +356,11 @@ def pinball(pred: torch.Tensor, target: torch.Tensor, dist_m: torch.Tensor, loss
         q = torch.full_like(dist_m, 0.5)
     elif loss == "pinball":
         q = 0.5 + 0.3 * torch.clamp(1.0 - dist_m / 1000.0, 0.0, 1.0)
+    elif loss == "pinball_inv":
+        # q 0,5 -> 0,2 bajo 1 km: con err = real - pred, anunciar tarde (llega antes de lo anunciado) pesa 4x más
+        q = 0.5 - 0.3 * torch.clamp(1.0 - dist_m / 1000.0, 0.0, 1.0)
     else:
-        raise ValueError(f"loss inválida: {loss!r} (l1 | pinball)")
+        raise ValueError(f"loss inválida: {loss!r} (l1 | pinball | pinball_inv)")
     err = target - pred
     return torch.where(err >= 0, q * err, (q - 1.0) * err).mean()
 

@@ -116,3 +116,13 @@ def test_l1_simetrica_y_pinball_no():
     pm = pinball(torch.tensor([90.0]), torch.tensor([100.0]), dist)
     pn = pinball(torch.tensor([110.0]), torch.tensor([100.0]), dist)
     assert float(pm) != pytest.approx(float(pn))
+
+
+def test_pinball_inv_castiga_mas_llegar_antes_bajo_1km_y_igual_lejos():
+    import torch
+    from prediccion.models.path_eta import pinball
+    real = torch.tensor([100.0])
+    antes, despues = torch.tensor([130.0]), torch.tensor([70.0])      # anunciado 130 (llega antes) / 70 (llega después)
+    cerca, lejos = torch.tensor([300.0]), torch.tensor([3000.0])
+    assert float(pinball(antes, real, cerca, "pinball_inv")) > float(pinball(despues, real, cerca, "pinball_inv"))
+    assert float(pinball(antes, real, lejos, "pinball_inv")) == pytest.approx(float(pinball(despues, real, lejos, "pinball_inv")))

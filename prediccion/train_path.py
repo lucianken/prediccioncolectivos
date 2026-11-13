@@ -141,8 +141,8 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda")
-    ap.add_argument("--loss", choices=["l1", "pinball"], default="pinball",
-                    help="l1 = q 0,5 a toda distancia; pinball = q 0,5->0,8 bajo 1 km (default histórico)")
+    ap.add_argument("--loss", choices=["l1", "pinball", "pinball_inv"], default="pinball",
+                    help="l1 = q 0,5 a toda distancia; pinball = q 0,5->0,8 bajo 1 km (default histórico); pinball_inv = q 0,5->0,2 bajo 1 km (castiga más que llegue antes de lo anunciado)")
     ap.add_argument("--resume", action="store_true", help="retomar desde <out-dir>/path_eta_last.pt")
     a = ap.parse_args(argv)
     train(a.ml_dir, a.out_dir or a.ml_dir / "models_path", a.epochs, a.batch_size, a.lr, a.max_groups,
