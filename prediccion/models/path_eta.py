@@ -349,9 +349,15 @@ class PathETADataset(torch.utils.data.IterableDataset):
                 yield {k: t[sl] for k, t in batch.items()}
 
 
-def pinball(pred: torch.Tensor, target: torch.Tensor, dist_m: torch.Tensor) -> torch.Tensor:
-    """Misma pérdida que el A3 (trainer.train_phase3): q 0,5 -> 0,8 por debajo de 1 km."""
-    q = 0.5 + 0.3 * torch.clamp(1.0 - dist_m / 1000.0, 0.0, 1.0)
+def pinball(pred: torch.Tensor, target: torch.Tensor, dist_m: torch.Tensor, loss: str = "pinball") -> torch.Tensor:
+    """Misma pérdida que el A3 (trainer.train_phase3): q 0,5 -> 0,8 por debajo de 1 km.
+    loss="l1": q = 0,5 a toda distancia (mediana; llegar antes o después de lo anunciado pesa igual)."""
+    if loss == "l1":
+        q = torch.full_like(dist_m, 0.5)
+    elif loss == "pinball":
+        q = 0.5 + 0.3 * torch.clamp(1.0 - dist_m / 1000.0, 0.0, 1.0)
+    else:
+        raise ValueError(f"loss inválida: {loss!r} (l1 | pinball)")
     err = target - pred
     return torch.where(err >= 0, q * err, (q - 1.0) * err).mean()
 

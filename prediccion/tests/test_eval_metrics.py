@@ -98,3 +98,16 @@ def test_sobreestimacion_y_desgloses_por_linea_y_distancia_fina():
     assert m["by_dist_fine"]["0-0,5 km"]["n"] == 1
     assert m["by_dist_fine"]["12+ km"]["pct_over_60s"] == 100.0
     assert m["by_line"]["a"]["n"] == 2 and m["by_line"]["b"]["pct_under_60s"] == 50.0
+
+
+def test_llega_antes_despues_y_espera_extra_media():
+    import numpy as np
+    from prediccion.eval import compute_metrics
+    # real 300 s; anunciado 200 (llega después +100), 400 (llega antes 100), 280 (después 20), 300 (exacto)
+    pred = np.array([200.0, 400.0, 280.0, 300.0])
+    true = np.full(4, 300.0)
+    g = compute_metrics(pred, true, np.full(4, 1000.0))["global"]
+    assert g["pct_llega_antes_60s"] == pytest.approx(25.0)
+    assert g["pct_llega_despues_60s"] == pytest.approx(25.0)
+    assert g["espera_extra_media_s"] == pytest.approx(60.0)      # (100 + 20) / 2
+    assert g["pct_llega_antes_60s"] == g["pct_over_60s"] and g["pct_llega_despues_60s"] == g["pct_under_60s"]

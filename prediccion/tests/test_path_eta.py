@@ -104,3 +104,15 @@ def test_state_features_dimension_y_detenido():
     s = state_features([0.0, 8.0], [0.0, 30.0], [0.0, 600.0], [0.0, 100.0], [np.nan, 60.0], [0, 1], [500.0, 900.0])
     assert s.shape == (2, N_STATE) and np.isfinite(s).all()
     assert s[0, 1] == 1.0 and s[1, 1] == 0.0
+
+
+def test_l1_simetrica_y_pinball_no():
+    import torch
+    from prediccion.models.path_eta import pinball
+    dist = torch.tensor([200.0])
+    mas = pinball(torch.tensor([90.0]), torch.tensor([100.0]), dist, "l1")     # llega después de lo anunciado
+    menos = pinball(torch.tensor([110.0]), torch.tensor([100.0]), dist, "l1")  # llega antes de lo anunciado
+    assert float(mas) == pytest.approx(float(menos)) == pytest.approx(5.0)
+    pm = pinball(torch.tensor([90.0]), torch.tensor([100.0]), dist)
+    pn = pinball(torch.tensor([110.0]), torch.tensor([100.0]), dist)
+    assert float(pm) != pytest.approx(float(pn))

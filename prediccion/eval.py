@@ -17,8 +17,9 @@ Modelos:
               o el del v2 evaluado si no existe).
 
 Escribe data/ml/v2/eval/<modelo>_<set>_<YYYYMMDD>.json y .md con métricas por bucket de ETA real y de
-distancia: n, MAE, P50, P90 (del error absoluto), sesgo (pred - real; + = sobreestima) y % de
-subestimaciones > 60 s (el usuario pierde el colectivo). El MAE global se informa pero no decide.
+distancia: n, MAE, P50, P90 (del error absoluto), sesgo (pred - real; + = llega antes de lo anunciado),
+% que llega antes de lo anunciado > 60 s (el error grave: el usuario pierde el colectivo), % que llega después > 60 s
+y espera extra media cuando llega después. El MAE global se informa pero no decide.
 """
 
 from __future__ import annotations
@@ -56,18 +57,27 @@ def _stats(pred: np.ndarray, true: np.ndarray) -> dict:
     n = len(pred)
     if n == 0:
         return {"n": 0, "mae": None, "p50": None, "p90": None, "bias": None, "pct_under_60s": None,
-                "pct_over_60s": None}
-    err = pred - true                      # + = sobreestima
+                "pct_over_60s": None, "pct_llega_antes_60s": None,
+                "pct_llega_despues_60s": None, "espera_extra_media_s": None}
+    err = pred - true                      # + = llega antes de lo anunciado
     ae = np.abs(err)
+    late = true > pred                     # llega después de lo anunciado
+    pct_despues = float(100.0 * np.mean((true - pred) > UNDER_THRESHOLD_S))
+    pct_antes = float(100.0 * np.mean((pred - true) > UNDER_THRESHOLD_S))
     return {
         "n": int(n),
         "mae": float(ae.mean()),
         "p50": float(np.percentile(ae, 50)),
         "p90": float(np.percentile(ae, 90)),
         "bias": float(err.mean()),
-        "pct_under_60s": float(100.0 * np.mean((true - pred) > UNDER_THRESHOLD_S)),
-        # sobreestima: pred - real > 60 s (el colectivo llega antes de lo predicho)
-        "pct_over_60s": float(100.0 * np.mean((pred - true) > UNDER_THRESHOLD_S)),
+        # pct_under_60s = llega DESPUÉS de lo anunciado (real - pred > 60 s): el usuario espera de más
+        "pct_under_60s": pct_despues,
+        # pct_over_60s = llega ANTES de lo anunciado (pred - real > 60 s): el usuario pierde el colectivo (el error grave)
+        "pct_over_60s": pct_antes,
+        "pct_llega_antes_60s": pct_antes,
+        "pct_llega_despues_60s": pct_despues,
+        # espera extra media: media de (real - pred) sobre las filas donde llega después; evita premiar "en 1 min" siempre
+        "espera_extra_media_s": float((true - pred)[late].mean()) if late.any() else 0.0,
     }
 
 
@@ -137,20 +147,20 @@ def compute_start_unknown_breakdown(pred, true, start_unknown) -> dict:
 
 def start_unknown_to_markdown(d: dict) -> str:
     rows = ["**Por inicio del viaje conocido / desconocido** (v2b: `start_unknown`)", "",
-            "| inicio | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) | sobreest. >60 s (%) |", "|---|---:|---:|---:|---:|---:|---:|---:|"]
+            "| inicio | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | llega antes >60 s (%) | llega después >60 s (%) | espera extra media (s) |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for label, s_ in d.items():
         rows.append(f"| {label} | {s_['n']} | {_fmt(s_['mae'])} | {_fmt(s_['p50'])} | {_fmt(s_['p90'])} | "
-                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} | {_fmt(s_.get('pct_over_60s'))} |")
+                    f"{_fmt(s_['bias'])} | {_fmt(s_.get('pct_over_60s'))} | {_fmt(s_['pct_under_60s'])} | {_fmt(s_.get('espera_extra_media_s'))} |")
     return "\n".join(rows) + "\n"
 
 
 def phase_to_markdown(phase: dict) -> str:
-    hdr = "| fase | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) | sobreest. >60 s (%) |"
+    hdr = "| fase | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | llega antes >60 s (%) | llega después >60 s (%) | espera extra media (s) |"
     rows = ["**Por fase del viaje** (inicio = primeros 5 min o <1 km del inicio del shape; detenido = <0,5 m/s)", "",
-            hdr, "|---|---:|---:|---:|---:|---:|---:|---:|"]
+            hdr, "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for label, s_ in phase.items():
         rows.append(f"| {label} | {s_['n']} | {_fmt(s_['mae'])} | {_fmt(s_['p50'])} | {_fmt(s_['p90'])} | "
-                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} | {_fmt(s_.get('pct_over_60s'))} |")
+                    f"{_fmt(s_['bias'])} | {_fmt(s_.get('pct_over_60s'))} | {_fmt(s_['pct_under_60s'])} | {_fmt(s_.get('espera_extra_media_s'))} |")
     return "\n".join(rows) + "\n"
 
 
@@ -160,14 +170,14 @@ def _fmt(v, nd=1):
 
 def metrics_to_markdown(title: str, metrics: dict) -> str:
     lines = [f"### {title}", ""]
-    hdr = "| bucket | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) | sobreest. >60 s (%) |"
-    sep = "|---|---:|---:|---:|---:|---:|---:|---:|"
+    hdr = "| bucket | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | llega antes >60 s (%) | llega después >60 s (%) | espera extra media (s) |"
+    sep = "|---|---:|---:|---:|---:|---:|---:|---:|---:|"
 
     def block(name, d):
         rows = [f"**{name}**", "", hdr, sep]
         for label, s in d.items():
             rows.append(f"| {label} | {s['n']} | {_fmt(s['mae'])} | {_fmt(s['p50'])} | {_fmt(s['p90'])} | "
-                        f"{_fmt(s['bias'])} | {_fmt(s['pct_under_60s'])} | {_fmt(s.get('pct_over_60s'))} |")
+                        f"{_fmt(s['bias'])} | {_fmt(s.get('pct_over_60s'))} | {_fmt(s['pct_under_60s'])} | {_fmt(s.get('espera_extra_media_s'))} |")
         return rows + [""]
 
     g = metrics["global"]

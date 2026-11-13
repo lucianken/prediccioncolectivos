@@ -22,7 +22,7 @@ import torch
 def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, max_groups: int | None,
           unk_line_p: float, workers: int, lines_file: Path, device: str = "cuda", seed: int = 0,
           resume: bool = False, stop_after_epoch: int | None = None, lr_trace: list | None = None,
-          shapes_dir=None) -> dict:
+          shapes_dir=None, loss_kind: str = "pinball") -> dict:
     """resume: retoma desde out_dir/path_eta_last.pt (guardado atómico al final de cada época; ver models/resume.py).
     stop_after_epoch / lr_trace: ganchos de test (cortar el run; registrar el LR de cada paso)."""
     from prediccion.models.eta_dataset import collate_identity
@@ -63,6 +63,8 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
               "max_groups": max_groups, "unk_line_p": unk_line_p, "seed": seed, "train_lines": train_lines}
     if start_unknown:
         config["start_unknown"] = True       # solo si está: los last.pt de runs v2 siguen reanudando
+    if loss_kind != "pinball":
+        config["loss"] = loss_kind           # solo si no es la default: los last.pt viejos siguen reanudando
     start_ep = 1
     if resume and last_p.exists():
         st = R.load_last(last_p, model=model, optimizer=opt, scheduler=sched, config=config)
@@ -78,7 +80,7 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         for b in tl:
             pred = run_model(model, b, dev)
             tgt = b["eta"].to(dev).squeeze(-1)
-            loss = pinball(pred, tgt, b["rem"].to(dev))
+            loss = pinball(pred, tgt, b["rem"].to(dev), loss_kind)
             if not torch.isfinite(loss):
                 opt.zero_grad(set_to_none=True)
                 continue
@@ -118,7 +120,7 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         if stop_after_epoch is not None and ep >= stop_after_epoch:
             return {"stopped_after_epoch": ep}
     total = time.time() - t0
-    res = {"model": "PathETAModel", "epochs": epochs, "batch_size": batch_size, "lr": lr, "best_epoch": best_ep,
+    res = {"model": "PathETAModel", "epochs": epochs, "batch_size": batch_size, "lr": lr, "loss": loss_kind, "best_epoch": best_ep,
            "best_val_mae_s": best, "last_val_mae_s": hist[-1]["val_mae_s"], "training_time_s": total,
            "n_params": n_params, "n_train_rows_approx": tr.approx_len, "history": hist}
     (out_dir / "path_eta_metrics.json").write_text(json.dumps(res, indent=1), encoding="utf-8")
@@ -139,10 +141,13 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--loss", choices=["l1", "pinball"], default="pinball",
+                    help="l1 = q 0,5 a toda distancia; pinball = q 0,5->0,8 bajo 1 km (default histórico)")
     ap.add_argument("--resume", action="store_true", help="retomar desde <out-dir>/path_eta_last.pt")
     a = ap.parse_args(argv)
     train(a.ml_dir, a.out_dir or a.ml_dir / "models_path", a.epochs, a.batch_size, a.lr, a.max_groups,
-          a.unk_line_p, a.workers, a.lines_file, a.device, seed=a.seed, resume=a.resume)
+          a.unk_line_p, a.workers, a.lines_file, a.device, seed=a.seed, resume=a.resume,
+          loss_kind=a.loss)
     return 0
 
 
