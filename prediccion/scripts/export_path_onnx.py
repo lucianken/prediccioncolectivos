@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-CONTRACT_VERSION = "1.2"
+CONTRACT_VERSION = "2.0"
 STATE_NAMES = ["speed_norm", "stopped", "ts_age_norm", "time_since_start_norm", "dist_along_norm_50km",
                "time_since_last_bus_norm", "last_bus_found", "dist_remaining_norm", "start_unknown"]
 
@@ -41,6 +41,7 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
     from prediccion.inference.path_onnx import INPUT_NAMES, OUTPUT_NAMES, export_onnx
     from prediccion.models.geo import ShapeGeo
     from prediccion.models.path_eta import (MAX_SEG, SEG_BASE_M, STOPPED_MPS, PathETAModel, load_shape_points)
+    from prediccion.v2 import geo_assign
     from prediccion.v2.shapes import DEFAULT_LINE_SHAPES_DIR
 
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
@@ -102,9 +103,10 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
             "speed_norm_div": 30.0, "speed_norm_max": 2.0, "ts_age_div": 600.0, "ts_age_max": 1.5, "ts_age_cap_s": 600.0,
             "tss_div": 3600.0, "tss_max": 4.0, "d0_div": 50000.0, "d0_max": 2.0, "tlb_cap_s": 3600.0,
             "rem_cap_m": 80000.0, "min_rem_m": 100.0, "m_per_deg_lat": 111320.0, "tz_offset_s": -3 * 3600,
-            "max_perp_m": 150.0, "min_forward_frac": 0.6, "user_max_perp_m": 100.0, "history_window_s": 900,
             "terminal_zone_m": 300.0,
         },
+        # asignación de ping a recorrido y sentido: valores de prediccion/v2/geo_assign.py (el cliente los usa tal cual)
+        "assignment": geo_assign.manifest_params(),
         "n_shapes": len(exported), "n_cells": n_cells_total,
         "files": {k: {"bytes": p.stat().st_size, "sha256": _sha(p)} for k, p in files.items()},
     }

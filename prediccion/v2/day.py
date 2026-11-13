@@ -28,6 +28,7 @@ from prediccion.pipeline.reader import reconstruct_lines_snapshots
 from prediccion.pipeline.segmenter import segment_vehicle_history
 from prediccion.pipeline.shapes_io import resolve_label_line_index
 from prediccion.pipeline.features import N_FLEET
+from prediccion.v2 import geo_assign
 from prediccion.v2.pairs import trip_seed
 from prediccion.v2.rows import trip_rows, add_trip_to_passage_cache
 from prediccion.v2.segmenter import GAP_S, START_UNKNOWN_M, segment_geometric
@@ -79,11 +80,12 @@ def read_meta(out_dir: Path, day: str) -> dict | None:
     return m if m.get("version") == META_VERSION else None
 
 
-def day_is_done(meta: dict | None, lines, k_pairs: int, include_fleet: bool, segmentation: str = "geo") -> bool:
+def day_is_done(meta: dict | None, lines, k_pairs: int, include_fleet: bool, segmentation: str = "geo",
+                assign: str = "legacy") -> bool:
     if meta is None:
         return False
     return (set(lines) <= set(meta["lines"]) and meta["k_pairs"] == k_pairs
-            and meta.get("segmentation") == segmentation
+            and meta.get("segmentation") == segmentation and meta.get("assign", "legacy") == assign
             and bool(meta.get("include_fleet")) == include_fleet)
 
 
@@ -171,7 +173,7 @@ def make_carry(vehicles: dict, day: str, lines, passages: dict | None) -> dict:
 
 
 def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineShapes | None = None,
-                     method: str = "geo", stats: dict | None = None):
+                     method: str = "geo", stats: dict | None = None, assign: str = "legacy"):
     """
     Segmenta cada vehículo en viajes. Setea line_number/agency_id (por sufijo del label).
     method="geo" (default v2): segmentador geométrico, no usa trip_id ni start_time (v2/segmenter.py).
@@ -188,7 +190,8 @@ def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineS
         carry_ts = rec.get("carry_ts", 0)
         if method in ("geo", "geo2"):
             found, vs = segment_geometric(vid, rec["obs"], shapes.indices(info["line"]) if shapes else {},
-                                          return_stats=True, segmenter_version=2 if method == "geo2" else 1)
+                                          return_stats=True, segmenter_version=2 if method == "geo2" else 1,
+                                          assign=assign)
             if stats is not None:
                 a = stats.setdefault(info["line"], {"pings": 0, "depot": 0, "moving_total": 0, "moving_valid": 0})
                 for k in ("pings", "depot", "moving_total", "moving_valid"):
@@ -210,14 +213,32 @@ def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineS
 
 # ── Geometría ────────────────────────────────────────────────────────────────
 
-def geometry_for_trip(trip, line_indices: dict[str, ShapeIndex], max_perp: float = MAX_PERP_ERROR_M):
+def geometry_for_trip(trip, line_indices: dict[str, ShapeIndex], max_perp: float = MAX_PERP_ERROR_M,
+                      assign: str = "legacy"):
     """
     Elige recorrido por geometría y proyecta el viaje. Retorna dict o None:
-      shape_id, median_perp, dist, perp (todos los puntos del viaje), valid (mask perp<=max_perp)
+      shape_id, median_perp, dist, perp (todos los puntos del viaje), valid (máscara de pings que generan filas)
+    assign="legacy": valid = perp <= max_perp (150 m).
+    assign="geo3": el recorrido se elige ex post (es la etiqueta), pero solo entre los recorridos compatibles con el
+      viaje según geo_assign (>= MIN_COMPAT_FRAC de sus pings compatibles; si ninguno, el de más pings compatibles);
+      valid = pings compatibles con el recorrido elegido (perp <= TOL_M y <= mínimo de la línea + MARGIN_M). Lo ex post
+      solo elige la etiqueta: la validez de cada ping es la regla causal, igual que en la app.
     """
     n = len(trip.points)
     lats = np.fromiter((p.lat for p in trip.points), dtype=np.float64, count=n)
     lons = np.fromiter((p.lon for p in trip.points), dtype=np.float64, count=n)
+    if assign == "geo3":
+        if not line_indices or n == 0:
+            return None
+        proj = {sid: ix.project_many(lats, lons) for sid, ix in line_indices.items()}
+        masks = geo_assign.compat_masks({sid: p for sid, (_, p) in proj.items()})
+        frac = {sid: float(m.mean()) for sid, m in masks.items()}
+        eligible = [sid for sid, f in frac.items() if f >= geo_assign.MIN_COMPAT_FRAC] or [max(frac, key=frac.get)]
+        sid, _ = best_shape_for_trip(lats, lons, {s: line_indices[s] for s in eligible},
+                                     max_perp_error_m=geo_assign.TOL_M)
+        dist, perp = proj[sid]
+        return {"shape_id": sid, "median_perp": float(np.median(perp)), "dist": dist, "perp": perp,
+                "valid": masks[sid]}
     sid, med = best_shape_for_trip(lats, lons, line_indices)
     if sid is None:
         return None
@@ -298,6 +319,7 @@ def process_day(
     force: bool = False,
     interval_s: int = 30,
     segmentation: str = "geo",
+    assign: str = "legacy",
 ) -> dict:
     """
     Procesa un día. Retorna el meta dict con meta["status"] en {"skipped", "processed"}
@@ -311,11 +333,11 @@ def process_day(
     paths = _paths(out_dir, day)
     lines = sorted(set(map(str, lines)))
     meta_old = read_meta(out_dir, day)
-    if not force and day_is_done(meta_old, lines, k_pairs, include_fleet, segmentation):
+    if not force and day_is_done(meta_old, lines, k_pairs, include_fleet, segmentation, assign):
         return {**meta_old, "status": "skipped"}
     if (meta_old and not force and meta_old["k_pairs"] == k_pairs
             and bool(meta_old.get("include_fleet")) == include_fleet
-            and meta_old.get("segmentation") == segmentation):
+            and meta_old.get("segmentation") == segmentation and meta_old.get("assign", "legacy") == assign):
         lines = sorted(set(lines) | set(meta_old["lines"]))   # unión: el resultado == build desde cero
 
     t0 = time.time()
@@ -339,7 +361,7 @@ def process_day(
     vehicles, stats, fleet = read_day(fp, label_map, lineset, carry, interval_s, include_fleet)
     geo2 = segmentation == "geo2"
     seg_stats: dict = {}
-    trips = segment_vehicles(vehicles, label_index, shapes, segmentation, seg_stats if geo2 else None)
+    trips = segment_vehicles(vehicles, label_index, shapes, segmentation, seg_stats if geo2 else None, assign)
     trips.sort(key=lambda t: t.start_time)
 
     passage_cache: dict = {}
@@ -360,7 +382,7 @@ def process_day(
         pl = per_line[ln]
         pl["trips"] += 1
         idx = shapes.indices(ln)
-        g = geometry_for_trip(trip, idx) if idx else None
+        g = geometry_for_trip(trip, idx, assign=assign) if idx else None
         rec = {"line": ln, "agency_id": trip.agency_id or "", "vehicle_id": trip.vehicle_id,
                "start_ts": int(trip.start_time), "n_points": len(trip.points),
                "route_id_diag": str(trip.route_id), "direction_id": int(trip.direction_id),
@@ -453,7 +475,10 @@ def process_day(
 
     meta = {
         "version": META_VERSION, "date": day, "lines": lines, "k_pairs": k_pairs,
-        "include_fleet": include_fleet, "segmentation": segmentation, "n_rows": int(n_rows), "n_trips": len(trip_recs),
+        "include_fleet": include_fleet, "segmentation": segmentation, "assign": assign,
+        "assign_params": geo_assign.manifest_params() if assign == "geo3" else None, "n_rows": int(n_rows), "n_trips": len(trip_recs),
+        "pings_in_shaped_trips": int(sum(r["n_points"] for r in trip_recs if r["shape_id"])),
+        "pings_valid": int(sum(r["n_valid"] for r in trip_recs if r["shape_id"])),
         "per_line": per_line, "carry_in": carry is not None,
         "line_stats": {ln: {"pings": s[0], "with_trip_id": s[1], "with_start_time": s[2]}
                        for ln, s in stats.items()},

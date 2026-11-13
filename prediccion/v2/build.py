@@ -76,7 +76,7 @@ def _run_chunk(args):
         try:
             m = process_day(d, lines, data_dir=Path(kw["data_dir"]), out_dir=Path(kw["out_dir"]), shapes=shapes,
                             label_data=label_data, k_pairs=kw["k_pairs"], include_fleet=kw["include_fleet"],
-                            force=kw["force"], segmentation=kw["segmentation"])
+                            force=kw["force"], segmentation=kw["segmentation"], assign=kw["assign"])
             out.append((d, m.get("status"), m["n_rows"], m["n_trips"], m["elapsed_s"], m["carry_in"], None))
         except Exception as exc:  # no tirar el build entero por un día corrupto
             out.append((d, "error", 0, 0, 0.0, False, f"{type(exc).__name__}: {exc}"))
@@ -85,11 +85,11 @@ def _run_chunk(args):
 
 def run_build(days: list[str], lines: list[str], *, data_dir, out_dir, shapes_dir, label_map, k_pairs: int,
               workers: int, include_fleet: bool = False, force: bool = False, chunk_days: int = 7,
-              segmentation: str = "geo", low_priority: bool = False) -> dict:
+              segmentation: str = "geo", low_priority: bool = False, assign: str = "legacy") -> dict:
     chunks = [days[i:i + chunk_days] for i in range(0, len(days), chunk_days)]
     kw = dict(data_dir=str(data_dir), out_dir=str(out_dir), shapes_dir=str(shapes_dir), label_map=str(label_map),
               k_pairs=k_pairs, include_fleet=include_fleet, force=force, segmentation=segmentation,
-              low_priority=low_priority)
+              low_priority=low_priority, assign=assign)
     jobs = [(c, lines, kw) for c in chunks]
     total = len(days)
     done = 0
@@ -138,6 +138,9 @@ def main(argv=None):
     ap.add_argument("--segmentation", choices=["geo", "geo2"], default="geo",
                     help="geo = segmentador v2 de siempre (default); geo2 = v2b: une huecos, arranca al salir de "
                          "cabecera, columna start_unknown y daily/*.waiting.parquet")
+    ap.add_argument("--assign", choices=["legacy", "geo3"], default="legacy",
+                    help="legacy = tolerancia de 150 m al recorrido (default; v2/v2b); geo3 = asignación de "
+                         "ping a recorrido de v2/geo_assign.py (TOL_M, MARGIN_M; igual que la app)")
     ap.add_argument("--low-priority", action="store_true", help="procesos en prioridad baja (BELOW_NORMAL)")
     ap.add_argument("--force", action="store_true", help="reprocesa aunque el día ya esté hecho")
     ap.add_argument("--no-assemble", action="store_true")
@@ -153,7 +156,7 @@ def main(argv=None):
         return 1
     if a.low_priority:
         set_low_priority()
-    print(f"v2 build: segmentación={a.segmentation}, {len(lines)} líneas, {len(days)} días ({days[0]} .. {days[-1]}), K={a.pairs_per_trip}, "
+    print(f"v2 build: segmentación={a.segmentation}, asignación={a.assign}, {len(lines)} líneas, {len(days)} días ({days[0]} .. {days[-1]}), K={a.pairs_per_trip}, "
           f"workers={a.workers}, out={a.out_dir}", flush=True)
 
     if sys.platform == "win32":
@@ -163,7 +166,7 @@ def main(argv=None):
         stats = run_build(days, lines, data_dir=a.data_dir, out_dir=a.out_dir, shapes_dir=a.shapes_dir,
                           label_map=a.label_map, k_pairs=a.pairs_per_trip, workers=a.workers,
                           include_fleet=a.include_fleet, force=a.force, chunk_days=a.chunk_days,
-                          segmentation=a.segmentation, low_priority=a.low_priority)
+                          segmentation=a.segmentation, low_priority=a.low_priority, assign=a.assign)
     finally:
         if sys.platform == "win32":
             ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)

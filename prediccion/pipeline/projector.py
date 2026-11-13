@@ -263,28 +263,12 @@ def project_trip(
 # ── Opción A (ARQUITECTURA.md §4.1): recorrido elegido por geometría ─────────
 
 MIN_FORWARD_FRAC = 0.6        # fracción mínima de avance "hacia adelante" para aceptar un recorrido
-_STEP_MOVING_M = 30.0         # pasos menores se consideran ruido de proyección / coche detenido
-_STEP_JUMP_M = 5_000.0        # pasos mayores son saltos (recorridos con bucles), no cuentan
 
 
 def _forward_fraction(dists: "np.ndarray", perps: "np.ndarray", max_perp_error_m: float) -> float:
-    """
-    Fracción del avance neto (en metros) que va en el sentido del recorrido.
-    1.0 = todo hacia adelante; 0.0 = el coche recorre el shape al revés (vuelta
-    proyectada sobre la ida, que comparte calles pero con sentido contrario).
-    Sin información (coche detenido, <2 puntos válidos) devuelve 1.0.
-    """
-    ok = perps <= max_perp_error_m
-    d = dists[ok]
-    if len(d) < 2:
-        return 1.0
-    steps = np.diff(d)
-    mag = np.abs(steps)
-    moving = (mag >= _STEP_MOVING_M) & (mag <= _STEP_JUMP_M)
-    fwd = float(steps[moving & (steps > 0)].sum())
-    bwd = float(-steps[moving & (steps < 0)].sum())
-    total = fwd + bwd
-    return fwd / total if total > 0 else 1.0
+    """Fracción del avance neto que va en el sentido del recorrido (definición única: v2/geo_assign.py)."""
+    from prediccion.v2.geo_assign import forward_fraction
+    return forward_fraction(dists, perps, max_perp_error_m)
 
 
 def best_shape_for_trip(
