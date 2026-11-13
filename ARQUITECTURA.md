@@ -65,7 +65,7 @@ Hoy los números no son comparables: A3 72 s (16,5 M filas val, solo 39), A1 158
 
 **Vara principal (desde 2026-11-13): banda de ETA real 3–7 min**, con dos números: MAE y % que llega antes de lo anunciado > 60 s. Es el rango en que el usuario decide cuándo salir. Por debajo de 2 min la predicción es inviable y no se usa para decidir. La tabla por bandas de ETA real (0–2, 2–4, 4–6, 6–8, 8–10, 10–15, 15–20 min: MAE, P90 del error absoluto, % llega antes >60 s, % llega después >60 s, espera extra media) la produce `prediccion.eval` (clave `by_eta_band` del JSON, última sección del markdown). Las tablas por bucket de arriba se mantienen como informativas.
 
-**Pérdida de entrenamiento (vigente desde 2026-11-13).** Pinball con q 0,5 lejos → 0,2 por debajo de 1 km (`--loss pinball_inv`): castiga más que el colectivo llegue antes de lo anunciado. `--loss l1` (q = 0,5 a toda distancia, mediana) es la referencia. `--loss pinball` (q 0,5 → 0,8 bajo 1 km) se conserva solo como default para reproducir corridas anteriores y reanudar sus checkpoints.
+**Pérdida de entrenamiento (vigente desde 2026-11-13).** El modelo por tramos se entrena con L1 (`--loss l1`, simétrica: q = 0,5 a toda distancia, mediana). La asimetría ante el error grave (colectivo que llega antes de lo anunciado) se resuelve en el producto, no en el entrenamiento: un factor de anuncio `a` en la app, con ETA mostrada = ETA predicha × (1 − a); hoy a = 0 (sin ajuste). `--loss pinball` (q 0,5 → 0,8 bajo 1 km; default del trainer para reproducir corridas anteriores y reanudar sus checkpoints), `--loss pinball_inv` (q 0,5 → 0,2 bajo 1 km) y `--loss pinball_band` (q 0,3 según la distancia restante, §6.2) son opciones del trainer y no se usan. Comparación en §7 ("Pérdida asimétrica vs ajuste en producto").
 
 **Registro de error (corregido el 2026-11-13).** Hasta esa fecha la pinball usaba q 0,5 → 0,8 bajo 1 km, lo que castigaba que el colectivo llegue después de lo anunciado, y la vara rotulaba "subest. >60 s (el usuario pierde el colectivo)" a las filas donde el colectivo llega después. Afecta a:
 - Modelos entrenados con esa pinball: todos los A3 y por tramos de `data/ml/models/`, `data/ml/v2/models_e2_geo/`, `data/ml/v2_39_k32/`, `data/ml/v2_39_k32_geo/`, `data/ml/v2_39_k64/`, `data/ml/v2_sub/conf/{a3_*,path_*}` y `data/ml/v2b_sub/runs/{a3_*,path_*}` (las corridas E0/E1/E2 de §6.4 y las de §7).
@@ -105,9 +105,11 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
    - **Validación antes de entrenar:** % de viajes que empiezan lejos de la cabecera (debería bajar mucho desde ~13 %), coherencia de `time_since_start` con la distancia recorrida, y duración de viajes por línea consistente con el recorrido.
    - Cambia los datos: el antes y el después no se comparan directamente. Se rearma el subconjunto con el segmentador nuevo y se re-miden A1 / A3+grilla / por tramos con la misma receta, **después** de cerrar la comparación con semillas del paso 4.
 
-**Experimento en curso: dónde actúa la asimetría de la pérdida (`--loss pinball_band`).** Un solo cambio respecto de `pinball_inv`: q depende de la distancia restante (entrada del modelo; nunca de la ETA real) y actúa en el rango donde cae la ETA 3–10 min. Banda [d_lo, d_hi] = p10 y p90 de la distancia restante de las filas de `data/ml/v2b_sub` (train) con ETA real 3–10 min (532 m y 2074 m); q = 0,30 dentro de la banda, rampa lineal a 0,5 en los 300 m afuera de cada borde, 0,5 en el resto. d_lo / d_hi / q / rampa quedan en `loss_cfg` del checkpoint y de `path_eta_metrics.json`. Receta idéntica (modelo por tramos, LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1); lanzador `prediccion/scripts/run_v2b_band.py`, salida en `data/ml/v2b_sub/runs_band/`. Se compara con `pinball`, `l1` y `pinball_inv` en la vara de la banda 3–7 min (§5) sobre `data/ml/v2b/eval` seen y heldout; tabla en `runs_band/comparacion.md`.
+**Opción de pérdida `--loss pinball_band`.** q depende de la distancia restante (entrada del modelo; nunca de la ETA real) y actúa en el rango donde cae la ETA 3–10 min. Banda [d_lo, d_hi] = p10 y p90 de la distancia restante de las filas de `data/ml/v2b_sub` (train) con ETA real 3–10 min (532 m y 2074 m); q = 0,30 dentro de la banda, rampa lineal a 0,5 en los 300 m afuera de cada borde, 0,5 en el resto. d_lo / d_hi / q / rampa quedan en `loss_cfg` del checkpoint y de `path_eta_metrics.json`. Corrida de comparación: modelo por tramos, LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1; lanzador `prediccion/scripts/run_v2b_band.py`, salida en `data/ml/v2b_sub/runs_band/`, tabla en `runs_band/comparacion.md`; resultados en §7.
 
-**Estado de producción:** modelo por tramos exportado para producción (versión inicial `data/ml/export/path_v2b_s0/`, script `prediccion/scripts/export_path_onnx.py`, contrato `prediccion/INFERENCIA_PATH.md`).
+**Estado de producción:** modelo por tramos exportado para producción: `path_v2b_s0` en `data/ml/export/path_v2b_s0/` (script `prediccion/scripts/export_path_onnx.py`, contrato `prediccion/INFERENCIA_PATH.md`). Entrenado con pinball q 0,5 → 0,8 bajo 1 km; en la banda 3–7 min rinde igual o mejor que L1. Se reemplaza en el próximo reentrenamiento por uno entrenado con L1.
+
+**Próximo paso propuesto:** evaluación en condiciones de producción por replay de días posteriores al entrenamiento grabados por el NUC, con la regla de candidatos de producción (`INFERENCIA_PATH.md`: sentido, shapes del usuario, pasa seguro / puede venir) contra el paso real del coche por el punto. Es la vara fija para lo que siga.
 
 ### 6.3 Qué se descarta y qué se reusa
 - **Se descarta:** seguir agregando inputs a A3 (metros, E3a/E3b como parche).
@@ -218,9 +220,31 @@ MAE en seen por inicio de viaje (desconocido / conocido): A3 v2b 128 / 104; A3 v
   3. Al modelo por tramos no lo mejora (103,3 → 103,1 en seen; 206,7 → 215,2 en heldout, dentro de la varianza entre semillas): ya no usaba fuerte `time_since_start`. Los datos limpios quedan como base igual (etiquetas y eval más honestos), pero el error que queda no es ruido de corte de viajes.
   4. Pendientes abiertos: subestimación del por tramos en líneas no vistas (45 % subest. >60 s, sesgo −24 a −34 s); filas de inicio desconocido ~25 % peores que las de inicio conocido; error en 20+ min.
 
+- **Pérdida asimétrica vs ajuste en producto (2026-11-13).** Banda de ETA real 3–7 min, eval v2b (`data/ml/v2b/eval`), media de 2 semillas; resultados en `data/ml/v2b_sub/runs_band/comparacion.md`. Cada celda: MAE (s) / % llega antes >60 s / % llega después >60 s.
+
+| Pérdida de entrenamiento | seen | heldout |
+|---|---|---|
+| `pinball` (q 0,5 → 0,8 bajo 1 km) | 53,3 / 17,2 / 16,6 | 82,8 / 18,1 / 30,7 |
+| `l1` | 55,3 / 15,1 / 20,4 | 85,5 / 16,4 / 35,7 |
+| `pinball_inv` (q 0,5 → 0,2 bajo 1 km) | 58,4 / 14,0 / 24,2 | 90,9 / 16,1 / 38,8 |
+| `pinball_band` (q 0,3 con distancia 532–2074 m, rampa 300 m) | 61,4 / 7,0 / 34,7 | 94,1 / 11,6 / 47,5 |
+
+  Ajuste multiplicativo posterior de la ETA predicha, misma banda, sin reentrenar:
+
+| Modelo base | Factor | seen | heldout |
+|---|---|---|---|
+| `pinball` (s0) | ×1,00 | 53,1 / 17,1 / 16,6 | |
+| `pinball` (s0) | ×0,95 | 52,6 / 11,9 / 21,8 | |
+| `pinball` (s0) | ×0,92 | 53,8 / 9,0 / 26,0 | |
+| `pinball` (s0) | ×0,89 | 55,9 / 6,8 / 30,7 | 83,8 / 10,3 / 43,0 |
+| `l1` (s0) | ×0,95 | 55,8 / 9,9 / 26,5 | |
+| `l1` (s0) | ×0,92 | 57,4 / 7,7 / 30,9 | |
+
+  **Conclusión:** la pérdida asimétrica no mejora la información del modelo, solo desplaza el anuncio; un factor posterior logra el mismo desplazamiento con menor MAE y sin reentrenar. Por eso la pérdida es L1 y el ajuste es un parámetro de producto (§5). El factor se calibró sobre el eval; si se usa, se calibra sobre val.
+
 ## 8. Decisiones previas que siguen vigentes (no re-discutir sin dato nuevo)
 
-Del plan histórico: modelo único para todas las líneas (§7); pinball asimétrica por distancia, q 0,5→0,8 bajo 1 km (§7b); distancia mínima 100 m (§7); `schedule_dev_norm` aporta poco pero positivo (Exp. 2); `time_since_last_bus_s` ambiguo (Exp. 2); umbral "llegando" `pred < 150 s OR dist < 300 m` (Exp. 1, reevaluar con el modelo nuevo); stop-to-stop y Transformer seq2seq postergados (§7, Fase 5); la flota de entrada es la de la agencia (§7).
+Del plan histórico: modelo único para todas las líneas (§7); pérdida L1 con el ajuste de anuncio en el producto (§5, §7); distancia mínima 100 m (§7); `schedule_dev_norm` aporta poco pero positivo (Exp. 2); `time_since_last_bus_s` ambiguo (Exp. 2); umbral "llegando" `pred < 150 s OR dist < 300 m` (Exp. 1, reevaluar con el modelo nuevo); stop-to-stop y Transformer seq2seq postergados (§7, Fase 5); la flota de entrada es la de la agencia (§7).
 
 ## 9. Inconsistencias conocidas en docs viejos
 
