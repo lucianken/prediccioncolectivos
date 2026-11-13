@@ -106,19 +106,25 @@ def test_predict_from_raw_de_punta_a_punta_sin_historial_ni_coche_de_adelante(to
         sh = bundle.lines[r.line][r.shape_id]
         d0, rem = float(r.dist_along_m), float(r.dist_remaining_m)
         p, t = sh.latlon_at(d0), sh.latlon_at(d0 + rem)
-        if abs(sh.project(*p)[0] - d0) > 1 or abs(sh.project(*t)[0] - d0 - rem) > 1:
+        if abs(sh.project(*p)[0] - d0) > 1 or abs(sh.project(*t)[0] - d0 - rem) > 1 or d0 < 700:
             continue
         out = predict_from_raw(bundle, r.line, {"lat": p[0], "lon": p[1], "speed_mps": float(r.speed_mps), "ts": float(r.ts_p)},
-                               t, float(r.ts_p) + float(r.ts_age_s), only_shapes=[r.shape_id])
+                               t, float(r.ts_p) + float(r.ts_age_s), history=_hist(sh, float(r.ts_p), [d0 - 600, d0 - 300]),
+                               only_shapes=[r.shape_id])
         assert out["status"] == "ok"
         cand = out["candidates"][0]
         assert abs(cand["eta_model_s"] - pred[i]) < 0.5
         assert out["eta_s"] == pytest.approx(max(0.0, cand["eta_model_s"] - r.ts_age_s))
         n += 1
-    assert n >= 20
+    assert n >= 10
 
 
 # ── comportamiento de la selección de candidatos (sin checkpoint: usa el export si existe) ─────────────────────
+
+def _hist(sh, ts, ds, dt=60.0):
+    """Pings previos del coche sobre el shape, en las distancias `ds` (ascendentes en el tiempo), el último `dt` antes de ts."""
+    return [{"ts": ts - dt * (len(ds) - i), "lat": sh.latlon_at(d)[0], "lon": sh.latlon_at(d)[1]} for i, d in enumerate(ds)]
+
 
 def _scenario(bundle, line="39"):
     shapes = bundle.lines[line]
@@ -143,10 +149,11 @@ def test_usuario_atras_del_coche_es_pasado_y_cerca_es_llegando():
     ts = 1.79e9
     veh = lambda d: {"lat": at(d)[0], "lon": at(d)[1], "speed_mps": 6.0, "ts": ts}  # noqa: E731
     only = [sh.id]
-    assert predict_from_raw(b, "39", veh(5000), at(3000), ts, only_shapes=only)["status"] == "pasado"
-    out = predict_from_raw(b, "39", veh(5000), at(5060), ts, only_shapes=only)
+    hist = _hist(sh, ts, [4400, 4700])
+    assert predict_from_raw(b, "39", veh(5000), at(3000), ts, history=hist, only_shapes=only)["status"] == "pasado"
+    out = predict_from_raw(b, "39", veh(5000), at(5060), ts, history=hist, only_shapes=only)
     assert out["status"] == "llegando" and out["eta_s"] == 0.0
-    out = predict_from_raw(b, "39", veh(5000), at(8000), ts, only_shapes=only)
+    out = predict_from_raw(b, "39", veh(5000), at(8000), ts, history=hist, only_shapes=only)
     assert out["status"] == "ok" and out["eta_s"] > 0
 
 
@@ -156,12 +163,13 @@ def test_historial_en_sentido_contrario_descarta_el_shape_y_en_sentido_correcto_
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
-    hist = lambda ds: [{"ts": ts - 60 * (len(ds) - i), "lat": at(d)[0], "lon": at(d)[1]} for i, d in enumerate(ds)]  # noqa: E731
+    hist = lambda ds: _hist(sh, ts, ds)  # noqa: E731
     veh = {"lat": at(5000)[0], "lon": at(5000)[1], "speed_mps": 6.0, "ts": ts}
     fw = predict_from_raw(b, "39", veh, at(8000), ts, history=hist([4000, 4400, 4800]), only_shapes=[sh.id])
     bw = predict_from_raw(b, "39", veh, at(8000), ts, history=hist([6000, 5600, 5300]), only_shapes=[sh.id])
     assert fw["status"] == "ok"
-    assert bw["status"] == "sin_candidatos"
+    assert bw["status"] == "sin_sentido" and bw["eta_s"] is None
+    assert {"shape_id": sh.id, "reason": "sentido_incoherente"} in bw["discarded"]
 
 
 @needs_data
@@ -176,7 +184,8 @@ def test_con_varios_candidatos_el_eta_anunciado_es_el_minimo():
             sa = shapes[a]
             veh = sa.latlon_at(min(2500.0, sa.length_m * 0.2))
             usr = sa.latlon_at(min(7000.0, sa.length_m * 0.6))
-            out = predict_from_raw(b, line, {"lat": veh[0], "lon": veh[1], "speed_mps": 5.0, "ts": ts}, usr, ts)
+            hist = _hist(sa, ts, [max(sa.length_m * 0.2 - 600, 0.0), max(sa.length_m * 0.2 - 300, 0.0)] if sa.length_m * 0.2 < 2500 else [1900.0, 2200.0])
+            out = predict_from_raw(b, line, {"lat": veh[0], "lon": veh[1], "speed_mps": 5.0, "ts": ts}, usr, ts, history=hist)
             if len(out["candidates"]) >= 2:
                 found = True
                 assert out["eta_s"] == pytest.approx(min(c["eta_s"] for c in out["candidates"]))
@@ -193,8 +202,9 @@ def test_coche_quieto_en_cabecera_se_marca():
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
-    p = at(20.0)
-    out = predict_from_raw(b, "39", {"lat": p[0], "lon": p[1], "speed_mps": 0.0, "ts": ts}, at(4000), ts, only_shapes=[sh.id])
+    p = at(250.0)
+    out = predict_from_raw(b, "39", {"lat": p[0], "lon": p[1], "speed_mps": 0.0, "ts": ts}, at(4000), ts,
+                           history=_hist(sh, ts, [0.0, 120.0]), only_shapes=[sh.id])
     assert out["status"] == "ok" and out["en_cabecera"] is True
 
 
@@ -205,8 +215,9 @@ def test_ping_viejo_se_descuenta_del_eta():
     sh, at = _scenario(b)
     ts = 1.79e9
     veh = {"lat": at(3000)[0], "lon": at(3000)[1], "speed_mps": 6.0, "ts": ts}
-    a = predict_from_raw(b, "39", veh, at(6000), ts, only_shapes=[sh.id])
-    c = predict_from_raw(b, "39", veh, at(6000), ts + 40, only_shapes=[sh.id])
+    hist = _hist(sh, ts, [2400, 2700])
+    a = predict_from_raw(b, "39", veh, at(6000), ts, history=hist, only_shapes=[sh.id])
+    c = predict_from_raw(b, "39", veh, at(6000), ts + 40, history=hist, only_shapes=[sh.id])
     assert a["candidates"][0]["eta_model_s"] > 0
     assert c["eta_s"] < a["eta_s"] + 1e-6 and c["eta_s"] == pytest.approx(max(0.0, c["candidates"][0]["eta_model_s"] - 40))
 
@@ -224,3 +235,90 @@ def test_coche_de_adelante_pasado_por_T_se_detecta_y_sin_pasar_no_se_encuentra()
     assert found and 450 < t < 550
     t2, found2 = last_bus(b.const, sh, [behind], 6000.0, ts)
     assert not found2 and t2 == 3600.0
+
+
+# ── regla de candidatos 1.1: sentido obligatorio, shapes del usuario, grupos ────────────────────────────────────
+
+def _veh_at(sh, d, ts, speed=6.0):
+    return {"lat": sh.latlon_at(d)[0], "lon": sh.latlon_at(d)[1], "speed_mps": speed, "ts": ts}
+
+
+@needs_data
+def test_sin_historial_no_hay_sentido_ni_eta():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    sh, at = _scenario(b)
+    ts = 1.79e9
+    out = predict_from_raw(b, "39", _veh_at(sh, 5000, ts), at(8000), ts)
+    assert out["status"] == "sin_sentido" and out["eta_s"] is None and out["group"] is None
+    # coche quieto: tampoco hay avance neto
+    out = predict_from_raw(b, "39", _veh_at(sh, 5000, ts, 0.0), at(8000), ts, history=_hist(sh, ts, [4990, 4995]))
+    assert out["status"] == "sin_sentido"
+
+
+@needs_data
+def test_coche_que_ya_paso_con_historial_no_recibe_eta_y_el_opuesto_no_lo_acepta():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    sh, at = _scenario(b)
+    ts = 1.79e9
+    out = predict_from_raw(b, "39", _veh_at(sh, 7000, ts), at(6000), ts, history=_hist(sh, ts, [6400, 6700]))
+    assert out["status"] == "pasado" and out["eta_s"] is None and out["group"] is None
+
+
+@needs_data
+def test_parada_que_sirve_un_solo_ramal_con_coche_en_el_tronco_es_puede_venir():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    shapes = list(b.lines["39"].values())
+    a = shapes[0]   # Ramal 1 ida; comparte el tronco con el Ramal 2 ida hasta ~14 km
+    ts = 1.79e9
+    stop = a.latlon_at(14870.0)
+    hist = _hist(a, ts, [7400, 7700])
+    out = predict_from_raw(b, "39", _veh_at(a, 8000, ts), stop, ts, history=hist, user_kind="parada", stop_recorridos=[a.name])
+    assert out["status"] == "ok" and out["group"] == "puede_venir"
+    assert a.id in out["depends_on"] and shapes[2].id not in out["depends_on"]
+    assert any(k["shape_id"] == shapes[2].id and not k["passes"] and k["reason"] == "no_sirve_parada" for k in out["compatible"])
+    # si la parada la sirven todos los recorridos del tronco, el coche pasa seguro
+    out = predict_from_raw(b, "39", _veh_at(a, 8000, ts), a.latlon_at(9500.0), ts, history=hist, user_kind="parada",
+                           stop_recorridos=[s.name for s in shapes])
+    assert out["group"] == "seguro" and out["eta_s"] > 0
+
+
+@needs_data
+def test_coche_en_ramal_unico_pasa_seguro():
+    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    b = load_bundle(EXPORT)
+    a = list(b.lines["39"].values())[4]   # Ramal 3 ida: entre ~11 y ~13,5 km ningún otro recorrido queda a < 150 m
+    ts = 1.79e9
+    out = predict_from_raw(b, "39", _veh_at(a, 12000, ts), a.latlon_at(13500.0), ts, history=_hist(a, ts, [11400, 11700]))
+    assert [k["shape_id"] for k in out["compatible"]] == [a.id] and out["group"] == "seguro"
+
+
+@needs_data
+def test_punto_cerca_de_un_shape_paralelo_descarta_la_paralela():
+    from prediccion.inference.path_reference import load_bundle, user_shapes
+    b = load_bundle(EXPORT)
+    found = False
+    for line, shapes in b.lines.items():
+        items = list(shapes.items())
+        for sid, sh in items:
+            for oid, other in items:
+                if oid == sid:
+                    continue
+                for d in range(500, int(sh.length_m) - 500, 100):
+                    pt = sh.latlon_at(float(d))
+                    perp = other.project(*pt)[1]
+                    if 20 <= perp <= 38 and sh.project(*pt)[1] < 5:
+                        us = user_shapes(b, line, pt)
+                        assert us[sid] == (True, None)
+                        assert us[oid] == (False, "paralela")
+                        found = True
+                        break
+                if found:
+                    break
+            if found:
+                break
+        if found:
+            break
+    assert found

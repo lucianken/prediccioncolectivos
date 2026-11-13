@@ -27,6 +27,7 @@ BASE_TS = 1784214000  # 2026-07-16 ~15:00 UTC, dia habil
 def _norm(r: dict) -> dict:
     return {
         "status": r["status"], "eta_s": r["eta_s"], "shape_id": r["shape_id"], "en_cabecera": r["en_cabecera"],
+        "group": r["group"], "depends_on": r["depends_on"], "compatible": r["compatible"], "discarded": r["discarded"],
         "candidates": [{k: (float(v) if isinstance(v, float) else v) for k, v in c.items()} for c in r["candidates"]],
     }
 
@@ -65,6 +66,90 @@ def _others(sh, d_t, now, rnd, n_buses):
     return res
 
 
+def _veh(sh, d, ts, speed=6.0):
+    la, lo = sh.latlon_at(d)
+    return {"lat": la, "lon": lo, "speed_mps": speed, "ts": ts}
+
+
+def _perp_to(other, sh, d):
+    la, lo = sh.latlon_at(d)
+    return other.project(la, lo)[1]
+
+
+def _scenarios(bundle, add, rnd):
+    """Casos de la regla de candidatos (sentido obligatorio, shapes del usuario, grupos seguro / puede venir)."""
+    now = BASE_TS + 54321
+    for line, shapes in bundle.lines.items():
+        items = list(shapes.items())
+        for sid, sh in items:
+            L = sh.length_m
+            if L < 6000:
+                continue
+            tag = f"{line}/{sid}"
+            d_p = L * 0.4
+            veh = _veh(sh, d_p, now - 10)
+            hist = _trail(sh, d_p, now - 10, 6, 200, 60)
+            ahead = sh.latlon_at(d_p + 1500)
+            behind = sh.latlon_at(d_p - 800)
+            # coche sin historial: sin sentido, no se predice
+            add(f"{tag}/sin_historial", line, veh, ahead, now)
+            # coche quieto con historial sin avance: sin sentido
+            add(f"{tag}/quieto_sin_avance", line, {**veh, "speed_mps": 0.0}, ahead, now, _trail(sh, d_p, now - 10, 5, 5, 60))
+            # coche con historial que ya paso por el punto
+            add(f"{tag}/ya_paso_con_historial", line, veh, behind, now, hist)
+            # coche con historial hacia adelante: punto adelante
+            add(f"{tag}/viene_con_historial", line, veh, ahead, now, hist)
+            # coche con historial al reves: va en sentido contrario al shape
+            add(f"{tag}/historial_al_reves", line, veh, ahead, now, _trail(sh, d_p, now - 10, 6, 200, 60, backward=True))
+            # parada que sirve solo este recorrido (por nombre), coche en el tronco o no
+            add(f"{tag}/parada_un_recorrido", line, veh, ahead, now, hist, user_kind="parada", stop_recorridos=[sh.name])
+            # parada servida por todos los recorridos de la linea
+            add(f"{tag}/parada_todos", line, veh, ahead, now, hist, user_kind="parada", stop_recorridos=[x.name for _, x in items])
+            # parada sin recorridos asociados: se asocia por distancia (<= 25 m)
+            add(f"{tag}/parada_por_distancia", line, veh, ahead, now, hist, user_kind="parada", stop_recorridos=None)
+            # parada con nombre que no existe: cae a la distancia
+            add(f"{tag}/parada_nombre_desconocido", line, veh, ahead, now, hist, user_kind="parada", stop_recorridos=["no existe"])
+
+            # recorridos paralelos: el punto esta a 45..100 m de otro shape
+            for oid, other in items:
+                if oid == sid or L < 3000:
+                    continue
+                for d_u in range(1000, int(L) - 500, 150):
+                    perp = _perp_to(other, sh, d_u)
+                    if 45 <= perp <= 100:
+                        user = sh.latlon_at(d_u)
+                        a_d = max(d_u - 1200, 200.0)
+                        add(f"{tag}/paralelo_{oid}/coche_en_este", line, _veh(sh, a_d, now - 10), user, now,
+                            _trail(sh, a_d, now - 10, 6, 200, 60))
+                        d_o = other.project(*user)[0]
+                        b_d = max(d_o - 1200, 200.0)
+                        add(f"{tag}/paralelo_{oid}/coche_en_paralelo", line, _veh(other, b_d, now - 10), user, now,
+                            _trail(other, b_d, now - 10, 6, 200, 60))
+                        break
+                else:
+                    continue
+                break
+
+            # ramal unico: coche en un tramo donde ningun otro shape queda a menos de 200 m, punto adelante sobre este shape
+            for d_b in range(1000, int(L) - 3000, 200):
+                if all(_perp_to(o, sh, d_b) > 200 and _perp_to(o, sh, d_b - 600) > 200 for oid, o in items if oid != sid):
+                    a_d = d_b + 1500
+                    add(f"{tag}/ramal_unico", line, _veh(sh, d_b, now - 10), sh.latlon_at(a_d), now,
+                        _trail(sh, d_b, now - 10, 6, 100, 60))
+                    break
+
+    # linea 39: coche en el tronco compartido de los tres ramales y parada que solo sirve el Ramal 1 (Cordoba y Dorrego)
+    if "39" in bundle.lines:
+        shapes = bundle.lines["39"]
+        a = next(iter(shapes.values()))
+        names_a = [a.name]
+        la, lo = a.latlon_at(14870.0)
+        for d_b in (4000.0, 8000.0, 12500.0):
+            add(f"39/tronco_compartido_{int(d_b)}", "39", _veh(a, d_b, now - 10), (la, lo), now,
+                _trail(a, d_b, now - 10, 6, 150, 60), user_kind="parada", stop_recorridos=names_a)
+        add("39/tronco_compartido_punto_gps", "39", _veh(a, 8000.0, now - 10), (la, lo), now, _trail(a, 8000.0, now - 10, 6, 150, 60))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--export", required=True)
@@ -76,10 +161,12 @@ def main():
     bundle = load_bundle(a.export)
     cases = []
 
-    def add(name, line, vehicle, user, now, history=None, others=None):
-        r = predict_from_raw(bundle, line, vehicle, user, now, history=history, others=others)
+    def add(name, line, vehicle, user, now, history=None, others=None, user_kind="punto", stop_recorridos=None):
+        r = predict_from_raw(bundle, line, vehicle, user, now, history=history, others=others, user_kind=user_kind,
+                             stop_recorridos=stop_recorridos)
         cases.append({"name": name, "line": line, "vehicle": vehicle, "user": list(user), "now_ts": now,
-                      "history": history or [], "others": others or [], "expected": _norm(r)})
+                      "history": history or [], "others": others or [], "user_kind": user_kind,
+                      "stop_recorridos": stop_recorridos, "expected": _norm(r)})
 
     for line, shapes in bundle.lines.items():
         for sid, sh in shapes.items():
@@ -98,7 +185,9 @@ def main():
                 veh = {"lat": vla, "lon": vlo, "speed_mps": speed, "ts": now - age}
                 hist = others = None
                 kind = i % 4
-                if kind == 1:
+                if kind == 0:
+                    hist = _trail(sh, d_p, now - age, 6, 250, 45)
+                elif kind == 1:
                     hist = _trail(sh, d_p, now - age, 20, 250, 45, jitter=15, rnd=rnd)
                 elif kind == 2:
                     hist = _trail(sh, d_p, now - age, 15, 250, 45, backward=True)
@@ -112,23 +201,30 @@ def main():
             now = BASE_TS + 12345
             d_p = min(400.0, L * 0.1)
             la, lo = sh.latlon_at(d_p)
+            h_p = _trail(sh, d_p, now, 4, 100, 30)
+            h_p = h_p if d_p >= 400 else _trail(sh, d_p, now, 3, 130, 30)
             ula, ulo = sh.latlon_at(min(d_p + 70, L))
-            add(f"{line}/{sid}/llegando", line, {"lat": la, "lon": lo, "speed_mps": 6.0, "ts": now}, (ula, ulo), now)
+            add(f"{line}/{sid}/llegando", line, {"lat": la, "lon": lo, "speed_mps": 6.0, "ts": now}, (ula, ulo), now, h_p)
             ula, ulo = sh.latlon_at(max(d_p - 600, 0.0)) if d_p > 700 else sh.latlon_at(0.0)
-            add(f"{line}/{sid}/pasado", line, {"lat": la, "lon": lo, "speed_mps": 6.0, "ts": now}, (ula, ulo), now)
+            add(f"{line}/{sid}/pasado", line, {"lat": la, "lon": lo, "speed_mps": 6.0, "ts": now}, (ula, ulo), now, h_p)
             la0, lo0 = sh.latlon_at(60.0)
             ula, ulo = sh.latlon_at(min(L * 0.5, 6000.0))
-            add(f"{line}/{sid}/cabecera", line, {"lat": la0, "lon": lo0, "speed_mps": 0.0, "ts": now - 30}, (ula, ulo), now)
+            add(f"{line}/{sid}/cabecera", line, {"lat": la0, "lon": lo0, "speed_mps": 0.0, "ts": now - 30}, (ula, ulo), now,
+                _trail(sh, 60.0, now - 30, 2, 30, 30))
             fl, fo = _offset(la, lo, 400.0, 0.0)
             ula, ulo = sh.latlon_at(min(d_p + 2000, L))
-            add(f"{line}/{sid}/coche_fuera_del_recorrido", line, {"lat": fl, "lon": fo, "speed_mps": 5.0, "ts": now}, (ula, ulo), now)
+            add(f"{line}/{sid}/coche_fuera_del_recorrido", line, {"lat": fl, "lon": fo, "speed_mps": 5.0, "ts": now}, (ula, ulo), now, h_p)
             ul2, ulo2 = _offset(ula, ulo, 0.0, 600.0)
-            add(f"{line}/{sid}/usuario_lejos_del_recorrido", line, {"lat": la, "lon": lo, "speed_mps": 5.0, "ts": now}, (ul2, ulo2), now)
-            add(f"{line}/{sid}/ping_viejo", line, {"lat": la, "lon": lo, "speed_mps": 4.0, "ts": now - 500}, (ula, ulo), now)
+            add(f"{line}/{sid}/usuario_lejos_del_recorrido", line, {"lat": la, "lon": lo, "speed_mps": 5.0, "ts": now}, (ul2, ulo2), now, h_p)
+            add(f"{line}/{sid}/ping_viejo", line, {"lat": la, "lon": lo, "speed_mps": 4.0, "ts": now - 500}, (ula, ulo), now,
+                _trail(sh, d_p, now - 500, 4, 100, 30))
             # camino de largo maximo: coche al inicio, usuario al final del shape
             la1, lo1 = sh.latlon_at(150.0)
             ula, ulo = sh.latlon_at(L - 5.0)
-            add(f"{line}/{sid}/camino_completo", line, {"lat": la1, "lon": lo1, "speed_mps": 7.0, "ts": now - 10}, (ula, ulo), now)
+            add(f"{line}/{sid}/camino_completo", line, {"lat": la1, "lon": lo1, "speed_mps": 7.0, "ts": now - 10}, (ula, ulo), now,
+                _trail(sh, 150.0, now - 10, 3, 50, 30))
+
+    _scenarios(bundle, add, rnd)
 
     # linea fuera del modelo y velocidad ausente
     sh = next(iter(bundle.lines["39"].values()))
@@ -146,7 +242,11 @@ def main():
     for c in cases:
         s = c["expected"]["status"]
         by[s] = by.get(s, 0) + 1
-    print(f"{len(cases)} casos -> {p} ({p.stat().st_size / 1024:.0f} KB); estados: {by}")
+    groups = {}
+    for c in cases:
+        g = c["expected"]["group"]
+        groups[g] = groups.get(g, 0) + 1
+    print(f"{len(cases)} casos -> {p} ({p.stat().st_size / 1024:.0f} KB); estados: {by}; grupos: {groups}")
 
 
 if __name__ == "__main__":

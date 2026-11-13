@@ -1,4 +1,4 @@
-# Inferencia del modelo por tramos en el navegador (contrato 1.0)
+# Inferencia del modelo por tramos en el navegador (contrato 1.1)
 
 Spec para implementar en JS (`onnxruntime-web`) la predicción de ETA del modelo por tramos (`models/path_eta.py`, ARQUITECTURA §6.2).
 Especificación ejecutable: `prediccion/inference/path_reference.py` (`predict_from_raw`), probada contra el pipeline de eval en `prediccion/tests/test_path_export.py`. Ante duda, manda el código de referencia.
@@ -39,7 +39,7 @@ El grafo recibe los tramos ya armados y devuelve el ETA; el cliente solo arma ge
 | `dist_along` normalizada, `stopped`, `dist_remaining` normalizada | derivadas | derivadas por candidato |
 | `time_since_last_bus`, `last_bus_found` ("coche de adelante") | tiempo desde que el viaje anterior de otro coche pasó por T (tope 3600 s), sobre el shape elegido ex post | **parcial**: solo con historial de otros coches guardado por el cliente (§6); si no, `3600 s` y `found = 0` |
 | escala de la suma de tramos (10.ª componente del estado) | `log1p(suma)/8` | la calcula el ONNX |
-| historial del propio coche (`traj_flat`) | lo usa el A3 viejo; este modelo no lo usa | solo para elegir el sentido (§4) |
+| historial del propio coche (`traj_flat`) | lo usa el A3 viejo; este modelo no lo usa | obligatorio para conocer el sentido (§4) |
 | flota / tránsito / `schedule_dev` | no entran en este modelo | — |
 
 Medido sobre 20.000 filas de eval (v2b, MAE de la red): real 102,4 s; forzando `start_unknown = 1` y `time_since_start = 0` 103,1 s (+0,65); además sin coche de adelante 103,5 s. Las condiciones de producción cuestan < 1 % del error. El 16 % de las filas de eval ya tiene `start_unknown = 1`.
@@ -59,13 +59,27 @@ Dado un shape candidato con `d_P` (m desde su inicio), `rem = d_T − d_P ≥ 10
 
 Proyección de un punto sobre un shape (`Shape.project`): distancia acumulada con ángulo pequeño (`dy = Δlat·111320`, `dx = Δlon·111320·cos(lat media del segmento)`); segmento de menor distancia perpendicular con `t` recortado a [0, 1]; devuelve `(metros desde el inicio, perp)`. Recorrer todos los segmentos (≤ ~720 puntos por shape) alcanza.
 
-Para cada shape de la línea (cada sentido es un shape distinto):
+### Reglas de candidatos (contrato 1.1)
 
-1. `perp_P ≤ 150 m` y `perp_T ≤ 100 m` (`max_perp_m`, `user_max_perp_m`).
-2. **Sentido coherente con el historial reciente del coche**: pings propios de los últimos 15 min (`history_window_s`) proyectados sobre el shape; ≥ 80 % a ≤ 150 m y fracción de avance hacia adelante ≥ 0,6 (`forward_fraction`: de los pasos de entre 30 m y 5 km, metros avanzados / metros totales). Sin historial o coche quieto: se acepta.
-3. Orden: `rem = d_T − d_P`. `rem < 0`: el coche ya pasó en ese shape (se descarta). `0 ≤ rem < 100`: "llegando". `rem ≥ 100`: candidato.
+Constantes del cliente (no están en el manifest; mismos valores en `path_reference.py` y `core.js`): `MIN_NET_FORWARD_M = 40`, `POINT_MAX_PERP_M = 40`, `POINT_PARALLEL_MARGIN_M = 15`, `STOP_FALLBACK_PERP_M = 25`. `user_max_perp_m` (100) solo acota las paradas asociadas por nombre.
 
-Con ≥ 1 candidato se **anuncia el mínimo** de los ETA (el error grave es que el colectivo llegue antes de lo anunciado). Sin candidatos: "llegando" si alguno estaba a < 100 m, "ya pasó" si alguno tenía `rem < 0`, si no "sin candidatos". Los shapes con bucles pueden proyectar al pasaje equivocado; el historial lo acota pero es una limitación conocida.
+**Shapes que sirven el punto del usuario** (`user_shapes`):
+
+- Parada elegida (`user_kind = "parada"`): los shapes cuyo nombre figura en `stop_recorridos` (recorridos que la lista como parada, con perp ≤ `user_max_perp_m`). Sin coincidencia por nombre (o sin `stop_recorridos`): los shapes a ≤ `STOP_FALLBACK_PERP_M`. El resto: `no_sirve_parada`.
+- Ubicación GPS o toque en el mapa (`user_kind = "punto"`): los shapes a ≤ `POINT_MAX_PERP_M`; entre ellos solo los de perp ≤ (perp mínima + `POINT_PARALLEL_MARGIN_M`); el resto: `paralela`. Más lejos: `usuario_fuera_del_recorrido`.
+
+**Shapes compatibles de un coche**: shape de la línea con `perp_P ≤ 150 m` (`max_perp_m`) y sentido conocido y hacia adelante. Sentido (`_sense`): pings propios de los últimos 15 min (`history_window_s`) anteriores al ping actual, más el ping actual, proyectados sobre el shape. Se exige: ≥ 2 pings a ≤ 150 m (si no, `sin_sentido`); ≥ 80 % de los pings a ≤ 150 m y `forward_fraction ≥ 0,6` (pasos de entre 30 m y 5 km, metros avanzados / totales); avance neto (último menos primero de los pings a ≤ 150 m) ≥ `MIN_NET_FORWARD_M`. Con avance neto ≤ −`MIN_NET_FORWARD_M`, `forward_fraction` bajo o pings lejos del shape: `sentido_incoherente`; con avance neto entre −40 m y 40 m: `sin_sentido`. Sin historial o coche quieto no hay sentido: no se predice.
+
+**Orden en cada shape compatible**: si no sirve el punto del usuario, no pasa (motivo de `user_shapes`). Si sirve: `rem = d_T − d_P`; `rem < 0` no pasa (`ya_paso`); `0 ≤ rem < 100` pasa como "llegando"; `rem ≥ 100` pasa como candidato con ETA.
+
+**Estado y grupo del coche**:
+
+- Sin shapes compatibles: `sin_sentido` si algún shape queda a ≤ 150 m; si no, `sin_candidatos`. Sin ETA.
+- Ningún compatible pasa: `pasado` si alguno tenía `rem < 0`; si no, `sin_candidatos`. Sin ETA.
+- Todos los compatibles pasan: grupo `seguro`. Solo algunos: grupo `puede_venir`, con `depends_on` = shapes compatibles que pasan (el ramal del que depende el arribo).
+- Con grupo, el ETA anunciado es el **mínimo** de los ETA de los shapes que pasan (el error grave es que el colectivo llegue antes de lo anunciado); `llegando` (ETA 0) si algún shape que pasa tiene `0 ≤ rem < 100`. Los shapes con bucles pueden proyectar al pasaje equivocado; el historial lo acota pero es una limitación conocida.
+
+Salida de `predict_from_raw`: `status` (`ok | llegando | pasado | sin_sentido | sin_candidatos | linea_fuera_del_modelo`), `eta_s`, `shape_id`, `candidates`, `en_cabecera`, `group` (`seguro | puede_venir | null`), `depends_on`, `compatible` (`{shape_id, passes, reason}`) y `discarded` (`{shape_id, reason}`). Motivos: `coche_fuera_del_recorrido`, `sin_sentido`, `sentido_incoherente`, `no_sirve_parada`, `paralela`, `usuario_fuera_del_recorrido`, `ya_paso`.
 
 ## 5. `start_unknown` en producción
 
@@ -78,9 +92,9 @@ Si el cliente guarda pings recientes de otros coches de la línea `[(ts, lat, lo
 ## 7. Casos límite
 
 - **Línea fuera del modelo** (`manifest.lines`): no predecir (el índice 0 "desconocida" no se usa en producción). Hoy: 26, 39, 42, 50, 92, 106, 107, 108, 124, 132, 151, 168.
-- **Coche ya pasó** (`rem < 0` en todos los candidatos): "ya pasó", sin ETA.
+- **Coche ya pasó** (`rem < 0` en todos los compatibles que sirven el punto): "ya pasó", sin ETA.
 - **`rem < 100 m`**: "llegando"; el modelo no se entrenó por debajo de 100 m.
-- **Coche quieto en cabecera** (`speed < 0,5` y `d_P < 300 m`, `en_cabecera = true`): el modelo no predice cuándo sale el coche (ARQUITECTURA §6.2.5.B). Mostrar "en cabecera" y el ETA como cota inferior.
+- **Coche quieto en cabecera** (`speed < 0,5` y `d_P < 300 m`, con sentido conocido: avanzó ≥ 40 m en la ventana; `en_cabecera = true`): el modelo no predice cuándo sale el coche (ARQUITECTURA §6.2.5.B). Mostrar "en cabecera" y el ETA como cota inferior.
 - **Ping viejo**: se descuenta la antigüedad (§3.6). Con ping de más de ~10 min, no predecir.
 - **Camino > 39,5 km**: tramos de múltiplo de 250 m (§3.2); sigue válido.
 - **Coche fuera del recorrido** (`perp > 150 m` en todos los shapes: depósito, desvío): no predecir.

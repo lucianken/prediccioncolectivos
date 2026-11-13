@@ -21,6 +21,12 @@ import numpy as np
 STATE_FALLBACK_TLB_S = 3600.0
 FALLBACK_M = 250.0       # radio del fallback de "coche de adelante" (ping más cercano a T)
 
+# Reglas de candidatos (contrato 1.1, INFERENCIA_PATH.md §4). No viven en el manifest: son del cliente.
+MIN_NET_FORWARD_M = 40.0        # avance neto mínimo del coche sobre el shape para dar por conocido su sentido
+POINT_MAX_PERP_M = 40.0         # punto GPS / tocado en el mapa: distancia máxima a un shape para que "pase por ahí"
+POINT_PARALLEL_MARGIN_M = 15.0  # entre los shapes que pasan, se conservan los de perp <= mínima + este margen
+STOP_FALLBACK_PERP_M = 25.0     # parada sin recorridos asociados por nombre: se asocia al shape a <= esta distancia
+
 
 # ── carga ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +36,7 @@ class Shape:
     def __init__(self, d: dict, m_per_deg_lat: float):
         pts = np.asarray(d["points"], dtype=np.float64).reshape(-1, 2)
         self.id, self.name, self.length_m = d["id"], d.get("name", ""), d["length_m"]
+        self.short_name = d.get("short_name", "")
         self.pts = pts
         self.cells = np.asarray(d["cells"], dtype=np.float64).reshape(-1, 2)
         lat_mid = (pts[:-1, 0] + pts[1:, 0]) / 2.0
@@ -191,17 +198,66 @@ def forward_fraction(dists, perps, max_perp: float) -> float:
     return float(fwd / (fwd + bwd)) if fwd + bwd > 0 else 1.0
 
 
-def _history_ok(c: dict, shape: Shape, pings: list[dict], now_ts: float) -> bool:
-    """Historia reciente del coche coherente con el shape: ≥ 80 % de los pings a <= max_perp y sentido hacia adelante."""
-    pings = [p for p in pings if now_ts - p["ts"] <= c["history_window_s"]]
-    if not pings:
-        return True
-    pr = [shape.project(p["lat"], p["lon"]) for p in pings]
-    d = np.array([x[0] for x in pr])
-    pp = np.array([x[1] for x in pr])
-    if (pp <= c["max_perp_m"]).mean() < 0.8:
-        return False
-    return forward_fraction(d, pp, c["max_perp_m"]) >= c["min_forward_frac"]
+def _sense(c: dict, shape: Shape, pings: list[dict], vehicle: dict, now_ts: float) -> tuple[bool, str | None]:
+    """
+    Sentido del coche sobre el shape, con sus pings de los últimos history_window_s más el ping actual. Devuelve
+    (True, None) si es coherente y hacia adelante, o (False, motivo): "sin_sentido" (< 2 pings sobre el shape o avance
+    neto < MIN_NET_FORWARD_M: no se sabe hacia dónde va) | "sentido_incoherente" (se aleja del shape, retrocede o va al revés).
+    """
+    ps = [p for p in pings if now_ts - p["ts"] <= c["history_window_s"] and p["ts"] < vehicle["ts"]]
+    ps = sorted(ps, key=lambda p: p["ts"]) + [{"ts": vehicle["ts"], "lat": vehicle["lat"], "lon": vehicle["lon"]}]
+    pr = [shape.project(p["lat"], p["lon"]) for p in ps]
+    near = [x for x in pr if x[1] <= c["max_perp_m"]]
+    if len(near) < 2:
+        return False, "sin_sentido"
+    if len(near) / len(pr) < 0.8:
+        return False, "sentido_incoherente"
+    if forward_fraction([x[0] for x in pr], [x[1] for x in pr], c["max_perp_m"]) < c["min_forward_frac"]:
+        return False, "sentido_incoherente"
+    net = near[-1][0] - near[0][0]
+    if net <= -MIN_NET_FORWARD_M:
+        return False, "sentido_incoherente"
+    if net < MIN_NET_FORWARD_M:
+        return False, "sin_sentido"
+    return True, None
+
+
+def user_shapes(bundle: Bundle, line: str, user: tuple[float, float], user_kind: str = "punto",
+                stop_recorridos: list[str] | None = None) -> dict[str, tuple[bool, str | None]]:
+    """
+    Shapes de la línea que sirven el punto del usuario: {shape_id: (sirve, motivo si no)}.
+    "parada": los shapes cuyo nombre está en stop_recorridos (y a <= user_max_perp_m); si ninguno coincide por nombre,
+      los shapes a <= STOP_FALLBACK_PERP_M. Resto: "no_sirve_parada".
+    "punto" (GPS o toque en el mapa): shapes a <= POINT_MAX_PERP_M; entre ellos solo los de perp <= mínima +
+      POINT_PARALLEL_MARGIN_M (el resto: "paralela"); más lejos: "usuario_fuera_del_recorrido".
+    """
+    c = bundle.const
+    perps = {sid: sh.project(*user)[1] for sid, sh in bundle.lines[line].items()}
+    out: dict[str, tuple[bool, str | None]] = {}
+    if user_kind == "parada":
+        names = set(stop_recorridos or [])
+        by_name = {sid for sid, sh in bundle.lines[line].items() if sh.name in names}
+        for sid in perps:
+            if by_name:
+                if sid not in by_name:
+                    out[sid] = (False, "no_sirve_parada")
+                elif perps[sid] > c["user_max_perp_m"]:
+                    out[sid] = (False, "usuario_fuera_del_recorrido")
+                else:
+                    out[sid] = (True, None)
+            else:
+                out[sid] = (True, None) if perps[sid] <= STOP_FALLBACK_PERP_M else (False, "no_sirve_parada")
+        return out
+    within = [p for p in perps.values() if p <= POINT_MAX_PERP_M]
+    lim = (min(within) + POINT_PARALLEL_MARGIN_M) if within else None
+    for sid, p in perps.items():
+        if p > POINT_MAX_PERP_M:
+            out[sid] = (False, "usuario_fuera_del_recorrido")
+        elif p > lim:
+            out[sid] = (False, "paralela")
+        else:
+            out[sid] = (True, None)
+    return out
 
 
 def last_bus(c: dict, shape: Shape, others: list[dict], d_t: float, ts_ping: float) -> tuple[float, bool]:
@@ -235,47 +291,82 @@ def last_bus(c: dict, shape: Shape, others: list[dict], d_t: float, ts_ping: flo
 
 def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float, float], now_ts: float,
                      history: list[dict] | None = None, others: list[dict] | None = None,
-                     only_shapes: list[str] | None = None) -> dict:
+                     only_shapes: list[str] | None = None, user_kind: str = "punto",
+                     stop_recorridos: list[str] | None = None) -> dict:
     """
     line: línea ya resuelta por el sufijo del label. vehicle: {lat, lon, speed_mps, ts} (último ping del coche; ts = hora
     del ping, unix s). user: (lat, lon). now_ts: hora de la consulta (unix s). history: pings anteriores del mismo coche
     [{ts, lat, lon}] ascendentes (puede ser []). others: otros coches de la línea con historial (puede ser []).
+    user_kind: "punto" (GPS o mapa) o "parada"; stop_recorridos: nombres de los recorridos que sirven la parada.
 
-    Devuelve {"status", "eta_s", "shape_id", "candidates": [...], "en_cabecera"}; status:
-      ok | llegando (rem < min_rem_m) | pasado (el coche ya pasó al usuario en todos los candidatos) |
-      sin_candidatos | linea_fuera_del_modelo
-    eta_s es el MÍNIMO entre candidatos, medido desde now_ts (eta del modelo − antigüedad del ping, >= 0).
+    Devuelve {"status", "eta_s", "shape_id", "candidates", "en_cabecera", "group", "depends_on", "compatible", "discarded"}.
+      status: ok | llegando (rem < min_rem_m en algún shape que sirve el punto) | pasado (el coche ya pasó al usuario en
+              todos sus shapes compatibles) | sin_sentido (sentido aún desconocido) | sin_candidatos | linea_fuera_del_modelo
+      group: "seguro" (todos los shapes compatibles del coche sirven el punto y el usuario está adelante) |
+             "puede_venir" (solo algunos: depends_on lista los shapes de los que depende) | None.
+      compatible: [{shape_id, passes, reason}]; discarded: [{shape_id, reason}] de los shapes que no son candidatos.
+    eta_s es el MÍNIMO entre los shapes que pasan por el punto, medido desde now_ts (eta del modelo − antigüedad del ping).
     """
     c = bundle.const
+    empty = {"status": "linea_fuera_del_modelo", "eta_s": None, "shape_id": None, "candidates": [], "en_cabecera": False,
+             "group": None, "depends_on": [], "compatible": [], "discarded": []}
     if line not in bundle.lines:
-        return {"status": "linea_fuera_del_modelo", "eta_s": None, "shape_id": None, "candidates": [], "en_cabecera": False}
+        return empty
     age = max(0.0, now_ts - vehicle["ts"])
-    cands, llegando, pasado = [], False, False
+    us = user_shapes(bundle, line, user, user_kind, stop_recorridos)
+    cands, compat, discarded = [], [], []
+    llegando = pasado = near_any = False
     for sid, sh in bundle.lines[line].items():
         if only_shapes is not None and sid not in only_shapes:
             continue
         d_p, perp_p = sh.project(vehicle["lat"], vehicle["lon"])
-        d_t, perp_t = sh.project(*user)
-        if perp_p > c["max_perp_m"] or perp_t > c["user_max_perp_m"]:
+        if perp_p > c["max_perp_m"]:
+            discarded.append({"shape_id": sid, "reason": "coche_fuera_del_recorrido"})
             continue
-        if not _history_ok(c, sh, history or [], now_ts):
+        near_any = True
+        ok, why = _sense(c, sh, history or [], vehicle, now_ts)
+        if not ok:
+            discarded.append({"shape_id": sid, "reason": why})
             continue
+        serves, why = us[sid]
+        if not serves:
+            compat.append({"shape_id": sid, "passes": False, "reason": why})
+            discarded.append({"shape_id": sid, "reason": why})
+            continue
+        d_t, _ = sh.project(*user)
         rem = d_t - d_p
         if rem < 0:
             pasado = True
+            compat.append({"shape_id": sid, "passes": False, "reason": "ya_paso"})
+            discarded.append({"shape_id": sid, "reason": "ya_paso"})
             continue
         if rem < c["min_rem_m"]:
             llegando = True
+            compat.append({"shape_id": sid, "passes": True, "reason": "llegando"})
             continue
         tlb, lbf = last_bus(c, sh, others or [], d_t, vehicle["ts"]) if others else (STATE_FALLBACK_TLB_S, False)
         cands.append({"shape": sh, "d0": d_p, "rem": rem, "tlb": tlb, "lbf": lbf})
-    en_cab = False
+        compat.append({"shape_id": sid, "passes": True, "reason": None})
+    res = {**empty, "compatible": compat, "discarded": discarded}
+    if not compat:
+        res["status"] = "sin_sentido" if near_any else "sin_candidatos"
+        return res
+    if not any(k["passes"] for k in compat):
+        res["status"] = "pasado" if pasado else "sin_candidatos"
+        return res
+    res["group"] = "seguro" if all(k["passes"] for k in compat) else "puede_venir"
+    if res["group"] == "puede_venir":
+        res["depends_on"] = [k["shape_id"] for k in compat if k["passes"]]
+    out = []
     if cands:
         etas = eta_on_shapes(bundle, line, cands, vehicle["ts"], vehicle.get("speed_mps", 0.0), min(age, c["ts_age_cap_s"]))
         out = [{"shape_id": k["shape"].id, "d_p": k["d0"], "rem_m": k["rem"], "eta_model_s": float(e),
                 "eta_s": max(0.0, float(e) - age), "last_bus_found": k["lbf"]} for k, e in zip(cands, etas)]
-        best = min(out, key=lambda r: r["eta_s"])
-        en_cab = (vehicle.get("speed_mps", 0.0) or 0.0) < c["stopped_mps"] and best["d_p"] < c["terminal_zone_m"]
-        return {"status": "ok", "eta_s": best["eta_s"], "shape_id": best["shape_id"], "candidates": out, "en_cabecera": en_cab}
-    status = "llegando" if llegando else "pasado" if pasado else "sin_candidatos"
-    return {"status": status, "eta_s": 0.0 if llegando else None, "shape_id": None, "candidates": [], "en_cabecera": False}
+    res["candidates"] = out
+    if llegando:
+        res["status"], res["eta_s"] = "llegando", 0.0
+        return res
+    best = min(out, key=lambda r: r["eta_s"])
+    res.update(status="ok", eta_s=best["eta_s"], shape_id=best["shape_id"],
+               en_cabecera=(vehicle.get("speed_mps", 0.0) or 0.0) < c["stopped_mps"] and best["d_p"] < c["terminal_zone_m"])
+    return res
