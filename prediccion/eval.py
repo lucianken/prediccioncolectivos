@@ -39,6 +39,10 @@ ETA_BUCKETS_S = [("0-5 min", 0.0, 300.0), ("5-10 min", 300.0, 600.0), ("10-20 mi
 DIST_BUCKETS_M = [("<500 m", 0.0, 500.0), ("0,5-2 km", 500.0, 2000.0), ("2-5 km", 2000.0, 5000.0),
                   ("5+ km", 5000.0, math.inf)]
 UNDER_THRESHOLD_S = 60.0
+# Distancia más fina (diagnóstico distancia/línea): 0-0,5, 0,5-1, 1-2, 2-3, 3-5, 5-8, 8-12, 12+ km
+DIST_FINE_M = [("0-0,5 km", 0.0, 500.0), ("0,5-1 km", 500.0, 1000.0), ("1-2 km", 1000.0, 2000.0),
+               ("2-3 km", 2000.0, 3000.0), ("3-5 km", 3000.0, 5000.0), ("5-8 km", 5000.0, 8000.0),
+               ("8-12 km", 8000.0, 12000.0), ("12+ km", 12000.0, math.inf)]
 # Desglose por fase del viaje (solo reporte; no cambia los números de la vara)
 START_TIME_S = 300.0      # P en los primeros 5 min del viaje (time_since_start)...
 START_DIST_M = 1000.0     # ...o a menos de 1 km del inicio del shape
@@ -51,7 +55,8 @@ A0_V_FLOOR_MPS = 3.0
 def _stats(pred: np.ndarray, true: np.ndarray) -> dict:
     n = len(pred)
     if n == 0:
-        return {"n": 0, "mae": None, "p50": None, "p90": None, "bias": None, "pct_under_60s": None}
+        return {"n": 0, "mae": None, "p50": None, "p90": None, "bias": None, "pct_under_60s": None,
+                "pct_over_60s": None}
     err = pred - true                      # + = sobreestima
     ae = np.abs(err)
     return {
@@ -61,10 +66,12 @@ def _stats(pred: np.ndarray, true: np.ndarray) -> dict:
         "p90": float(np.percentile(ae, 90)),
         "bias": float(err.mean()),
         "pct_under_60s": float(100.0 * np.mean((true - pred) > UNDER_THRESHOLD_S)),
+        # sobreestima: pred - real > 60 s (el colectivo llega antes de lo predicho)
+        "pct_over_60s": float(100.0 * np.mean((pred - true) > UNDER_THRESHOLD_S)),
     }
 
 
-def compute_metrics(pred, true, dist) -> dict:
+def compute_metrics(pred, true, dist, line=None) -> dict:
     """
     pred, true: ETA predicho / real en segundos; dist: distancia restante en metros.
     Retorna {"global": {...}, "by_eta": {label: {...}}, "by_dist": {label: {...}}}.
@@ -80,6 +87,16 @@ def compute_metrics(pred, true, dist) -> dict:
     for label, lo, hi in DIST_BUCKETS_M:
         m = (dist >= lo) & (dist < hi)
         out["by_dist"][label] = _stats(pred[m], true[m])
+    out["by_dist_fine"] = {}
+    for label, lo, hi in DIST_FINE_M:
+        m = (dist >= lo) & (dist < hi)
+        out["by_dist_fine"][label] = _stats(pred[m], true[m])
+    if line is not None:
+        line = np.asarray(line).astype(str)
+        out["by_line"] = {}
+        for ln in sorted(set(line.tolist()), key=lambda x: (len(x), x)):
+            m = line == ln
+            out["by_line"][ln] = _stats(pred[m], true[m])
     return out
 
 
@@ -120,20 +137,20 @@ def compute_start_unknown_breakdown(pred, true, start_unknown) -> dict:
 
 def start_unknown_to_markdown(d: dict) -> str:
     rows = ["**Por inicio del viaje conocido / desconocido** (v2b: `start_unknown`)", "",
-            "| inicio | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) |", "|---|---:|---:|---:|---:|---:|---:|"]
+            "| inicio | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) | sobreest. >60 s (%) |", "|---|---:|---:|---:|---:|---:|---:|---:|"]
     for label, s_ in d.items():
         rows.append(f"| {label} | {s_['n']} | {_fmt(s_['mae'])} | {_fmt(s_['p50'])} | {_fmt(s_['p90'])} | "
-                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} |")
+                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} | {_fmt(s_.get('pct_over_60s'))} |")
     return "\n".join(rows) + "\n"
 
 
 def phase_to_markdown(phase: dict) -> str:
-    hdr = "| fase | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) |"
+    hdr = "| fase | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) | sobreest. >60 s (%) |"
     rows = ["**Por fase del viaje** (inicio = primeros 5 min o <1 km del inicio del shape; detenido = <0,5 m/s)", "",
-            hdr, "|---|---:|---:|---:|---:|---:|---:|"]
+            hdr, "|---|---:|---:|---:|---:|---:|---:|---:|"]
     for label, s_ in phase.items():
         rows.append(f"| {label} | {s_['n']} | {_fmt(s_['mae'])} | {_fmt(s_['p50'])} | {_fmt(s_['p90'])} | "
-                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} |")
+                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} | {_fmt(s_.get('pct_over_60s'))} |")
     return "\n".join(rows) + "\n"
 
 
@@ -143,20 +160,24 @@ def _fmt(v, nd=1):
 
 def metrics_to_markdown(title: str, metrics: dict) -> str:
     lines = [f"### {title}", ""]
-    hdr = "| bucket | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) |"
-    sep = "|---|---:|---:|---:|---:|---:|---:|"
+    hdr = "| bucket | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) | sobreest. >60 s (%) |"
+    sep = "|---|---:|---:|---:|---:|---:|---:|---:|"
 
     def block(name, d):
         rows = [f"**{name}**", "", hdr, sep]
         for label, s in d.items():
             rows.append(f"| {label} | {s['n']} | {_fmt(s['mae'])} | {_fmt(s['p50'])} | {_fmt(s['p90'])} | "
-                        f"{_fmt(s['bias'])} | {_fmt(s['pct_under_60s'])} |")
+                        f"{_fmt(s['bias'])} | {_fmt(s['pct_under_60s'])} | {_fmt(s.get('pct_over_60s'))} |")
         return rows + [""]
 
     g = metrics["global"]
     lines += block("Global (informativo, no decide)", {"global": g})
     lines += block("Por ETA real", metrics["by_eta"])
     lines += block("Por distancia restante", metrics["by_dist"])
+    if "by_dist_fine" in metrics:
+        lines += block("Por distancia restante (fina)", metrics["by_dist_fine"])
+    if "by_line" in metrics:
+        lines += block("Por línea", metrics["by_line"])
     return "\n".join(lines)
 
 
@@ -254,7 +275,7 @@ def _model_name(spec: str) -> str:
 
 def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None = None,
              sdn: Path | None = None, out_dir: Path | None = None, eval_path: Path | None = None,
-             v_floor: float = A0_V_FLOOR_MPS, tag: str | None = None) -> dict:
+             v_floor: float = A0_V_FLOOR_MPS, tag: str | None = None, save_preds: bool = False) -> dict:
     v2_dir = Path(v2_dir)
     path = eval_path or (v2_dir / "eval" / f"eval_{which}.parquet")
     out_dir = Path(out_dir or v2_dir / "eval")
@@ -300,7 +321,7 @@ def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None 
 
     true = df["observed_eta_s"].to_numpy(np.float64)
     dist = df["dist_remaining_m"].to_numpy(np.float64)
-    m = compute_metrics(pred[keep], true[keep], dist[keep])
+    m = compute_metrics(pred[keep], true[keep], dist[keep], df["line"].to_numpy()[keep])
     start, stopped = phase_masks(df["time_since_start"], df["dist_along_m"], df["speed_mps"])
     result_phase = compute_phase_breakdown(pred[keep], true[keep], start[keep], stopped[keep])
     su_mask = np.isnan(df["time_since_start"].to_numpy(np.float64))
@@ -322,6 +343,8 @@ def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None 
     if result_su is not None:
         md = md + "\n" + start_unknown_to_markdown(result_su)
     (out_dir / f"{stem}.md").write_text(md + "\n", encoding="utf-8")
+    if save_preds:   # predicciones por fila (mismo orden que el parquet de eval) para diagnósticos posteriores
+        np.save(out_dir / f"{stem}.pred.npy", pred.astype(np.float32))
     result["json_path"] = str(out_dir / f"{stem}.json")
     result["markdown"] = md
     return result
@@ -336,9 +359,10 @@ def main(argv=None):
     ap.add_argument("--tag", default=None, help="sufijo del archivo de salida cuando se usa --lines (default: _L<lineas>)")
     ap.add_argument("--out-dir", type=Path, default=None, help="directorio de salida (default: <v2-dir>/eval)")
     ap.add_argument("--sdn", type=Path, default=None, help="schedule_dev_medians.json a usar con a3")
+    ap.add_argument("--save-preds", action="store_true", help="guarda <stem>.pred.npy con la predicción por fila")
     ap.add_argument("--v-floor", type=float, default=A0_V_FLOOR_MPS)
     a = ap.parse_args(argv)
-    r = run_eval(a.model, a.which, a.v2_dir, a.lines.split(",") if a.lines else None, a.sdn, out_dir=a.out_dir, v_floor=a.v_floor, tag=a.tag)
+    r = run_eval(a.model, a.which, a.v2_dir, a.lines.split(",") if a.lines else None, a.sdn, out_dir=a.out_dir, v_floor=a.v_floor, tag=a.tag, save_preds=a.save_preds)
     print(r["markdown"])
     print(f"\n-> {r['json_path']}")
     return 0

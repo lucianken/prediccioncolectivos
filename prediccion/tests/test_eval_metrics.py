@@ -83,3 +83,18 @@ def test_desglose_por_fase_separa_inicio_y_detenido_sin_tocar_las_metricas_globa
     assert ph["global sin inicio de viaje"]["mae"] == pytest.approx(15.0)
     assert ph["global"]["mae"] == pytest.approx(compute_metrics(pred, true, along)["global"]["mae"])
     assert ph["inicio y detenido"]["n"] + ph["inicio y en movimiento"]["n"] == ph["inicio de viaje"]["n"]
+
+
+def test_sobreestimacion_y_desgloses_por_linea_y_distancia_fina():
+    import numpy as np
+    from prediccion.eval import compute_metrics
+    pred = np.array([200.0, 100.0, 100.0, 500.0])
+    true = np.array([100.0, 100.0, 300.0, 100.0])
+    dist = np.array([300.0, 700.0, 2500.0, 13000.0])
+    line = np.array(["a", "a", "b", "b"])
+    m = compute_metrics(pred, true, dist, line)
+    assert m["global"]["pct_over_60s"] == 50.0       # filas 0 y 3
+    assert m["global"]["pct_under_60s"] == 25.0      # fila 2
+    assert m["by_dist_fine"]["0-0,5 km"]["n"] == 1
+    assert m["by_dist_fine"]["12+ km"]["pct_over_60s"] == 100.0
+    assert m["by_line"]["a"]["n"] == 2 and m["by_line"]["b"]["pct_under_60s"] == 50.0
