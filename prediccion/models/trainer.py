@@ -300,7 +300,10 @@ def train_phase3(
     logger.info(f"[train_phase3] DataLoaders ready: {time.time()-t_loader:.2f}s")
 
     t_model = time.time()
-    model = A3ETAModel(d_model=d_model, city_grid=city_grid).to(actual_device)
+    # v2b: si el parquet trae `start_unknown`, el modelo recibe esa entrada (0/1); con datos v2 la arquitectura no cambia
+    import pyarrow.parquet as _pq
+    start_unknown = "start_unknown" in _pq.ParquetFile(str(train_parquet)).schema_arrow.names
+    model = A3ETAModel(d_model=d_model, city_grid=city_grid, start_unknown=start_unknown).to(actual_device)
     n_params = sum(p.numel() for p in model.parameters())
     n_params_grid = sum(p.numel() for p in model.city_grid.parameters()) if city_grid else 0
     print(f"      Parámetros: {n_params:,} (city_grid: {'sí, ' + format(n_params_grid, ',') + ' en la grilla + primera Linear' if city_grid else 'no'})")
@@ -355,6 +358,8 @@ def train_phase3(
         "d_model": d_model, "use_fleet": use_fleet, "city_grid": city_grid, "max_groups": max_groups,
         "fleet_same_dir_cap": fleet_same_dir_cap, "patience": patience, "select_by": select_by, "seed": seed,
     }
+    if start_unknown:
+        run_config["start_unknown"] = True      # solo si está: los last.pt de runs v2 siguen reanudando
     if resume and last_ckpt_path.exists():
         st = _resume.load_last(last_ckpt_path, model=model, optimizer=optimizer, scheduler=scheduler,
                                config=run_config)
@@ -445,6 +450,7 @@ def train_phase3(
                 lbf          = batch.get("last_bus_found",        batch["has_active_bus"] * 0).to(actual_device)
                 eta_target   = batch["eta_seconds"].to(actual_device)
                 geo          = batch["geo"].to(actual_device) if city_grid else None
+                su           = batch["start_unknown"].to(actual_device) if start_unknown else None
                 # No synchronize aquí — .to() es async, medir sin frenar el pipeline
                 t1 = _time.perf_counter()
                 acc["todev"] += t1 - t0
@@ -456,7 +462,7 @@ def train_phase3(
                 with autocast(device_type=actual_device, dtype=amp_dtype, enabled=use_amp):
                     pred = model(
                         traj, traj_mask, fleet, fleet_mask,
-                        h_sin, h_cos, dow, dist_rem, tss, ts_age, has_bus, sdn, tlb, lbf, geo,
+                        h_sin, h_cos, dow, dist_rem, tss, ts_age, has_bus, sdn, tlb, lbf, geo, su,
                     )
                     loss = criterion(pred, eta_target, dist_rem_m)
                 # No synchronize — forward es async hasta que necesitemos el valor
@@ -669,6 +675,7 @@ def train_phase3(
         "lr_initial": lr,
         "use_fleet": use_fleet,
         "city_grid": city_grid,
+        "start_unknown": start_unknown,
         "n_params": n_params,
         "d_model": d_model,
         "max_groups": max_groups,
@@ -734,6 +741,12 @@ def _export_a3_onnx(model, onnx_path: Path, device: str) -> None:
     if getattr(model, "city_grid_enabled", False):
         ex = ex + (torch.tensor([[-34.6, -58.4, -34.6, -58.4]], device=device),)  # geo: lat/lon de P y T
         input_names = input_names + ["geo"]
+    if getattr(model, "start_unknown_enabled", False):
+        if not getattr(model, "city_grid_enabled", False):
+            print("      WARN: ONNX con start_unknown sin city_grid no soportado; se omite el export")
+            return
+        ex = ex + (torch.zeros(1, 1, device=device),)    # start_unknown
+        input_names = input_names + ["start_unknown"]
 
     try:
         torch.onnx.export(

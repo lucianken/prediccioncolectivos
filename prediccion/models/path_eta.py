@@ -35,7 +35,7 @@ from prediccion.models.a3_eta import CityGridEncoder, TimeEncoder
 
 SEG_BASE_M = 250.0
 MAX_SEG = 160
-N_STATE = 9
+N_STATE = 9            # estado del coche; con start_unknown (v2b) son 10 (ver PathETAModel.n_state)
 _LOG1P_3600 = math.log1p(3600.0)
 
 
@@ -120,7 +120,8 @@ def load_shape_points(lines, shapes_dir=None) -> dict[str, list]:
 class IndexMaps:
     """shape_id / línea -> índice. Liviano y picklable (lo usan los workers del DataLoader, sin el modelo)."""
 
-    def __init__(self, shape_ids, line_ids):
+    def __init__(self, shape_ids, line_ids, start_unknown: bool = False):
+        self.start_unknown = bool(start_unknown)
         self._s = {s: i for i, s in enumerate(shape_ids)}
         self._l = {s: i + 1 for i, s in enumerate(line_ids)}       # 0 = línea desconocida
 
@@ -134,13 +135,15 @@ class IndexMaps:
 class PathETAModel(nn.Module):
     def __init__(self, shape_ids: list[str], seg_lat, seg_lon, shape_off, line_ids: list[str],
                  max_seg: int = MAX_SEG, grid_dim: int = 16, line_dim: int = 16, hidden: int = 96,
-                 grid_cell_m: float = 500.0):
+                 grid_cell_m: float = 500.0, start_unknown: bool = False):
         super().__init__()
+        self.start_unknown = bool(start_unknown)      # v2b: una entrada más al ajuste global (inicio desconocido 0/1)
+        self.n_state = N_STATE + (1 if start_unknown else 0)
         self.shape_ids = list(shape_ids)
         self.line_ids = list(line_ids)             # índice 0 reservado para "línea desconocida"
         self.max_seg = int(max_seg)
         self.cfg = {"max_seg": self.max_seg, "grid_dim": grid_dim, "line_dim": line_dim, "hidden": hidden,
-                    "grid_cell_m": grid_cell_m}
+                    "grid_cell_m": grid_cell_m, "start_unknown": self.start_unknown}
         self.register_buffer("seg_lat", torch.as_tensor(np.asarray(seg_lat), dtype=torch.float32))
         self.register_buffer("seg_lon", torch.as_tensor(np.asarray(seg_lon), dtype=torch.float32))
         self.register_buffer("shape_off", torch.as_tensor(np.asarray(shape_off), dtype=torch.long))
@@ -154,7 +157,7 @@ class PathETAModel(nn.Module):
                                      nn.Linear(64, 1))
         with torch.no_grad():
             self.seg_mlp[-1].bias.fill_(-1.8)        # softplus(-1,8) ~ 0,15 s/m ~ 6,7 m/s al arrancar
-        self.adj = nn.Sequential(nn.Linear(N_STATE + 16, 64), nn.GELU(), nn.Linear(64, 32), nn.GELU(), nn.Linear(32, 1))
+        self.adj = nn.Sequential(nn.Linear(self.n_state + 16, 64), nn.GELU(), nn.Linear(64, 32), nn.GELU(), nn.Linear(32, 1))
         with torch.no_grad():
             self.adj[-1].weight.zero_()              # arranca como suma pura de tramos
             self.adj[-1].bias.zero_()
@@ -162,7 +165,7 @@ class PathETAModel(nn.Module):
     # índices ---------------------------------------------------------------
     @property
     def maps(self) -> IndexMaps:
-        return IndexMaps(self.shape_ids, self.line_ids)
+        return IndexMaps(self.shape_ids, self.line_ids, self.start_unknown)
 
     def shape_index(self, shape_ids) -> np.ndarray:
         return self.maps.shape_index(shape_ids)
@@ -207,7 +210,8 @@ class PathETAModel(nn.Module):
         total = times.sum(dim=1)
         a_in = torch.cat([state, time_row], dim=-1)
         # el término de tramos entra al ajuste como escala (log), para que pueda hablar de proporciones
-        a_in = torch.cat([a_in[:, :N_STATE - 1], (torch.log1p(total.detach()) / 8.0)[:, None], a_in[:, N_STATE:]], dim=-1)
+        n = self.n_state
+        a_in = torch.cat([a_in[:, :n - 1], (torch.log1p(total.detach()) / 8.0)[:, None], a_in[:, n:]], dim=-1)
         adj = self.adj(a_in).squeeze(-1)
         return total + adj, total, adj
 
@@ -230,11 +234,19 @@ PATH_COLS = ["line", "shape_id", "dist_along_m", "dist_remaining_m", "dist_along
              "hour_cos", "dow", "observed_eta_s", "time_since_start", "ts_age_s", "time_since_last_bus_s",
              "last_bus_found"]
 STOPPED_MPS = 0.5
+OPTIONAL_COLS = ["start_unknown"]      # v2b; si el parquet no la trae, start_unknown = 0 (o NaN en time_since_start)
 
 
-def state_features(speed, ts_age, tss, d0, tlb, lbf, rem) -> np.ndarray:
+def read_cols(parquet_path) -> list[str]:
+    import pyarrow.parquet as pq
+    names = set(pq.ParquetFile(str(parquet_path)).schema_arrow.names)
+    return PATH_COLS + [c for c in OPTIONAL_COLS if c in names]
+
+
+def state_features(speed, ts_age, tss, d0, tlb, lbf, rem, start_unknown=None) -> np.ndarray:
     """(N, N_STATE): velocidad, detenido, antigüedad GPS, tiempo de viaje, m desde inicio, hace cuánto el anterior
-    (+ encontrado), distancia restante; la columna N_STATE-1 la reserva el modelo para la escala de la suma."""
+    (+ encontrado), distancia restante; la columna N_STATE-1 la reserva el modelo para la escala de la suma. Con `start_unknown`
+    (array 0/1) se agrega esa entrada antes de la reservada: (N, N_STATE + 1). time_since_start NaN cuenta como 0."""
     speed = np.nan_to_num(np.asarray(speed, np.float32))
     cols = [
         np.clip(speed / 30.0, 0.0, 2.0),
@@ -245,8 +257,10 @@ def state_features(speed, ts_age, tss, d0, tlb, lbf, rem) -> np.ndarray:
         np.log1p(np.clip(np.nan_to_num(np.asarray(tlb, np.float32)), 0.0, 3600.0)) / _LOG1P_3600,
         np.nan_to_num(np.asarray(lbf, np.float32)),
         np.log1p(np.clip(np.asarray(rem, np.float32), 0.0, 80000.0)) / math.log1p(80000.0),
-        np.zeros(len(speed), np.float32),
     ]
+    if start_unknown is not None:
+        cols.append(np.asarray(start_unknown, np.float32))
+    cols.append(np.zeros(len(speed), np.float32))
     return np.stack(cols, axis=1).astype(np.float32)
 
 
@@ -267,9 +281,15 @@ def table_to_batch(df: dict, model: "PathETAModel | IndexMaps", max_eta_s: float
     lidx = model.line_index(np.asarray(df["line"], dtype=object)[v])
     if train and unk_line_p > 0:
         lidx = np.where(np.random.random(len(lidx)) < unk_line_p, 0, lidx)
+    tss = np.asarray(df["time_since_start"], np.float32)[v]
+    su = None
+    if getattr(model, "start_unknown", False):
+        su = np.isnan(tss)
+        if "start_unknown" in df:
+            su = su | np.asarray(df["start_unknown"]).astype(bool)[v]
     state = state_features(np.asarray(df["speed_mps"])[v], np.asarray(df["ts_age_s"])[v],
-                           np.asarray(df["time_since_start"])[v], d0, np.asarray(df["time_since_last_bus_s"])[v],
-                           np.asarray(df["last_bus_found"])[v], rem[v])
+                           tss, d0, np.asarray(df["time_since_last_bus_s"])[v],
+                           np.asarray(df["last_bus_found"])[v], rem[v], su)
     batch = {
         "shape_idx": torch.from_numpy(sidx[v]), "line_idx": torch.from_numpy(lidx),
         "d0": torch.from_numpy(d0), "rem": torch.from_numpy(rem[v]),
@@ -298,6 +318,7 @@ class PathETADataset(torch.utils.data.IterableDataset):
         self.bs = batch_size
         self.shuffle = shuffle
         self.unk_line_p = unk_line_p
+        self.cols = read_cols(self.path)
         pf = pq.ParquetFile(self.path)
         total = pf.metadata.num_row_groups
         self.n_groups = min(total, max_groups) if max_groups else total
@@ -318,8 +339,8 @@ class PathETADataset(torch.utils.data.IterableDataset):
             np.random.shuffle(groups)
         pf = pq.ParquetFile(self.path)
         for g in groups:
-            tbl = pf.read_row_group(g, columns=PATH_COLS)
-            df = {c: (tbl[c].to_pylist() if c in ("line", "shape_id") else np.asarray(tbl[c])) for c in PATH_COLS}
+            tbl = pf.read_row_group(g, columns=self.cols)
+            df = {c: (tbl[c].to_pylist() if c in ("line", "shape_id") else np.asarray(tbl[c])) for c in self.cols}
             batch, v = table_to_batch(df, self.model, train=self.shuffle, unk_line_p=self.unk_line_p)
             n = len(v)
             order = np.random.permutation(n) if self.shuffle else np.arange(n)
@@ -341,8 +362,9 @@ def predict_path(parquet_path, ckpt_path, n_expected: int, batch_size: int = 819
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
     model = PathETAModel.from_checkpoint(ckpt).to(device).eval()
-    tbl = pq.read_table(parquet_path, columns=PATH_COLS)
-    df = {c: (tbl[c].to_pylist() if c in ("line", "shape_id") else np.asarray(tbl[c])) for c in PATH_COLS}
+    cols = read_cols(parquet_path)
+    tbl = pq.read_table(parquet_path, columns=cols)
+    df = {c: (tbl[c].to_pylist() if c in ("line", "shape_id") else np.asarray(tbl[c])) for c in cols}
     batch, v = table_to_batch(df, model)
     if len(v) != n_expected:
         raise RuntimeError(f"path_eta predijo {len(v)} filas pero el eval tiene {n_expected}")

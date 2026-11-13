@@ -62,7 +62,7 @@ _BASE_COLS = [
 ]
 _OPTIONAL_COLS = [
     "time_since_start", "ts_age_s", "traj_flat", "traj_len", "fleet_flat", "n_fleet",
-    "time_since_last_bus_s", "last_bus_found",
+    "time_since_last_bus_s", "last_bus_found", "start_unknown",
 ]
 
 import math as _math
@@ -227,8 +227,15 @@ class ETADataset(IterableDataset):
         has_bus_arr  = df["has_active_bus"].astype(np.float32)
         eta_clipped  = np.clip(eta_arr, 1.0, self._max_eta)
 
-        tss_raw = df["time_since_start"].astype(np.float32) if "time_since_start" in df \
-            else np.zeros(len(eta_arr), dtype=np.float32)
+        tss_raw = df["time_since_start"].astype(np.float32) if "time_since_start" in df             else np.zeros(len(eta_arr), dtype=np.float32)
+        # v2b: inicio desconocido => time_since_start = NaN. Se imputa 0 y se avisa con start_unknown (0/1);
+        # en datos v2 (sin la columna ni NaN) start_unknown = 0 y todo queda como antes.
+        tss_nan = np.isnan(tss_raw)
+        su_arr = tss_nan.copy()
+        if "start_unknown" in df:
+            su_arr |= df["start_unknown"].astype(bool)
+        su_arr = su_arr.astype(np.float32)
+        tss_raw = np.where(tss_nan, 0.0, tss_raw).astype(np.float32)
         tss_arr = tss_raw / 3600.0  # normalizar a horas (0-3.3h)
         ts_age_arr = (df["ts_age_s"].astype(np.float32) / 600.0) if "ts_age_s" in df \
             else np.zeros(len(eta_arr), dtype=np.float32)  # normalizar a 0-1 (cap=600s)
@@ -254,7 +261,9 @@ class ETADataset(IterableDataset):
                 mask = ramal_arr_obj == rid
                 expected = m[bucket_idx[mask]]
                 raw = (tss_raw[mask].astype(np.float64) - expected) / 600.0
-                sdn_arr[mask] = np.where(~np.isnan(expected), np.clip(raw, -3.0, 3.0), 0.0).astype(np.float32)
+                # sin inicio conocido no hay desviación respecto del horario: 0
+                ok = ~np.isnan(expected) & (su_arr[mask] == 0)
+                sdn_arr[mask] = np.where(ok, np.clip(raw, -3.0, 3.0), 0.0).astype(np.float32)
         else:
             sdn_arr = np.zeros(len(eta_arr), dtype=np.float32)
 
@@ -331,6 +340,7 @@ class ETADataset(IterableDataset):
                 "dist_remaining_m":    torch.from_numpy(np.ascontiguousarray(dist_rem_arr[sl, None])),   # (b, 1)
                 "dist_remaining_norm": torch.from_numpy(np.ascontiguousarray((dist_rem_arr[sl] / shape_len_arr[sl])[:, None])),  # (b, 1)
                 "time_since_start":    torch.from_numpy(np.ascontiguousarray(tss_arr[sl, None])),        # (b, 1)
+                "start_unknown":       torch.from_numpy(np.ascontiguousarray(su_arr[sl, None])),         # (b, 1) 0/1
                 "ts_age_s":            torch.from_numpy(np.ascontiguousarray(ts_age_arr[sl, None])),     # (b, 1)
                 "has_active_bus":      torch.from_numpy(np.ascontiguousarray(has_bus_arr[sl, None])),    # (b, 1)
                 "schedule_dev_norm":      torch.from_numpy(np.ascontiguousarray(sdn_arr[sl, None])),     # (b, 1)
@@ -383,6 +393,7 @@ def collate_eta(batch: list[dict]) -> dict[str, torch.Tensor]:
         "dist_remaining_m":    torch.stack([item["dist_remaining_m"]   for item in batch]),
         "dist_remaining_norm": torch.stack([item["dist_remaining_norm"] for item in batch]),
         "time_since_start":    torch.stack([item["time_since_start"]   for item in batch]),
+        "start_unknown":       torch.stack([item["start_unknown"]      for item in batch]),
         "ts_age_s":            torch.stack([item["ts_age_s"]           for item in batch]),
         "has_active_bus":      torch.stack([item["has_active_bus"]     for item in batch]),
         "eta_seconds":         torch.stack([item["eta_seconds"]        for item in batch]),

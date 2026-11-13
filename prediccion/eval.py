@@ -110,6 +110,23 @@ def compute_phase_breakdown(pred, true, start, stopped) -> dict:
     return {k: _stats(pred[m], true[m]) for k, m in sel.items()}
 
 
+def compute_start_unknown_breakdown(pred, true, start_unknown) -> dict:
+    """Error según si el inicio del viaje es conocido (v2b: start_unknown / time_since_start NaN) o no."""
+    pred = np.asarray(pred, dtype=np.float64)
+    true = np.asarray(true, dtype=np.float64)
+    su = np.asarray(start_unknown, dtype=bool)
+    return {"inicio desconocido": _stats(pred[su], true[su]), "inicio conocido": _stats(pred[~su], true[~su])}
+
+
+def start_unknown_to_markdown(d: dict) -> str:
+    rows = ["**Por inicio del viaje conocido / desconocido** (v2b: `start_unknown`)", "",
+            "| inicio | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) |", "|---|---:|---:|---:|---:|---:|---:|"]
+    for label, s_ in d.items():
+        rows.append(f"| {label} | {s_['n']} | {_fmt(s_['mae'])} | {_fmt(s_['p50'])} | {_fmt(s_['p90'])} | "
+                    f"{_fmt(s_['bias'])} | {_fmt(s_['pct_under_60s'])} |")
+    return "\n".join(rows) + "\n"
+
+
 def phase_to_markdown(phase: dict) -> str:
     hdr = "| fase | n | MAE (s) | P50 (s) | P90 (s) | sesgo (s) | subest. >60 s (%) |"
     rows = ["**Por fase del viaje** (inicio = primeros 5 min o <1 km del inicio del shape; detenido = <0,5 m/s)", "",
@@ -189,7 +206,10 @@ def predict_a3(parquet_path: Path, ckpt_path: Path, shape_lengths: dict, sdn_pat
     sd = ckpt["model_state_dict"] if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
     d_model = int(sd["trajectory_enc.input_proj.weight"].shape[0])
     city_grid = "city_grid.embed.weight" in sd          # E1c: se infiere del checkpoint
-    model = A3ETAModel(d_model=d_model, city_grid=city_grid)
+    # v2b: la entrada start_unknown agrega 1 a la primera capa del MLP; se infiere del checkpoint (los viejos no la tienen)
+    base_in = A3ETAModel(d_model=d_model, city_grid=city_grid).mlp[0].in_features
+    start_unknown = int(sd["mlp.0.weight"].shape[1]) == base_in + 1
+    model = A3ETAModel(d_model=d_model, city_grid=city_grid, start_unknown=start_unknown)
     model.load_state_dict(sd)
     model.to(device).eval()
 
@@ -204,7 +224,8 @@ def predict_a3(parquet_path: Path, ckpt_path: Path, shape_lengths: dict, sdn_pat
             p = model(g("trajectory"), g("trajectory_mask"), g("fleet"), g("fleet_mask"), g("hour_sin"),
                       g("hour_cos"), g("dow"), g("dist_remaining_norm"), g("time_since_start"), g("ts_age_s"),
                       g("has_active_bus"), g("schedule_dev_norm"), g("time_since_last_bus_s"),
-                      g("last_bus_found"), g("geo") if city_grid else None)
+                      g("last_bus_found"), g("geo") if city_grid else None,
+                      g("start_unknown") if start_unknown else None)
             preds.append(p.squeeze(-1).cpu().numpy())
     pred = np.concatenate(preds).astype(np.float64) if preds else np.empty(0)
     if len(pred) != n_expected:
@@ -219,6 +240,8 @@ def load_eval_df(path: Path):
     import pyarrow.parquet as pq
     cols = ["line", "ramal_id", "dist_along_m", "dist_remaining_m", "speed_mps", "hour_sin", "hour_cos", "dow",
             "observed_eta_s", "time_since_start"]
+    if "start_unknown" in pq.ParquetFile(str(path)).schema_arrow.names:      # v2b
+        cols = cols + ["start_unknown"]
     return pq.read_table(path, columns=cols).to_pandas()
 
 
@@ -280,9 +303,14 @@ def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None 
     m = compute_metrics(pred[keep], true[keep], dist[keep])
     start, stopped = phase_masks(df["time_since_start"], df["dist_along_m"], df["speed_mps"])
     result_phase = compute_phase_breakdown(pred[keep], true[keep], start[keep], stopped[keep])
+    su_mask = np.isnan(df["time_since_start"].to_numpy(np.float64))
+    if "start_unknown" in df:
+        su_mask = su_mask | df["start_unknown"].to_numpy().astype(bool)
+    result_su = compute_start_unknown_breakdown(pred[keep], true[keep], su_mask[keep]) if su_mask.any() or "start_unknown" in df else None
     result = {"model": model_spec, "set": which, "eval_file": str(sub_path), "lines": lines,
               "n": int(keep.sum()), "elapsed_s": round(time.time() - t0, 1),
-              "date": time.strftime("%Y-%m-%d"), "metrics": m, "phase": result_phase}
+              "date": time.strftime("%Y-%m-%d"), "metrics": m, "phase": result_phase,
+              "by_start_unknown": result_su}
     if tmp_filtered is not None:
         tmp_filtered.unlink(missing_ok=True)
     result["eval_file"] = str(eval_path or (v2_dir / "eval" / f"eval_{which}.parquet"))
@@ -291,6 +319,8 @@ def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None 
         json.dump(result, f, indent=1, ensure_ascii=False)
     md = metrics_to_markdown(f"{model_spec} sobre eval_{which} (n={result['n']})", m)
     md = md + "\n\n" + phase_to_markdown(result_phase)
+    if result_su is not None:
+        md = md + "\n" + start_unknown_to_markdown(result_su)
     (out_dir / f"{stem}.md").write_text(md + "\n", encoding="utf-8")
     result["json_path"] = str(out_dir / f"{stem}.json")
     result["markdown"] = md

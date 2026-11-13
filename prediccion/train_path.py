@@ -38,7 +38,9 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     train_lines = sorted({str(x) for x in pq.read_table(train_p, columns=["line"])["line"].to_pylist()}, key=int)
     geo_lines = sorted({*map(str, lf["train"]), *map(str, lf.get("heldout", []))}, key=int)   # solo geometría
     ids, lat, lon, off = build_shape_table(load_shape_points(geo_lines, shapes_dir))
-    model = PathETAModel(ids, lat, lon, off, train_lines)
+    # v2b: con `start_unknown` en el parquet de train, el estado lleva esa entrada; con datos v2 no cambia nada
+    start_unknown = "start_unknown" in pq.ParquetFile(str(train_p)).schema_arrow.names
+    model = PathETAModel(ids, lat, lon, off, train_lines, start_unknown=start_unknown)
     dev = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     model.to(dev)
     n_params = sum(p.numel() for p in model.parameters())
@@ -59,6 +61,8 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     config = {"model": "PathETAModel", "epochs": epochs, "scheduler": "onecycle", "lr": lr, "batch_size": batch_size,
               "train_data": R.data_fingerprint(train_p), "val_data": R.data_fingerprint(val_p),
               "max_groups": max_groups, "unk_line_p": unk_line_p, "seed": seed, "train_lines": train_lines}
+    if start_unknown:
+        config["start_unknown"] = True       # solo si está: los last.pt de runs v2 siguen reanudando
     start_ep = 1
     if resume and last_p.exists():
         st = R.load_last(last_p, model=model, optimizer=opt, scheduler=sched, config=config)

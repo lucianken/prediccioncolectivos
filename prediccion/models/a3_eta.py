@@ -150,7 +150,8 @@ class CityGridEncoder(nn.Module):
 
 class A3ETAModel(nn.Module):
     def __init__(self, d_model: int = 128, hidden_dims: tuple = (256, 128, 64),
-                 city_grid: bool = False, grid_cell_m: float = 500.0, grid_dim: int = 16):
+                 city_grid: bool = False, grid_cell_m: float = 500.0, grid_dim: int = 16,
+                 start_unknown: bool = False):
         """
         Concatena: trajectory(d_model) + fleet(d_model) + time(16) + dist(1) + time_since_start(1) + ts_age_s(1) + has_bus(1) + schedule_dev_norm(1)
         MLP: Linear(concat_dim → 256) → GELU → Dropout(0.1) → Linear(256 → 128) → GELU → Linear(128 → 64) → GELU → Linear(64 → 1) → Softplus
@@ -163,6 +164,11 @@ class A3ETAModel(nn.Module):
         concat_dim = d_model + d_model + 16 + 1 + 1 + 1 + 1 + 1 + 1 + 1  # = 2 * d_model + 23
 
         # E1c: con city_grid=False no se crea ningún módulo ni parámetro nuevo (los checkpoints viejos cargan igual).
+        # start_unknown=False: misma arquitectura de siempre (los checkpoints viejos cargan igual). Con True se agrega
+        # una entrada 0/1 "inicio del viaje desconocido" (datos v2b, donde time_since_start es NaN -> imputado a 0).
+        self.start_unknown_enabled = bool(start_unknown)
+        if start_unknown:
+            concat_dim += 1
         self.city_grid_enabled = bool(city_grid)
         if city_grid:
             self.city_grid = CityGridEncoder(cell_m=grid_cell_m, dim=grid_dim)
@@ -199,6 +205,7 @@ class A3ETAModel(nn.Module):
         time_since_last_bus_s: torch.Tensor,  # (batch, 1) log1p-normalizado
         last_bus_found: torch.Tensor,         # (batch, 1) 0/1
         geo: torch.Tensor | None = None,      # (batch, 4) lat_P, lon_P, lat_T, lon_T — solo con city_grid
+        start_unknown: torch.Tensor | None = None,  # (batch, 1) 0/1 — solo con start_unknown=True (None = 0)
     ) -> torch.Tensor:
         """Returns: (batch, 1) — ETA en segundos, siempre positivo (Softplus)."""
         traj_emb = self.trajectory_enc(trajectory, trajectory_mask)  # (batch, d_model)
@@ -210,6 +217,14 @@ class A3ETAModel(nn.Module):
             if geo is None:
                 raise ValueError("el modelo tiene city_grid activo: falta el tensor `geo` (batch, 4)")
             extra.append(self.city_grid(geo))                         # (batch, 2 * grid_dim)
+
+        if self.start_unknown_enabled:
+            if start_unknown is None:
+                start_unknown = torch.zeros_like(time_since_start)
+            extra.append(start_unknown)
+
+        # NaN residual en time_since_start (dato crudo sin pasar por ETADataset): se imputa 0
+        time_since_start = torch.nan_to_num(time_since_start, nan=0.0)
 
         combined = torch.cat([
             traj_emb,
