@@ -38,9 +38,11 @@ def _round_flat(arr, nd=6) -> list:
 
 def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True, model_version: str | None = None) -> dict:
     import torch
-    from prediccion.inference.path_onnx import INPUT_NAMES, OUTPUT_NAMES, export_onnx
+    from prediccion.inference.path_onnx import OUTPUT_NAMES, export_onnx, input_names
     from prediccion.models.geo import ShapeGeo
-    from prediccion.models.path_eta import (MAX_SEG, SEG_BASE_M, STOPPED_MPS, PathETAModel, load_shape_points)
+    from prediccion.models.path_eta import (MAX_SEG, SEG_BASE_M, STOPPED_MPS, STOP_KEY_SPAN, PathETAModel,
+                                            load_shape_points)
+    from prediccion.models.stops import STOP_DECIMALS, STOP_NEXT_CAP_M, project_stops
     from prediccion.v2 import geo_assign
     from prediccion.v2.shapes import DEFAULT_LINE_SHAPES_DIR
 
@@ -53,7 +55,8 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
     off = model.shape_off.numpy()
 
     # ── datos estáticos por línea (la geometría de celdas sale del checkpoint; los puntos, de line_shapes) ──
-    n_cells_total, exported = 0, set()
+    stop_key = model.stop_key.numpy() if model.stops_feature else None
+    n_cells_total, exported, n_stops = 0, set(), 0
     for ln in model.line_ids:
         data = json.loads((shapes_dir / f"{ln}.json").read_text(encoding="utf-8"))
         shapes = []
@@ -72,10 +75,20 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
             if len(lat) != exp_n or np.abs(lat - elat).max() > 1e-5 or np.abs(lon - elon).max() > 1e-5:
                 raise SystemExit(f"shape {sid} (línea {ln}): la geometría de {shapes_dir} no coincide con las celdas del "
                                  "checkpoint (cambió el recorrido desde el entrenamiento); reentrenar o usar el shapes-dir original")
-            shapes.append({"id": sid, "name": r.get("name", ""), "short_name": r.get("shortName", ""),
-                           "length_m": round(sg.length_m, 2), "n_cells": int(len(lat)),
-                           "points": _round_flat(np.asarray(pts, dtype=np.float64)),
-                           "cells": _round_flat(np.stack([lat, lon], axis=1))})
+            entry = {"id": sid, "name": r.get("name", ""), "short_name": r.get("shortName", ""),
+                     "length_m": round(sg.length_m, 2), "n_cells": int(len(lat)),
+                     "points": _round_flat(np.asarray(pts, dtype=np.float64)),
+                     "cells": _round_flat(np.stack([lat, lon], axis=1))}
+            if stop_key is not None:
+                # paradas (m desde el inicio del shape) tal como las usó el entrenamiento: salen del checkpoint
+                sm = stop_key[(stop_key >= i * STOP_KEY_SPAN) & (stop_key < (i + 1) * STOP_KEY_SPAN)] - i * STOP_KEY_SPAN
+                sm = [round(float(x), STOP_DECIMALS) for x in sm]
+                if sm != project_stops(pts, r.get("stops", [])):
+                    raise SystemExit(f"shape {sid} (línea {ln}): las paradas de {shapes_dir} no coinciden con las del "
+                                     "checkpoint (cambiaron desde el entrenamiento)")
+                entry["stops_m"] = sm
+                n_stops += len(sm)
+            shapes.append(entry)
             n_cells_total += len(lat)
             exported.add(sid)
         if not shapes:
@@ -93,11 +106,12 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
         "contract_version": CONTRACT_VERSION,
         "model_version": version,
         "checkpoint": {"path": str(ckpt_path).replace("\\", "/"), "epoch": ckpt.get("epoch"), "val_mae_s": ckpt.get("val_mae_s")},
-        "onnx": {"file": "path_eta.onnx", "opset": 17, "inputs": INPUT_NAMES, "outputs": OUTPUT_NAMES,
+        "onnx": {"file": "path_eta.onnx", "opset": 17, "inputs": input_names(model), "outputs": OUTPUT_NAMES,
                  "dtypes": {"line_idx": "int32", "dow": "int32", "*": "float32"},
                  "state_columns": STATE_NAMES[:model.n_state - 1], "dynamic_axes": {"B": "candidatos", "N": "tramos"}},
         "lines": {ln: i + 1 for i, ln in enumerate(model.line_ids)},          # índice de línea (0 = desconocida, no usar)
         "start_unknown": model.start_unknown,
+        "stops_feature": model.stops_feature,
         "constants": {
             "seg_base_m": SEG_BASE_M, "max_seg": MAX_SEG, "stopped_mps": STOPPED_MPS,
             "speed_norm_div": 30.0, "speed_norm_max": 2.0, "ts_age_div": 600.0, "ts_age_max": 1.5, "ts_age_cap_s": 600.0,
@@ -107,6 +121,9 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
         },
         # asignación de ping a recorrido y sentido: valores de prediccion/v2/geo_assign.py (el cliente los usa tal cual)
         "assignment": geo_assign.manifest_params(),
+        **({"stops": {"decimals": STOP_DECIMALS, "next_cap_m": STOP_NEXT_CAP_M, "n_stops": n_stops,
+                      "rule": "seg_stop_n = paradas con lo <= parada < hi; seg_stop_next = min(primera parada >= lo, lo + cap) - lo"}}
+           if model.stops_feature else {}),
         "n_shapes": len(exported), "n_cells": n_cells_total,
         "files": {k: {"bytes": p.stat().st_size, "sha256": _sha(p)} for k, p in files.items()},
     }

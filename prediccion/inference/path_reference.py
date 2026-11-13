@@ -22,6 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
+from prediccion.models.stops import stop_features_np
 from prediccion.v2 import geo_assign as G
 
 STATE_FALLBACK_TLB_S = 3600.0
@@ -38,6 +39,8 @@ class Shape:
         self.short_name = d.get("short_name", "")
         self.pts = pts
         self.cells = np.asarray(d["cells"], dtype=np.float64).reshape(-1, 2)
+        # paradas (m desde el inicio, ordenadas); None si el modelo no usa la feature
+        self.stops_m = None if d.get("stops_m") is None else np.asarray(d["stops_m"], dtype=np.float64)
         lat_mid = (pts[:-1, 0] + pts[1:, 0]) / 2.0
         self.mlon = m_per_deg_lat * np.cos(np.radians(lat_mid))
         self.ab_y = (pts[1:, 0] - pts[:-1, 0]) * m_per_deg_lat
@@ -95,6 +98,8 @@ def load_bundle(root) -> Bundle:
     for ln in man["lines"]:
         d = json.loads((root / "lines" / f"{ln}.json").read_text(encoding="utf-8"))
         lines[ln] = {s["id"]: Shape(s, mpd) for s in d["shapes"]}
+        if man.get("stops_feature") and any(sh.stops_m is None for sh in lines[ln].values()):
+            raise ValueError(f"{root}: el modelo usa paradas por tramo y lines/{ln}.json no trae stops_m")
     return Bundle(root, man, lines)
 
 
@@ -147,7 +152,10 @@ def build_segments(c: dict, shape: Shape, d0: float, rem: float) -> dict[str, np
     length = np.maximum(hi - lo, 0.0)
     mid_m = (k + 0.5) * step
     cell = np.clip(np.floor(mid_m / base), 0, len(shape.cells) - 1).astype(int)
-    return {"seg_lat": shape.cells[cell, 0], "seg_lon": shape.cells[cell, 1], "seg_mid_m": mid_m, "seg_len": length}
+    out = {"seg_lat": shape.cells[cell, 0], "seg_lon": shape.cells[cell, 1], "seg_mid_m": mid_m, "seg_len": length}
+    if shape.stops_m is not None:
+        out["seg_stop_n"], out["seg_stop_next"] = stop_features_np(shape.stops_m, lo, hi)
+    return out
 
 
 def run_network(bundle: Bundle, rows: list[dict]) -> np.ndarray:
@@ -162,6 +170,8 @@ def run_network(bundle: Bundle, rows: list[dict]) -> np.ndarray:
         "h_sin": np.array([r["h_sin"] for r in rows], np.float32), "h_cos": np.array([r["h_cos"] for r in rows], np.float32),
         "state": np.stack([r["state"] for r in rows]).astype(np.float32),
     }
+    if "seg_stop_n" in rows[0]:
+        feed["seg_stop_n"], feed["seg_stop_next"] = pad("seg_stop_n"), pad("seg_stop_next")
     return bundle.session.run(["eta"], feed)[0].astype(np.float64)
 
 

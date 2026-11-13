@@ -22,7 +22,7 @@ import torch
 def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, max_groups: int | None,
           unk_line_p: float, workers: int, lines_file: Path, device: str = "cuda", seed: int = 0,
           resume: bool = False, stop_after_epoch: int | None = None, lr_trace: list | None = None,
-          shapes_dir=None, loss_kind: str = "pinball") -> dict:
+          shapes_dir=None, loss_kind: str = "pinball", stops_feature: bool = False) -> dict:
     """resume: retoma desde out_dir/path_eta_last.pt (guardado atómico al final de cada época; ver models/resume.py).
     stop_after_epoch / lr_trace: ganchos de test (cortar el run; registrar el LR de cada paso)."""
     from prediccion.models.eta_dataset import collate_identity
@@ -46,7 +46,15 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     ids, lat, lon, off = build_shape_table(load_shape_points(geo_lines, shapes_dir))
     # v2b: con `start_unknown` en el parquet de train, el estado lleva esa entrada; con datos v2 no cambia nada
     start_unknown = "start_unknown" in pq.ParquetFile(str(train_p)).schema_arrow.names
-    model = PathETAModel(ids, lat, lon, off, train_lines, start_unknown=start_unknown)
+    stop_key = None
+    if stops_feature:      # paradas por tramo (§6.2): de line_shapes/{N}.json, las mismas que van en el export
+        from prediccion.models.path_eta import build_stop_key
+        from prediccion.models.stops import load_shape_stops
+        by_shape = load_shape_stops(geo_lines, shapes_dir)
+        stop_key = build_stop_key(ids, by_shape)
+        print(f"paradas: {len(stop_key)} en {sum(1 for i in ids if by_shape.get(i))}/{len(ids)} shapes", flush=True)
+    model = PathETAModel(ids, lat, lon, off, train_lines, start_unknown=start_unknown, stops_feature=stops_feature,
+                         stop_key=stop_key)
     dev = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     model.to(dev)
     n_params = sum(p.numel() for p in model.parameters())
@@ -69,6 +77,8 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
               "max_groups": max_groups, "unk_line_p": unk_line_p, "seed": seed, "train_lines": train_lines}
     if start_unknown:
         config["start_unknown"] = True       # solo si está: los last.pt de runs v2 siguen reanudando
+    if stops_feature:
+        config["stops_feature"] = True       # solo si está: los last.pt viejos siguen reanudando
     if loss_kind != "pinball":
         config["loss"] = loss_kind           # solo si no es la default: los last.pt viejos siguen reanudando
     loss_cfg = None
@@ -154,11 +164,13 @@ def main(argv=None):
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--loss", choices=["l1", "pinball", "pinball_inv", "pinball_band"], default="pinball",
                     help="l1 = q 0,5 a toda distancia; pinball = q 0,5->0,8 bajo 1 km (default histórico); pinball_inv = q 0,5->0,2 bajo 1 km (castiga más que llegue antes de lo anunciado); pinball_band = q 0,3 en la banda de distancia donde cae la ETA 3-10 min (calibrada con el train), rampa a 0,5")
+    ap.add_argument("--stops-feature", action="store_true",
+                    help="entrada por tramo: paradas del recorrido en el tramo y metros a la próxima (ARQUITECTURA §6.2); default apagada")
     ap.add_argument("--resume", action="store_true", help="retomar desde <out-dir>/path_eta_last.pt")
     a = ap.parse_args(argv)
     train(a.ml_dir, a.out_dir or a.ml_dir / "models_path", a.epochs, a.batch_size, a.lr, a.max_groups,
           a.unk_line_p, a.workers, a.lines_file, a.device, seed=a.seed, resume=a.resume,
-          loss_kind=a.loss)
+          loss_kind=a.loss, stops_feature=a.stops_feature)
     return 0
 
 

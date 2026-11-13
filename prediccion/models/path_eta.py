@@ -115,6 +115,41 @@ def load_shape_points(lines, shapes_dir=None) -> dict[str, list]:
     return out
 
 
+STOP_KEY_SPAN = 1.0e6      # separa shapes en la clave global ordenada: shape_idx * STOP_KEY_SPAN + metros
+
+
+def build_stop_key(shape_ids: list[str], stops_by_shape: dict[str, list[float]]) -> np.ndarray:
+    """Paradas de todos los shapes en un solo vector float64 ordenado: shape_idx * 1e6 + metros desde el inicio del shape."""
+    keys = [i * STOP_KEY_SPAN + np.asarray(sorted(stops_by_shape.get(sid, [])), dtype=np.float64)
+            for i, sid in enumerate(shape_ids)]
+    return np.concatenate(keys) if keys else np.empty(0)
+
+
+def stop_features(stop_key: torch.Tensor, s_idx: torch.Tensor, lo: torch.Tensor, hi: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    (conteo, próxima) por tramo [lo, hi) de shape `s_idx` (todo (n,)). conteo = paradas con lo <= parada < hi;
+    próxima = metros desde lo hasta la primera parada >= lo, topeados en STOP_NEXT_CAP_M (sin parada: el tope).
+    """
+    from prediccion.models.stops import STOP_NEXT_CAP_M
+    base = s_idx.double() * STOP_KEY_SPAN
+    lo, hi = lo.double(), hi.double()
+    i0 = torch.searchsorted(stop_key, (base + lo).contiguous(), right=False)
+    i1 = torch.searchsorted(stop_key, (base + hi).contiguous(), right=False)
+    count = (i1 - i0).double()
+    if stop_key.numel() == 0:
+        return count, torch.full_like(lo, STOP_NEXT_CAP_M)
+    cand = stop_key[i0.clamp(max=stop_key.numel() - 1)]
+    ok = (i0 < stop_key.numel()) & (cand < (s_idx.double() + 1.0) * STOP_KEY_SPAN)
+    nxt = torch.where(ok, cand - base - lo, torch.full_like(lo, STOP_NEXT_CAP_M)).clamp(min=0.0, max=STOP_NEXT_CAP_M)
+    return count, nxt
+
+
+def stop_input(count: torch.Tensor, nxt: torch.Tensor) -> torch.Tensor:
+    """Las 2 columnas que entran al MLP del tramo: conteo y próxima parada normalizada (/ tope)."""
+    from prediccion.models.stops import STOP_NEXT_CAP_M
+    return torch.stack([count.float(), (nxt / STOP_NEXT_CAP_M).float()], dim=-1)
+
+
 # ── modelo ───────────────────────────────────────────────────────────────────
 
 class IndexMaps:
@@ -135,8 +170,10 @@ class IndexMaps:
 class PathETAModel(nn.Module):
     def __init__(self, shape_ids: list[str], seg_lat, seg_lon, shape_off, line_ids: list[str],
                  max_seg: int = MAX_SEG, grid_dim: int = 16, line_dim: int = 16, hidden: int = 96,
-                 grid_cell_m: float = 500.0, start_unknown: bool = False):
+                 grid_cell_m: float = 500.0, start_unknown: bool = False, stops_feature: bool = False,
+                 stop_key=None):
         super().__init__()
+        self.stops_feature = bool(stops_feature)      # paradas por tramo (§6.2): 2 entradas más al MLP del tramo
         self.start_unknown = bool(start_unknown)      # v2b: una entrada más al ajuste global (inicio desconocido 0/1)
         self.n_state = N_STATE + (1 if start_unknown else 0)
         self.shape_ids = list(shape_ids)
@@ -144,6 +181,9 @@ class PathETAModel(nn.Module):
         self.max_seg = int(max_seg)
         self.cfg = {"max_seg": self.max_seg, "grid_dim": grid_dim, "line_dim": line_dim, "hidden": hidden,
                     "grid_cell_m": grid_cell_m, "start_unknown": self.start_unknown}
+        if self.stops_feature:
+            self.cfg["stops_feature"] = True       # solo si está: los checkpoints viejos siguen cargando
+            self.register_buffer("stop_key", torch.as_tensor(np.asarray(stop_key if stop_key is not None else [], dtype=np.float64)))
         self.register_buffer("seg_lat", torch.as_tensor(np.asarray(seg_lat), dtype=torch.float32))
         self.register_buffer("seg_lon", torch.as_tensor(np.asarray(seg_lon), dtype=torch.float32))
         self.register_buffer("shape_off", torch.as_tensor(np.asarray(shape_off), dtype=torch.long))
@@ -152,7 +192,7 @@ class PathETAModel(nn.Module):
         nn.init.normal_(self.line_emb.weight, std=0.1)
         self.inter = nn.Sequential(nn.Linear(grid_dim + line_dim, 32), nn.GELU(), nn.Linear(32, 16))
         self.time_enc = TimeEncoder(dow_embed_dim=8, out_dim=16)
-        seg_in = grid_dim + line_dim + 16 + 16 + 2
+        seg_in = grid_dim + line_dim + 16 + 16 + 2 + (2 if self.stops_feature else 0)
         self.seg_mlp = nn.Sequential(nn.Linear(seg_in, hidden), nn.GELU(), nn.Linear(hidden, 64), nn.GELU(),
                                      nn.Linear(64, 1))
         with torch.no_grad():
@@ -192,8 +232,12 @@ class PathETAModel(nn.Module):
         if time_row is None:
             time_row = self.time_enc(h_sin, h_cos, dow)
         seg_len = length[row, col]
-        feats = torch.cat([g, le, it, time_row[row], (mid_m / 50000.0).float()[:, None],
-                           (seg_len / SEG_BASE_M)[:, None]], dim=-1)
+        parts = [g, le, it, time_row[row], (mid_m / 50000.0).float()[:, None], (seg_len / SEG_BASE_M)[:, None]]
+        if self.stops_feature:
+            lo = torch.maximum(kk.double() * st, d0.double()[row])
+            hi = torch.minimum((kk.double() + 1.0) * st, (d0.double() + rem.double().clamp(min=0.0))[row])
+            parts.append(stop_input(*stop_features(self.stop_key, s_idx, lo, hi)))
+        feats = torch.cat(parts, dim=-1)
         slow = F.softplus(self.seg_mlp(feats).squeeze(-1))        # s/m, positivo
         t_valid = slow * seg_len
         times = torch.zeros(B, N, device=mask.device, dtype=t_valid.dtype)
@@ -223,7 +267,8 @@ class PathETAModel(nn.Module):
     @classmethod
     def from_checkpoint(cls, ckpt: dict) -> "PathETAModel":
         sd = ckpt["model_state_dict"]
-        m = cls(ckpt["shape_ids"], sd["seg_lat"], sd["seg_lon"], sd["shape_off"], ckpt["line_ids"], **ckpt["cfg"])
+        m = cls(ckpt["shape_ids"], sd["seg_lat"], sd["seg_lon"], sd["shape_off"], ckpt["line_ids"],
+                stop_key=sd.get("stop_key"), **ckpt["cfg"])
         m.load_state_dict(sd)
         return m
 
