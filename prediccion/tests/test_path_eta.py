@@ -126,3 +126,32 @@ def test_pinball_inv_castiga_mas_llegar_antes_bajo_1km_y_igual_lejos():
     cerca, lejos = torch.tensor([300.0]), torch.tensor([3000.0])
     assert float(pinball(antes, real, cerca, "pinball_inv")) > float(pinball(despues, real, cerca, "pinball_inv"))
     assert float(pinball(antes, real, lejos, "pinball_inv")) == pytest.approx(float(pinball(despues, real, lejos, "pinball_inv")))
+
+
+def test_pinball_band_castiga_mas_llegar_antes_solo_dentro_de_la_banda():
+    import torch
+    from prediccion.models.path_eta import pinball
+    band = (500.0, 2000.0)
+    real = torch.tensor([100.0])
+    antes, despues = torch.tensor([130.0]), torch.tensor([70.0])
+    dentro = torch.tensor([1000.0])
+    assert float(pinball(antes, real, dentro, "pinball_band", band)) > float(pinball(despues, real, dentro, "pinball_band", band))
+    for fuera in (torch.tensor([100.0]), torch.tensor([150.0]), torch.tensor([2400.0]), torch.tensor([9000.0])):   # >300 m afuera de los bordes
+        assert float(pinball(antes, real, fuera, "pinball_band", band)) == pytest.approx(float(pinball(despues, real, fuera, "pinball_band", band)))
+
+
+def test_pinball_band_rampa_continua_entre_el_borde_y_los_300_m():
+    import torch
+    from prediccion.models.path_eta import band_quantile
+    d = torch.tensor([150.0, 200.0, 350.0, 500.0, 1000.0, 2000.0, 2150.0, 2300.0, 2500.0])
+    q = band_quantile(d, 500.0, 2000.0)
+    assert q.tolist() == pytest.approx([0.5, 0.5, 0.4, 0.3, 0.3, 0.3, 0.4, 0.5, 0.5])
+
+
+def test_band_calibration_usa_filas_de_3_a_10_min():
+    from prediccion.models.path_eta import band_calibration
+    dist = np.arange(1000.0, 11000.0, 100.0)                  # 100 filas
+    eta = np.where(np.arange(100) % 2 == 0, 400.0, 3000.0)    # las pares caen en la franja 3-10 min
+    lo, hi = band_calibration(dist, eta)
+    en_franja = dist[eta == 400.0]
+    assert lo == pytest.approx(np.percentile(en_franja, 10), abs=1) and hi == pytest.approx(np.percentile(en_franja, 90), abs=1)

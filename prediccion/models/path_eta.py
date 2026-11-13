@@ -349,9 +349,33 @@ class PathETADataset(torch.utils.data.IterableDataset):
                 yield {k: t[sl] for k, t in batch.items()}
 
 
-def pinball(pred: torch.Tensor, target: torch.Tensor, dist_m: torch.Tensor, loss: str = "pinball") -> torch.Tensor:
+BAND_Q = 0.30           # pinball_band: cuantil dentro de la banda (llegar antes de lo anunciado pesa 0,7 / 0,3 = 2,3x)
+BAND_RAMP_M = 300.0     # pinball_band: rampa lineal hasta q = 0,5 fuera de cada borde
+
+
+def band_calibration(dist_m, eta_s, eta_lo_s: float = 180.0, eta_hi_s: float = 600.0) -> tuple[float, float]:
+    """(d_lo, d_hi) en metros: percentiles p10 y p90 de la distancia restante de las filas con ETA real en [eta_lo, eta_hi]."""
+    dist_m = np.asarray(dist_m, np.float64)
+    eta_s = np.asarray(eta_s, np.float64)
+    sel = dist_m[(eta_s >= eta_lo_s) & (eta_s <= eta_hi_s)]
+    if sel.size == 0:
+        raise ValueError("sin filas con ETA real en la franja de calibración")
+    lo, hi = np.percentile(sel, [10, 90])
+    return float(round(lo)), float(round(hi))
+
+
+def band_quantile(dist_m: torch.Tensor, d_lo: float, d_hi: float, q: float = BAND_Q, ramp_m: float = BAND_RAMP_M) -> torch.Tensor:
+    """q(distancia restante): `q` dentro de [d_lo, d_hi]; rampa lineal a 0,5 en los `ramp_m` metros afuera de cada borde; 0,5 en el resto."""
+    out = torch.clamp(torch.minimum(dist_m - (d_lo - ramp_m), (d_hi + ramp_m) - dist_m) / ramp_m, 0.0, 1.0)
+    return 0.5 - (0.5 - q) * out
+
+
+def pinball(pred: torch.Tensor, target: torch.Tensor, dist_m: torch.Tensor, loss: str = "pinball",
+            band: tuple[float, float] | None = None) -> torch.Tensor:
     """Misma pérdida que el A3 (trainer.train_phase3): q 0,5 -> 0,8 por debajo de 1 km.
-    loss="l1": q = 0,5 a toda distancia (mediana; llegar antes o después de lo anunciado pesa igual)."""
+    loss="l1": q = 0,5 a toda distancia (mediana; llegar antes o después de lo anunciado pesa igual).
+    loss="pinball_band": q = 0,3 en la banda de distancia `band` = (d_lo, d_hi), rampa a 0,5 (ver band_quantile).
+    q depende solo de la distancia restante (entrada del modelo), nunca de la ETA real."""
     if loss == "l1":
         q = torch.full_like(dist_m, 0.5)
     elif loss == "pinball":
@@ -359,8 +383,12 @@ def pinball(pred: torch.Tensor, target: torch.Tensor, dist_m: torch.Tensor, loss
     elif loss == "pinball_inv":
         # q 0,5 -> 0,2 bajo 1 km: con err = real - pred, anunciar tarde (llega antes de lo anunciado) pesa 4x más
         q = 0.5 - 0.3 * torch.clamp(1.0 - dist_m / 1000.0, 0.0, 1.0)
+    elif loss == "pinball_band":
+        if band is None:
+            raise ValueError("pinball_band necesita band=(d_lo, d_hi)")
+        q = band_quantile(dist_m, band[0], band[1])
     else:
-        raise ValueError(f"loss inválida: {loss!r} (l1 | pinball | pinball_inv)")
+        raise ValueError(f"loss inválida: {loss!r} (l1 | pinball | pinball_inv | pinball_band)")
     err = target - pred
     return torch.where(err >= 0, q * err, (q - 1.0) * err).mean()
 

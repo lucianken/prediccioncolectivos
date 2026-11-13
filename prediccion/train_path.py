@@ -26,8 +26,8 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     """resume: retoma desde out_dir/path_eta_last.pt (guardado atómico al final de cada época; ver models/resume.py).
     stop_after_epoch / lr_trace: ganchos de test (cortar el run; registrar el LR de cada paso)."""
     from prediccion.models.eta_dataset import collate_identity
-    from prediccion.models.path_eta import (PathETADataset, PathETAModel, build_shape_table, load_shape_points,
-                                            pinball, run_model)
+    from prediccion.models.path_eta import (BAND_Q, BAND_RAMP_M, PathETADataset, PathETAModel, band_calibration,
+                                            build_shape_table, load_shape_points, pinball, run_model)
     torch.manual_seed(seed)
     np.random.seed(seed)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -35,6 +35,12 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     val_p = ml_dir / "training" / "eta_val.parquet"
     lf = json.loads(Path(lines_file).read_text(encoding="utf-8"))
     import pyarrow.parquet as pq
+    band = None
+    if loss_kind == "pinball_band":       # banda de distancia calibrada con el train: filas con ETA real 3-10 min, p10 y p90
+        cal = pq.read_table(train_p, columns=["observed_eta_s", "dist_remaining_m"])
+        band = band_calibration(np.asarray(cal["dist_remaining_m"]), np.asarray(cal["observed_eta_s"]))
+        del cal
+        print(f"pinball_band: d_lo={band[0]:.0f} m d_hi={band[1]:.0f} m q={BAND_Q} rampa={BAND_RAMP_M:.0f} m", flush=True)
     train_lines = sorted({str(x) for x in pq.read_table(train_p, columns=["line"])["line"].to_pylist()}, key=int)
     geo_lines = sorted({*map(str, lf["train"]), *map(str, lf.get("heldout", []))}, key=int)   # solo geometría
     ids, lat, lon, off = build_shape_table(load_shape_points(geo_lines, shapes_dir))
@@ -65,6 +71,10 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         config["start_unknown"] = True       # solo si está: los last.pt de runs v2 siguen reanudando
     if loss_kind != "pinball":
         config["loss"] = loss_kind           # solo si no es la default: los last.pt viejos siguen reanudando
+    loss_cfg = None
+    if band is not None:
+        loss_cfg = {"loss": loss_kind, "d_lo": band[0], "d_hi": band[1], "q": BAND_Q, "ramp_m": BAND_RAMP_M}
+        config["loss_cfg"] = loss_cfg
     start_ep = 1
     if resume and last_p.exists():
         st = R.load_last(last_p, model=model, optimizer=opt, scheduler=sched, config=config)
@@ -80,7 +90,7 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         for b in tl:
             pred = run_model(model, b, dev)
             tgt = b["eta"].to(dev).squeeze(-1)
-            loss = pinball(pred, tgt, b["rem"].to(dev), loss_kind)
+            loss = pinball(pred, tgt, b["rem"].to(dev), loss_kind, band)
             if not torch.isfinite(loss):
                 opt.zero_grad(set_to_none=True)
                 continue
@@ -107,7 +117,7 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         is_best = val_mae < best
         if is_best:
             best, best_ep = val_mae, ep
-            torch.save({**model.checkpoint_dict(), "epoch": ep, "val_mae_s": val_mae}, out_dir / "path_eta_best.pt")
+            torch.save({**model.checkpoint_dict(), "epoch": ep, "val_mae_s": val_mae, **({"loss_cfg": loss_cfg} if loss_cfg else {})}, out_dir / "path_eta_best.pt")
         lr_now = opt.param_groups[0]["lr"]
         hist.append({"epoch": ep, "train_pinball": tot / max(n, 1), "val_mae_s": val_mae, "lr": lr_now,
                      "epoch_s": time.time() - te})
@@ -116,11 +126,12 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         # last.pt: estado completo de reanudación + los campos que usa PathETAModel.from_checkpoint (sirve para evaluar)
         R.save_last(last_p, model=model, optimizer=opt, scheduler=sched, epoch=ep, best=best, best_epoch=best_ep,
                     history=hist, config=config,
-                    top={k: v for k, v in model.checkpoint_dict().items() if k != "model_state_dict"})
+                    top={**{k: v for k, v in model.checkpoint_dict().items() if k != "model_state_dict"},
+                         **({"loss_cfg": loss_cfg} if loss_cfg else {})})
         if stop_after_epoch is not None and ep >= stop_after_epoch:
             return {"stopped_after_epoch": ep}
     total = time.time() - t0
-    res = {"model": "PathETAModel", "epochs": epochs, "batch_size": batch_size, "lr": lr, "loss": loss_kind, "best_epoch": best_ep,
+    res = {"model": "PathETAModel", "epochs": epochs, "batch_size": batch_size, "lr": lr, "loss": loss_kind, "loss_cfg": loss_cfg, "best_epoch": best_ep,
            "best_val_mae_s": best, "last_val_mae_s": hist[-1]["val_mae_s"], "training_time_s": total,
            "n_params": n_params, "n_train_rows_approx": tr.approx_len, "history": hist}
     (out_dir / "path_eta_metrics.json").write_text(json.dumps(res, indent=1), encoding="utf-8")
@@ -141,8 +152,8 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda")
-    ap.add_argument("--loss", choices=["l1", "pinball", "pinball_inv"], default="pinball",
-                    help="l1 = q 0,5 a toda distancia; pinball = q 0,5->0,8 bajo 1 km (default histórico); pinball_inv = q 0,5->0,2 bajo 1 km (castiga más que llegue antes de lo anunciado)")
+    ap.add_argument("--loss", choices=["l1", "pinball", "pinball_inv", "pinball_band"], default="pinball",
+                    help="l1 = q 0,5 a toda distancia; pinball = q 0,5->0,8 bajo 1 km (default histórico); pinball_inv = q 0,5->0,2 bajo 1 km (castiga más que llegue antes de lo anunciado); pinball_band = q 0,3 en la banda de distancia donde cae la ETA 3-10 min (calibrada con el train), rampa a 0,5")
     ap.add_argument("--resume", action="store_true", help="retomar desde <out-dir>/path_eta_last.pt")
     a = ap.parse_args(argv)
     train(a.ml_dir, a.out_dir or a.ml_dir / "models_path", a.epochs, a.batch_size, a.lr, a.max_groups,

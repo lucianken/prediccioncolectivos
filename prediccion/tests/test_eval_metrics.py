@@ -111,3 +111,18 @@ def test_llega_antes_despues_y_espera_extra_media():
     assert g["pct_llega_despues_60s"] == pytest.approx(25.0)
     assert g["espera_extra_media_s"] == pytest.approx(60.0)      # (100 + 20) / 2
     assert g["pct_llega_antes_60s"] == g["pct_over_60s"] and g["pct_llega_despues_60s"] == g["pct_under_60s"]
+
+
+def test_tabla_por_bandas_de_eta_real():
+    from prediccion.eval import compute_eta_bands
+    true = np.array([60.0, 90.0, 250.0, 300.0, 420.0, 500.0, 1000.0])
+    pred = true + np.array([100.0, -10.0, 0.0, 80.0, -100.0, 20.0, 5.0])   # + = llega antes de lo anunciado
+    b = compute_eta_bands(pred, true)
+    assert b["0-2 min"]["n"] == 2 and b["0-2 min"]["pct_llega_antes_60s"] == pytest.approx(50.0)
+    assert b["0-2 min"]["mae"] == pytest.approx(55.0)
+    # 3-7 min (principal) = reales en [180, 420): 250 y 300; el 420 cae en 7+ y queda afuera
+    p = b["3-7 min (principal)"]
+    assert p["n"] == 2 and p["mae"] == pytest.approx(40.0) and p["pct_llega_antes_60s"] == pytest.approx(50.0)
+    b2 = compute_eta_bands(true + np.array([0, 0, 0, 0, -100.0, 0, 0]), true)
+    assert b2["6-8 min"]["pct_llega_despues_60s"] == pytest.approx(100.0) and b2["6-8 min"]["espera_extra_media_s"] == pytest.approx(100.0)
+    assert b2["2-4 min"]["n"] == 0 and b2["2-4 min"]["mae"] is None

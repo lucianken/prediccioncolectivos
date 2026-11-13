@@ -40,6 +40,9 @@ ETA_BUCKETS_S = [("0-5 min", 0.0, 300.0), ("5-10 min", 300.0, 600.0), ("10-20 mi
 DIST_BUCKETS_M = [("<500 m", 0.0, 500.0), ("0,5-2 km", 500.0, 2000.0), ("2-5 km", 2000.0, 5000.0),
                   ("5+ km", 5000.0, math.inf)]
 UNDER_THRESHOLD_S = 60.0
+# Tabla adicional por bandas de ETA real (vara del experimento de la pérdida; ARQUITECTURA.md §5): min -> [lo, hi)
+ETA_BANDS_MIN = [(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 15), (15, 20)]
+MAIN_BAND_MIN = (3, 7)      # banda principal: MAE y % llega antes >60 s
 # Distancia más fina (diagnóstico distancia/línea): 0-0,5, 0,5-1, 1-2, 2-3, 3-5, 5-8, 8-12, 12+ km
 DIST_FINE_M = [("0-0,5 km", 0.0, 500.0), ("0,5-1 km", 500.0, 1000.0), ("1-2 km", 1000.0, 2000.0),
                ("2-3 km", 2000.0, 3000.0), ("3-5 km", 3000.0, 5000.0), ("5-8 km", 5000.0, 8000.0),
@@ -79,6 +82,34 @@ def _stats(pred: np.ndarray, true: np.ndarray) -> dict:
         # espera extra media: media de (real - pred) sobre las filas donde llega después; evita premiar "en 1 min" siempre
         "espera_extra_media_s": float((true - pred)[late].mean()) if late.any() else 0.0,
     }
+
+
+def compute_eta_bands(pred, true) -> dict:
+    """
+    Tabla por bandas de ETA real (minutos): MAE, P90 del error absoluto, % llega antes >60 s, % llega después >60 s y
+    espera extra media. Incluye la banda principal 3-7 min bajo la clave "3-7 min (principal)". Bandas [lo, hi).
+    """
+    pred = np.asarray(pred, dtype=np.float64)
+    true = np.asarray(true, dtype=np.float64)
+
+    def one(lo_min, hi_min):
+        m = (true >= lo_min * 60.0) & (true < hi_min * 60.0)
+        s_ = _stats(pred[m], true[m])
+        return {k: s_[k] for k in ("n", "mae", "p90", "pct_llega_antes_60s", "pct_llega_despues_60s", "espera_extra_media_s")}
+
+    out = {f"{lo}-{hi} min": one(lo, hi) for lo, hi in ETA_BANDS_MIN}
+    out[f"{MAIN_BAND_MIN[0]}-{MAIN_BAND_MIN[1]} min (principal)"] = one(*MAIN_BAND_MIN)
+    return out
+
+
+def eta_bands_to_markdown(d: dict) -> str:
+    rows = ["**Por banda de ETA real (vara del experimento de pérdida; principal = 3-7 min)**", "",
+            "| banda | n | MAE (s) | P90 error abs. (s) | llega antes >60 s (%) | llega después >60 s (%) | espera extra media (s) |",
+            "|---|---:|---:|---:|---:|---:|---:|"]
+    for label, s_ in d.items():
+        rows.append(f"| {label} | {s_['n']} | {_fmt(s_['mae'])} | {_fmt(s_['p90'])} | {_fmt(s_['pct_llega_antes_60s'])} | "
+                    f"{_fmt(s_['pct_llega_despues_60s'])} | {_fmt(s_['espera_extra_media_s'])} |")
+    return "\n".join(rows) + "\n"
 
 
 def compute_metrics(pred, true, dist, line=None) -> dict:
@@ -341,7 +372,7 @@ def run_eval(model_spec: str, which: str, v2_dir: Path, lines: list[str] | None 
     result = {"model": model_spec, "set": which, "eval_file": str(sub_path), "lines": lines,
               "n": int(keep.sum()), "elapsed_s": round(time.time() - t0, 1),
               "date": time.strftime("%Y-%m-%d"), "metrics": m, "phase": result_phase,
-              "by_start_unknown": result_su}
+              "by_start_unknown": result_su, "by_eta_band": compute_eta_bands(pred[keep], true[keep])}
     if tmp_filtered is not None:
         tmp_filtered.unlink(missing_ok=True)
     result["eval_file"] = str(eval_path or (v2_dir / "eval" / f"eval_{which}.parquet"))
