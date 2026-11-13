@@ -127,6 +127,13 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
 
 **Estado de la asignación (2026-11-13):** dataset `data/ml/v2c` armado con `--assign geo3` (§4.5: pings válidos con T = 45 m y shape más cercano + M = 20 m; recorrido del viaje elegido solo entre los compatibles; segmentación geo2 sin cambios). Subconjunto `data/ml/v2c_sub` y eval `data/ml/v2c/eval` con la misma receta que v2b. Modelo por tramos con L1 (LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1) en `data/ml/v2c_sub/runs/`, evaluado en `data/ml/v2c/eval` junto con los L1 de v2b (`data/ml/v2b_sub/runs_l1`) en el mismo eval; tabla por bandas de ETA real (principal 3–7 min) en `data/ml/v2c_sub/runs/comparacion.md`. Lanzador: `prediccion/scripts/run_v2c.py`. El modelo exportado a producción sigue siendo `path_v2b_s0` (entrenado con la tolerancia de 150 m, §5) hasta que se exporte el de v2c con el contrato 2.0.
 
+**Próximo experimento planificado (corre inmediatamente después de v2c): "Paradas por tramo".**
+- *Hipótesis:* el error se concentra en paradas y cabeceras más que en tránsito (el techo de tránsito es bajo, §7). La cantidad de paradas en cada tramo de 250 m del camino explica tiempo de detención que la memoria por tramo solo aprende donde hay datos.
+- *Cambio único:* entrada nueva por tramo del camino = cantidad de paradas del recorrido dentro del tramo y, si resulta trivial de calcular, distancia del inicio del tramo a la próxima parada. Fuente: las paradas por recorrido que ya tiene `proyectoconsola` (`data/line_shapes/{N}.json`, `ramales[].stops`) o la misma fuente desde la que se generan los shapes. Se aplica la regla de §4.5: la feature es causal y compartida, es decir, se calcula con datos que la app también tiene, y las constantes y los datos van en el export.
+- *Receta:* igual que v2c (datos `v2c_sub`, pérdida L1, LR 2e-3, 12 épocas, semillas 0 y 1).
+- *Comparación:* contra v2c L1 en el mismo eval. Banda principal 3–7 min de ETA real; secundaria, heldout (líneas no vistas), porque es donde una feature transferible debería ayudar más.
+- *Criterio:* se adopta si mejora la banda 3–7 min más que la diferencia entre semillas.
+
 **Próximo paso propuesto:** evaluación en condiciones de producción por replay de días posteriores al entrenamiento grabados por el NUC, con la regla de candidatos de producción (`INFERENCIA_PATH.md`: sentido, shapes del usuario, pasa seguro / puede venir) contra el paso real del coche por el punto. Es la vara fija para lo que siga.
 
 ### 6.3 Qué se descarta y qué se reusa
@@ -373,3 +380,8 @@ Importantes para el modelo óptimo; cada una entra a la escalera como **un solo 
 4. **Evaluación sobre paradas (postergado a propósito).** Lo que importa al usuario es la llegada a la parada, no a un punto cualquiera. La vara se mantiene en puntos cualquiera para no romper la comparación entre experimentos. Cuando el modelo esté estable, sumar una vara sobre paradas *además* (no en reemplazo). Ojo: el pasaje por parada se interpola entre pings de ~60 s (error P50 ~24 s, P90 ~52 s, §7 del plan histórico).
 5. **Ramal desconocido en tiempo real.** En el tramo compartido el coche puede ir a varios ramales. Si T está después de la divergencia hay varios futuros posibles (D3 midió +12 s de error ahí contra +8 s en el resto). Una salida posible es predecir por ramal candidato o con una probabilidad de que el coche pase por T. No se ataca hasta que sea el error dominante.
 6. **Tránsito con grilla más fina.** El oráculo de tránsito con celdas de 500 m y ventanas de 2 min no mejora más de ~2 % con la calidad de datos actual; experimento futuro: celdas más chicas / grilla más densa.
+7. **Atributos de calle de OpenStreetMap por tramo.** Entradas por tramo del camino derivadas de OSM: tipo de vía, carril exclusivo / Metrobús, semáforos e intersecciones por tramo, giros.
+   - *Valor esperado:* generalización a recorridos nuevos o modificados y a tramos con pocos datos (brecha entre líneas vistas, ~103 s, y no vistas, ~215 s, en v2b). Poco valor esperado en líneas ya entrenadas, donde la memoria por tramo ya captura cada calle.
+   - *Prioridad:* menor que escalar a 30–40 líneas.
+   - *Nota:* la dirección / mano de las calles ya está implícita en los shapes.
+   - *Relación con `arreglar OSM/`:* ese proyecto corrige la nomenclatura y las referencias de OSM; estos atributos dependerían de la calidad de esos datos, y no se necesita ninguno de los dos para el otro.
