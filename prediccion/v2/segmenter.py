@@ -32,7 +32,6 @@ import numpy as np
 
 from prediccion.pipeline.projector import ShapeIndex, _forward_fraction
 from prediccion.pipeline.segmenter import Trip, TripPoint
-from prediccion.v2.geo_assign import compat_masks
 
 GAP_S = 300
 STOP_S = 600
@@ -408,8 +407,7 @@ def depot_mask(x: np.ndarray, y: np.ndarray, off_route: np.ndarray) -> np.ndarra
 
 
 def segment_geometric(vehicle_id: str, obs: list[tuple], indices: dict[str, ShapeIndex],
-                      gap_s: int = GAP_S, return_stats: bool = False, segmenter_version: int = 1,
-                      assign: str = "legacy"):
+                      gap_s: int = GAP_S, return_stats: bool = False, segmenter_version: int = 1):
     """
     Segmenta los pings (ts estrictamente crecientes) de un vehículo en viajes geométricos.
     Los pings de depósito (quietos y lejos de todo recorrido) se descartan antes de segmentar.
@@ -418,10 +416,6 @@ def segment_geometric(vehicle_id: str, obs: list[tuple], indices: dict[str, Shap
     segmenter_version=1 (default): el segmentador de siempre. segmenter_version=2: une huecos coherentes, arranca el
     viaje al salir de la cabecera y marca start_unknown (ver _segment_v2); devuelve TripV2 y, con return_stats,
     además "gaps" (huecos dentro de viajes) y "waits" (esperas en cabecera).
-    assign="legacy" (default): un ping "ajusta" a un recorrido si su error perpendicular es <= FIT_M (150 m).
-    assign="geo3": ajusta solo si el recorrido es COMPATIBLE con el ping según v2/geo_assign.py (perp <= TOL_M y <=
-    el mínimo entre todos los recorridos de la línea + MARGIN_M). Se implementa reemplazando el error perpendicular de
-    los pings no compatibles por infinito: todos los umbrales `<= FIT_M` de abajo pasan a ser la regla de compatibilidad.
     """
     n = len(obs)
     st = {"pings": n, "depot": 0, "moving_valid": 0, "moving_total": 0}
@@ -434,35 +428,20 @@ def segment_geometric(vehicle_id: str, obs: list[tuple], indices: dict[str, Shap
     lat = np.fromiter((o[1] for o in obs), dtype=np.float64, count=n)
     lon = np.fromiter((o[2] for o in obs), dtype=np.float64, count=n)
     # recorridos candidatos: cobertura barata sobre una submuestra
-    geo3 = assign == "geo3"
     sub = slice(0, n, max(1, n // 60))
     keep = []
-    if geo3:
-        psub = {sid: ix.project_many(lat[sub], lon[sub])[1] for sid, ix in indices.items()}
-        for sid, m in compat_masks(psub).items():
-            if m.mean() >= 0.05:
-                keep.append(sid)
-    else:
-        for sid, ix in indices.items():
-            _, p = ix.project_many(lat[sub], lon[sub])
-            if (p <= FIT_M).mean() >= 0.05:
-                keep.append(sid)
+    for sid, ix in indices.items():
+        _, p = ix.project_many(lat[sub], lon[sub])
+        if (p <= FIT_M).mean() >= 0.05:
+            keep.append(sid)
     if not keep:
         st["depot"] = 0
         st["moving_total"] = n
         return ([], st) if return_stats else []
     Dn, Pn, L = {}, {}, {}
-    if geo3:
-        full = {sid: ix.project_many(lat, lon) for sid, ix in indices.items()}     # el margen mira TODOS los recorridos
-        cm = compat_masks({sid: p for sid, (_, p) in full.items()})
-        for sid in keep:
-            Dn[sid] = full[sid][0]
-            Pn[sid] = np.where(cm[sid], full[sid][1], np.inf)
-            L[sid] = indices[sid].total_length_m
-    else:
-        for sid in keep:
-            d, p = indices[sid].project_many(lat, lon)
-            Dn[sid], Pn[sid], L[sid] = d, p, indices[sid].total_length_m
+    for sid in keep:
+        d, p = indices[sid].project_many(lat, lon)
+        Dn[sid], Pn[sid], L[sid] = d, p, indices[sid].total_length_m
     minperp = np.min(np.stack([Pn[s] for s in keep]), axis=0)
     cos = math.cos(math.radians(float(lat.mean())))
     x, y = lon * _M_PER_DEG * cos, lat * _M_PER_DEG

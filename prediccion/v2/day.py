@@ -173,7 +173,7 @@ def make_carry(vehicles: dict, day: str, lines, passages: dict | None) -> dict:
 
 
 def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineShapes | None = None,
-                     method: str = "geo", stats: dict | None = None, assign: str = "legacy"):
+                     method: str = "geo", stats: dict | None = None):
     """
     Segmenta cada vehículo en viajes. Setea line_number/agency_id (por sufijo del label).
     method="geo" (default v2): segmentador geométrico, no usa trip_id ni start_time (v2/segmenter.py).
@@ -190,8 +190,7 @@ def segment_vehicles(vehicles: dict, label_index: dict[str, dict], shapes: LineS
         carry_ts = rec.get("carry_ts", 0)
         if method in ("geo", "geo2"):
             found, vs = segment_geometric(vid, rec["obs"], shapes.indices(info["line"]) if shapes else {},
-                                          return_stats=True, segmenter_version=2 if method == "geo2" else 1,
-                                          assign=assign)
+                                          return_stats=True, segmenter_version=2 if method == "geo2" else 1)
             if stats is not None:
                 a = stats.setdefault(info["line"], {"pings": 0, "depot": 0, "moving_total": 0, "moving_valid": 0})
                 for k in ("pings", "depot", "moving_total", "moving_valid"):
@@ -222,7 +221,8 @@ def geometry_for_trip(trip, line_indices: dict[str, ShapeIndex], max_perp: float
     assign="geo3": el recorrido se elige ex post (es la etiqueta), pero solo entre los recorridos compatibles con el
       viaje según geo_assign (>= MIN_COMPAT_FRAC de sus pings compatibles; si ninguno, el de más pings compatibles);
       valid = pings compatibles con el recorrido elegido (perp <= TOL_M y <= mínimo de la línea + MARGIN_M). Lo ex post
-      solo elige la etiqueta: la validez de cada ping es la regla causal, igual que en la app.
+      solo elige la etiqueta: la validez de cada ping es la regla causal, igual que en la app. La segmentación en viajes
+      no cambia (sigue con FIT_M = 150 m; ARQUITECTURA §4.5).
     """
     n = len(trip.points)
     lats = np.fromiter((p.lat for p in trip.points), dtype=np.float64, count=n)
@@ -361,7 +361,7 @@ def process_day(
     vehicles, stats, fleet = read_day(fp, label_map, lineset, carry, interval_s, include_fleet)
     geo2 = segmentation == "geo2"
     seg_stats: dict = {}
-    trips = segment_vehicles(vehicles, label_index, shapes, segmentation, seg_stats if geo2 else None, assign)
+    trips = segment_vehicles(vehicles, label_index, shapes, segmentation, seg_stats if geo2 else None)
     trips.sort(key=lambda t: t.start_time)
 
     passage_cache: dict = {}
