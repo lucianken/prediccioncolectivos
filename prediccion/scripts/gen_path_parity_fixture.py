@@ -6,7 +6,7 @@ historial propio y de otros coches) y la salida de `predict_from_raw`. El test d
 JS sobre las mismas entradas y compara (tolerancia 0,5 s en el ETA).
 
 Uso (desde "prediccion colectivos/"):
-  python -m prediccion.scripts.gen_path_parity_fixture --export data/ml/export/path_v2b_s0 \
+  python -m prediccion.scripts.gen_path_parity_fixture --export data/ml/export/path_v2c_l1_s1 \
       --out ../proyectoconsola/test/fixtures/path_parity.json [--seed 7] [--per-shape 4]
 """
 
@@ -157,6 +157,72 @@ def _scenarios(bundle, add, rnd):
         add("39/tronco_compartido_punto_gps", "39", _veh(a, 8000.0, now - 10), (la, lo), now, _trail(a, 8000.0, now - 10, 6, 150, 60))
 
 
+def _assign_scenarios(bundle, add, rnd):
+    """Casos de la asignacion geo_assign (compatibilidad por posicion con T/M, sentido por historial, ramal exclusivo)."""
+    now = BASE_TS + 77777
+    for line, shapes in bundle.lines.items():
+        items = list(shapes.items())
+        done = {"ruido": 0, "par100": 0, "idavuelta": 0, "excl": 0}
+        for sid, sh in items:
+            L = sh.length_m
+            if L < 6000:
+                continue
+            tag = f"{line}/{sid}"
+            # ruido de GPS de ~10 m en coche, historial y punto del usuario: sigue siendo compatible
+            if done["ruido"] < 2:
+                done["ruido"] += 1
+                d_p = L * 0.35
+                jit = lambda la_lo: _offset(la_lo[0], la_lo[1], rnd.uniform(-7, 7), rnd.uniform(-7, 7))  # noqa: E731
+                la, lo = jit(sh.latlon_at(d_p))
+                tla, tlo = jit(sh.latlon_at(d_p + 2000))
+                add(f"{tag}/ruido_10m", line, {"lat": la, "lon": lo, "speed_mps": 6.0, "ts": now - 10}, (tla, tlo), now,
+                    _trail(sh, d_p, now - 10, 8, 150, 45, jitter=7, rnd=rnd))
+            for oid, other in items:
+                if oid == sid:
+                    continue
+                # calle paralela a ~100 m (80..130 m del otro recorrido): el otro no es compatible con ese punto
+                if done["par100"] < 2:
+                    for d_u in range(1000, int(L) - 500, 100):
+                        if 80 <= _perp_to(other, sh, d_u) <= 130:
+                            done["par100"] += 1
+                            user = sh.latlon_at(d_u)
+                            a_d = max(d_u - 1200, 200.0)
+                            add(f"{tag}/paralela_100m_{oid}/coche_en_este", line, _veh(sh, a_d, now - 10), user, now,
+                                _trail(sh, a_d, now - 10, 6, 200, 60))
+                            b_d = max(other.project(*user)[0] - 1200, 200.0)
+                            add(f"{tag}/paralela_100m_{oid}/coche_en_paralelo", line, _veh(other, b_d, now - 10), user, now,
+                                _trail(other, b_d, now - 10, 6, 200, 60))
+                            break
+                # ida y vuelta por la misma calle: dos shapes casi superpuestos recorridos en sentido contrario
+                if done["idavuelta"] < 2:
+                    for d_a in range(1000, int(L) - 2600, 150):
+                        pa, pb = sh.latlon_at(d_a), sh.latlon_at(d_a + 1500)
+                        (d0, e0), (d1, e1) = other.project(*pa), other.project(*pb)
+                        if e0 < 8 and e1 < 8 and d1 < d0 - 1000:
+                            done["idavuelta"] += 1
+                            user = sh.latlon_at(d_a + 1000)
+                            veh = _veh(sh, d_a, now - 10)
+                            add(f"{tag}/ida_vuelta_{oid}/con_historial", line, veh, user, now, _trail(sh, d_a, now - 10, 6, 150, 60))
+                            add(f"{tag}/ida_vuelta_{oid}/sin_historial", line, veh, user, now)
+                            add(f"{tag}/ida_vuelta_{oid}/historial_inverso", line, _veh(other, d0, now - 10), user, now,
+                                _trail(other, d0, now - 10, 6, 150, 60))
+                            break
+                # coche pasada la bifurcacion, sobre un tramo exclusivo de `sid` (a > 200 m de `other`), con el punto sobre un
+                # tramo exclusivo de `other`: `sid` no sirve el punto y el coche no se lista
+                if done["excl"] < 2:
+                    d_b = next((d for d in range(1500, int(L) - 500, 200)
+                                if _perp_to(other, sh, d) > 200 and _perp_to(other, sh, d - 600) > 200), None)
+                    d_u = next((d for d in range(1000, int(other.length_m) - 500, 200)
+                                if _perp_to(sh, other, d) > 200), None)
+                    if d_b is not None and d_u is not None:
+                        done["excl"] += 1
+                        user = other.latlon_at(d_u)
+                        hist = _trail(sh, d_b, now - 10, 6, 150, 60)
+                        add(f"{tag}/exclusivo_de_{oid}/parada", line, _veh(sh, d_b, now - 10), user, now, hist,
+                            user_kind="parada", stop_recorridos=[other.name])
+                        add(f"{tag}/exclusivo_de_{oid}/punto", line, _veh(sh, d_b, now - 10), user, now, hist)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--export", required=True)
@@ -232,6 +298,7 @@ def main():
                 _trail(sh, 150.0, now - 10, 3, 50, 30))
 
     _scenarios(bundle, add, rnd)
+    _assign_scenarios(bundle, add, rnd)
 
     # linea fuera del modelo y velocidad ausente
     sh = next(iter(bundle.lines["39"].values()))

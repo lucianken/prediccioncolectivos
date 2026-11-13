@@ -9,15 +9,15 @@ Reemplaza a `INFERENCE_GUIDE.md` (A3 viejo, ramal conocido; en `docs_old/`).
 
 ## 1. Archivos exportados
 
-`python -m prediccion.scripts.export_path_onnx --ckpt <best.pt> --out <dir>` (repetible con cualquier checkpoint; verifica ONNX vs PyTorch y que la geometría de `line_shapes` coincida con las celdas del checkpoint). Versión activa: `data/ml/export/path_v2b_s0/`; exportada sin activar: `path_v2b_pinv_s0/` (pérdida pinball q 0,5→0,2 bajo 1 km). El manifest declara `contract_version` 2.0 (1.x usaba tolerancia de 150 m y constantes propias del cliente).
+`python -m prediccion.scripts.export_path_onnx --ckpt <best.pt> --out <dir>` (repetible con cualquier checkpoint; verifica ONNX vs PyTorch y que la geometría de `line_shapes` coincida con las celdas del checkpoint). Versión activa: `data/ml/export/path_v2c_l1_s1/` (pérdida L1, entrenada sobre v2c); anteriores: `path_v2b_s0/`, `path_v2b_pinv_s0/`. El manifest declara `contract_version` 2.0 (1.x usaba tolerancia de 150 m y constantes propias del cliente).
 
-| archivo | contenido | tamaño (v2b_s0) |
+| archivo | contenido | tamaño (v2c_l1_s1) |
 |---|---|---|
 | `path_eta.onnx` | red, opset 17, `B` (candidatos) y `N` (tramos) dinámicos | 2,64 MB (2,44 MB gzip) |
 | `manifest.json` | `contract_version`, `model_version`, tabla línea→índice, constantes y normalizaciones, `assignment` (parámetros de la asignación, §4), E/S del ONNX, tamaño y sha256 de cada archivo | 3 KB |
 | `lines/<línea>.json` | por línea: shapes `{id, name, short_name, length_m, n_cells, points [lat,lon,...], cells [lat,lon,...]}` (vectores planos, 6 decimales) | 12 archivos, 23–104 KB; 0,78 MB (0,18 MB gzip) |
 
-Total 3,4 MB (~2,6 MB gzip). El cliente carga `manifest.json` y el ONNX al inicio y `lines/<línea>.json` bajo demanda. El modelo se reemplaza cambiando el directorio; el cliente rechaza un `contract_version` mayor que el que implementa y cachea por `model_version`.
+Total 3,4 MB (~2,6 MB gzip). El cliente carga `manifest.json` y el ONNX al inicio y `lines/<línea>.json` bajo demanda. El modelo se reemplaza cambiando el directorio; el cliente rechaza un `contract_version` que no sea 2.x y cachea por `model_version`.
 
 `cells` son los puntos medios (lat, lon) de las celdas de 250 m de cada shape, exactamente los del entrenamiento (la celda `j` cubre `[250j, 250(j+1)]` m; la última es parcial y su punto medio se satura al largo del shape). El cliente no recalcula nada de esto. El mapa de la ciudad (grilla de 500 m con embeddings) está dentro del ONNX.
 
@@ -63,7 +63,7 @@ Proyección de un punto sobre un shape (`Shape.project`): distancia acumulada co
 
 ### Asignación de ping a recorrido y sentido (`geo_assign.py`)
 
-Parámetros en `manifest.assignment` (el cliente rechaza un manifest cuyos valores no coincidan con los que implementa; la referencia lo verifica contra el módulo): `tol_m` (T), `margin_m` (M), `history_window_s`, `min_near_pings`, `min_near_frac`, `min_forward_frac`, `min_net_forward_m`, `step_moving_m`, `step_jump_m`, `stop_max_perp_m`, `stop_fallback_perp_m`.
+Parámetros en `manifest.assignment` (el cliente las lee del manifest, sin valores propios, y rechaza un manifest sin alguno de ellos o con contract_version distinta de 2.x; la referencia verifica que coincidan con el módulo): `tol_m` (T), `margin_m` (M), `history_window_s`, `min_near_pings`, `min_near_frac`, `min_forward_frac`, `min_net_forward_m`, `step_moving_m`, `step_jump_m`, `stop_max_perp_m`, `stop_fallback_perp_m`.
 
 - **Shapes compatibles con una posición** (`compatible_shapes(lat, lon, shapes)`): perp ≤ `tol_m` y perp ≤ (mínima perp entre TODOS los shapes de la línea) + `margin_m`. La tolerancia admite el ruido de GPS; el margen descarta la calle paralela cuando otro shape explica mucho mejor la posición. Ida y vuelta por la misma calle son ambas compatibles. Se aplica igual al ping del coche y al punto del usuario (GPS o toque en el mapa).
 - **Sentido** (`direction_from_history(pings, shape)`): pings propios de los últimos `history_window_s` anteriores al ping actual, más el ping actual, proyectados sobre el shape. Se exige: ≥ `min_near_pings` a ≤ `tol_m` (si no, `sin_sentido`); ≥ `min_near_frac` de los pings de la ventana a ≤ `tol_m` y `forward_fraction ≥ min_forward_frac` (pasos de entre `step_moving_m` y `step_jump_m`, metros avanzados / totales); avance neto (último menos primero de los pings cercanos) ≥ `min_net_forward_m`. Con avance neto ≤ −`min_net_forward_m`, `forward_fraction` bajo o pings lejos del shape: `sentido_incoherente`; con avance neto entre −`min_net_forward_m` y +`min_net_forward_m`: `sin_sentido`. La ventana se mide respecto del ping actual (no de la hora de la consulta). Sin historial o coche quieto no hay sentido confirmado: se aplica el ETA provisional (abajo).
