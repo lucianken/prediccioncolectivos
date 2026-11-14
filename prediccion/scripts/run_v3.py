@@ -1,17 +1,17 @@
 """
-Lanzador reanudable de v3: escalado del modelo por tramos a 36 líneas (ARQUITECTURA.md §6 y §10).
+Lanzador reanudable de v3: escalado del modelo por tramos a 60 líneas (ARQUITECTURA.md §6 y §10).
 
-Líneas: las 15 de v2c (12 de train + control 12, 15, 128) más 21 nuevas de data/ml/v2/lines.json, elegidas por criterio
-(ver NEW_LINES). Train = 33 líneas, control = 12, 15, 128 (fuera de train).
+Líneas: las 60 de data/ml/v2/lines.json (decisión del usuario; ver NEW_LINES). Train = 48 líneas (las 12 de producción + 36),
+control = 12 líneas (1, 12, 15, 21, 64, 65, 68, 87, 100, 109, 128, 181) fuera de train.
 
 Etapas, todas idempotentes (si algo se corta, volver a ejecutar el mismo comando):
   1. build en data/ml/v3 por bloques de 14 días (segmentación geo2, asignación geo3, K=32, 2026-03-28:2026-10-14); reanuda por día
   2. validación rápida (viajes, filas, % start_unknown por línea) -> data/ml/v3/validation/summary.md; falla si una línea no tiene filas
-  3. ensamblado data/ml/v3_sub (33 líneas, train desde 2026-07-20, 40 % de la val) y eval congelado data/ml/v3/eval
+  3. ensamblado data/ml/v3_sub (48 líneas, train desde 2026-07-20, 40 % de la val) y eval congelado data/ml/v3/eval
   4. modelo por tramos `--loss l1 --stops-feature`, LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1
      -> data/ml/v3_sub/runs/
   5. evaluación en data/ml/v3/eval (seen y heldout) de esos dos y, en el mismo eval, de v2c L1 (producción, path_v2c_l1_s1 es
-     la semilla 1) y v2c L1 con paradas, estos sobre las 12 líneas que conocen (seen) y sobre el heldout completo;
+     la semilla 1) y v2c L1 con paradas, estos sobre las 12 líneas que conocen (seen) y sobre las 3 de control (12, 15, 128) cuyos shapes tienen en su tabla (las otras 9 son desconocidas para ellos);
      tablas por bandas de ETA real (principal 3-7 min) y por línea en runs/comparacion.md
 Línea final de runs/launcher.log: `listo: v3 entrenado y evaluado` o `ERROR ...`.
 
@@ -23,7 +23,7 @@ RESTRICCIÓN DE RECURSOS (el usuario usa la PC hasta GATE, 19:00 hora local del 
 
 Lanzar desacoplado (las tareas de fondo mueren a las 2 h):
   Start-Process python -ArgumentList "-u","-m","prediccion.scripts.run_v3" -WindowStyle Hidden -RedirectStandardOutput <log>
-`--smoke`: prueba de punta a punta con 2 días y las 36 líneas en data/ml/v3_smoke (build, validación, ensamblado, eval
+`--smoke`: prueba de punta a punta con 2 días y las 60 líneas en data/ml/v3_smoke (build, validación, ensamblado, eval
 congelado chico, 1 época sobre 3 row groups en CPU, evaluación y tablas); no usa GPU.
 """
 
@@ -53,14 +53,13 @@ DAYS = ("2026-03-28", "2026-10-14")
 SMOKE_DAYS = "2026-08-12,2026-09-16"
 
 OLD12 = "26,39,42,92,124,151,168,50,106,107,108,132".split(",")
-CONTROL = ["12", "15", "128"]
-# Nuevas: del pool de data/ml/v2/lines.json (60 líneas: metrics por línea) se descartan las de control (12, 15, 128), las ya
-# incluidas, las marcadas `suspect_recorrido_con_pings_en_movimiento` (7, 84, 115: recorrido OSM parcial), las excluidas
-# (`dropped`: 56, 91; `not_in_dataset_first_pass`) y las que no pasan frac_within_150_moving >= 0,95 y
-# frac_trips_perp_le_50 >= 0,97 y median_perp_m <= 4,5 (76: 0,938); de las que quedan, las 21 de mayor volumen
-# (trips_weekday), que incluye 7 líneas CABA nuevas (34, 118, 102, 65, 44, 64, 68) y todas tienen shapes con paradas.
-NEW_LINES = "28,98,21,68,34,180,118,33,85,194,100,188,102,197,65,29,44,64,110,41,9".split(",")
-TRAIN = OLD12 + NEW_LINES
+# Lista decidida por el usuario (2026-11-14): las 60 líneas de data/ml/v2/lines.json tal cual, sin filtro de calidad adicional
+# (48 de `train`, que incluye 7, 76, 84, 115, y 12 de `heldout` como control), más la 132 por estar en producción (ya está
+# en las 48). Total: 48 de train y 12 de control. Las 12 de producción (OLD12) son las que conocen los modelos v2c.
+KNOWN_CTRL = ["12", "15", "128"]   # de control, con shapes en la tabla de los modelos v2c (las otras 9 no: predict_path las descarta)
+CONTROL = ["1", "12", "15", "21", "64", "65", "68", "87", "100", "109", "128", "181"]
+NEW_LINES = [x for x in ["4", "7", "9", "20", "25", "26", "28", "29", "33", "34", "39", "41", "42", "44", "46", "47", "50", "61", "62", "74", "76", "84", "85", "88", "92", "98", "102", "106", "107", "108", "110", "113", "114", "115", "118", "123", "124", "127", "132", "143", "151", "168", "169", "180", "184", "188", "194", "197"] if x not in OLD12]
+TRAIN = OLD12 + NEW_LINES   # 48 (la 132 está en OLD12)
 ALL = TRAIN + CONTROL
 SEEDS = (0, 1)
 N_PER_BUCKET = 200 if SMOKE else 15000
@@ -141,7 +140,7 @@ ALL_S = ",".join(ALL)
 def write_lines_file() -> None:
     lf = V3 / "lines.json"
     d = {"train": TRAIN, "heldout": CONTROL, "n_train": len(TRAIN), "n_heldout": len(CONTROL), "new_lines": NEW_LINES,
-         "criteria": "ver NEW_LINES en prediccion/scripts/run_v3.py y ARQUITECTURA.md §6/§10; deriva de data/ml/v2/lines.json"}
+         "criteria": "lista de 60 líneas decidida por el usuario (data/ml/v2/lines.json: 48 train + 12 heldout), +132 por estar en producción (ya está en las 48)"}
     new = json.dumps(d, indent=1, ensure_ascii=False)
     if not lf.exists() or lf.read_text(encoding="utf-8") != new:
         V3.mkdir(parents=True, exist_ok=True)
@@ -257,8 +256,8 @@ def evaluate(label: str, s: int) -> None:
         wait_gate(f"evaluar {name} {which}")
         cmd = PY[:3] + ["prediccion.eval", "--model", f"path:{ckpt_of(label, s)}", "--set", which, "--v2-dir", str(V3),
                         "--out-dir", str(out), "--save-preds"]
-        if old and which == "seen":
-            cmd += ["--lines", ",".join(OLD12), "--tag", "old12"]
+        if old:
+            cmd += ["--lines", ",".join(OLD12 if which == "seen" else KNOWN_CTRL), "--tag", "known"]
         log(f"evalúa {name} {which}")
         rc = sh(cmd, BASE / "logs" / f"eval_{name}_{which}.log", cpu_only=SMOKE)
         if rc != 0:
@@ -270,8 +269,8 @@ def load_preds(label: str, s: int, which: str, tbl: dict) -> tuple[np.ndarray, n
     f = sorted((BASE / "eval" / f"{label}_s{s}").glob(f"*_{which}_*.pred.npy"))[-1]
     pred = np.load(f).astype(np.float64)
     line, true = tbl[which]
-    if label != NEW_LABEL and which == "seen":
-        m = np.isin(line, OLD12)
+    if label != NEW_LABEL:
+        m = np.isin(line, OLD12 if which == "seen" else KNOWN_CTRL)
         line, true = line[m], true[m]
     if len(pred) != len(line):
         raise RuntimeError(f"{f}: {len(pred)} predicciones contra {len(line)} filas del eval")
@@ -298,13 +297,14 @@ def comparison() -> None:
     def mean_over_seeds(lb, which, lines, band, k):
         seeds = [s for l2, s in models if l2 == lb]
         v = [bands(lb, s, which, lines)[band][k] for s in seeds]
-        return float(np.mean(v))
+        return float(np.mean([np.nan if x is None else x for x in v]))
 
     labels = [NEW_LABEL] + [lb for lb, _ in OLD_MODELS]
-    scopes = [("seen, 12 líneas viejas (las que conocen todos los modelos)", "seen", OLD12, labels),
-              (f"seen, {len(NEW_LINES)} líneas nuevas (solo v3)", "seen", NEW_LINES, [NEW_LABEL]),
+    scopes = [("seen, 12 líneas de producción (las que conocen todos los modelos)", "seen", OLD12, labels),
+              (f"seen, {len(NEW_LINES)} líneas nuevas (no en producción; solo v3)", "seen", NEW_LINES, [NEW_LABEL]),
               (f"seen, las {len(TRAIN)} líneas de train (solo v3)", "seen", TRAIN, [NEW_LABEL]),
-              ("heldout (12, 15, 128; ninguna en train de ningún modelo)", "heldout", CONTROL, labels)]
+              (f"heldout, las {len(KNOWN_CTRL)} de control con shapes conocidos por v2c ({', '.join(KNOWN_CTRL)}; ninguna en train de ningún modelo)", "heldout", KNOWN_CTRL, labels),
+              (f"heldout, las {len(CONTROL)} de control (solo v3; ninguna en train)", "heldout", CONTROL, [NEW_LABEL])]
     ref_note = ("`v2c_l1`: modelo por tramos L1 sin paradas entrenado sobre v2c (12 líneas; su semilla 1 es `path_v2c_l1_s1`, "
                 "el de producción); `v2c_l1_paradas`: igual con `--stops-feature` (`data/ml/v2c_sub/runs_stops`); "
                 f"`{NEW_LABEL}`: este escalado (v3_sub, {len(TRAIN)} líneas). Cada celda es la media de las semillas 0 y 1. "
@@ -328,7 +328,7 @@ def comparison() -> None:
         for lb in labs:
             ss = [s for l2, s in models if l2 == lb]
             cells = [bands(lb, s, which, lines)[MAIN] for s in ss]
-            out.append(f"- {lb}: " + " ; ".join(f"s{s} {c['mae']:.1f} s ({c['pct_llega_antes_60s']:.1f} %)" for s, c in zip(ss, cells)))
+            out.append(f"- {lb}: " + " ; ".join(f"s{s} {c['mae'] or float('nan'):.1f} s ({c['pct_llega_antes_60s'] or float('nan'):.1f} %)" for s, c in zip(ss, cells)))
         out.append("")
     # desglose por línea sobre seen
     out += ["## Desglose por línea (seen)", "",
@@ -341,7 +341,8 @@ def comparison() -> None:
         b = [bands(NEW_LABEL, s, "seen", [ln]) for s in SEEDS]
         glob = np.mean([_stats(cache[(NEW_LABEL, s, "seen")][2][cache[(NEW_LABEL, s, "seen")][0] == ln],
                                cache[(NEW_LABEL, s, "seen")][1][cache[(NEW_LABEL, s, "seen")][0] == ln])["mae"] for s in SEEDS])
-        row = [f"{np.mean([x[MAIN]['mae'] for x in b]):.1f}", f"{np.mean([x[MAIN]['pct_llega_antes_60s'] for x in b]):.1f}", f"{glob:.1f}"]
+        nn = lambda k: np.mean([np.nan if x[MAIN][k] is None else x[MAIN][k] for x in b])  # noqa: E731
+        row = [f"{nn('mae'):.1f}", f"{nn('pct_llega_antes_60s'):.1f}", f"{glob:.1f}"]
         for lb, _ in OLD_MODELS:
             row.append(f"{mean_over_seeds(lb, 'seen', [ln], MAIN, 'mae'):.1f}" if ln in OLD12 else "")
         out.append(f"| {ln} | {grp} | {int(b[0][MAIN]['n'])} | " + " | ".join(row) + " |")
@@ -352,8 +353,8 @@ def comparison() -> None:
 def preflight() -> None:
     free = shutil.disk_usage(".").free / 1e9
     log(f"disco libre: {free:.0f} GB")
-    if not SMOKE and free < 15:
-        raise RuntimeError(f"disco libre {free:.0f} GB < 15 GB; liberar espacio y relanzar")
+    if not SMOKE and free < 12:
+        raise RuntimeError(f"disco libre {free:.0f} GB < 12 GB; liberar espacio y relanzar")
     log(f"líneas: {len(TRAIN)} train ({len(OLD12)} viejas + {len(NEW_LINES)} nuevas: {','.join(NEW_LINES)}), control {','.join(CONTROL)}; "
         f"restricción de recursos hasta {GATE:%Y-%m-%d %H:%M} ({'activa' if restricted() else 'vencida'})")
     write_lines_file()
