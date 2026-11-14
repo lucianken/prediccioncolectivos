@@ -82,6 +82,15 @@ Hoy los números no son comparables: A3 72 s (16,5 M filas val, solo 39), A1 158
 
 **Vara principal (desde 2026-11-13): banda de ETA real 3–7 min**, con dos números: MAE y % que llega antes de lo anunciado > 60 s. Es el rango en que el usuario decide cuándo salir. Por debajo de 2 min la predicción es inviable y no se usa para decidir. La tabla por bandas de ETA real (0–2, 2–4, 4–6, 6–8, 8–10, 10–15, 15–20 min: MAE, P90 del error absoluto, % llega antes >60 s, % llega después >60 s, espera extra media) la produce `prediccion.eval` (clave `by_eta_band` del JSON, última sección del markdown). Las tablas por bucket de arriba se mantienen como informativas.
 
+**Vara de producto (desde 2026-11-14).** Complementa la vara del modelo (MAE por bandas de ETA real sobre `eval_seen` / `eval_heldout`, arriba). Es el replay en condiciones de producción: `prediccion/replay/`, con la lógica de `path_reference` fijada por hash (copias en `prediccion/replay/pinned/`) y el modelo exportado, usando solo los pings disponibles hasta cada instante t y la presentación de la app (viene / puede venir / sentido sin confirmar, orden por ETA, tope de 5). Se evalúa contra el paso real del coche por la parada (verdad: cruce interpolado entre dos pings a lo sumo 10 min separados; horizonte 40 min). Métricas:
+- **MAE del próximo coche que pasa por la parada**, en la banda de ETA real 3–7 min.
+- **Falsas alarmas:** coches anunciados que no pasan por la parada.
+- **Omisiones:** coches que pasan en ≤10 min y no estaban anunciados.
+- **"Viene" vacío:** instantes sin ningún "viene" aunque pasa un coche en ≤10 min.
+- Desglose por **tramo exclusivo** contra **tronco compartido** de la línea, y por línea.
+
+Referencia (2026-11-14): producción actual 107 s en la banda 3–7 min contra ~55 s de la vara del modelo. La diferencia no es error de ETA por coche sino la elección de qué coche es el próximo. Informe: `data/ml/replay/ORACULO_RAMAL.md`; resultados en §7.
+
 **Pérdida de entrenamiento (vigente desde 2026-11-13).** El modelo por tramos se entrena con L1 (`--loss l1`, simétrica: q = 0,5 a toda distancia, mediana). La asimetría ante el error grave (colectivo que llega antes de lo anunciado) se resuelve en el producto, no en el entrenamiento: un factor de anuncio `a` en la app, con ETA mostrada = ETA predicha × (1 − a); hoy a = 0 (sin ajuste). `--loss pinball` (q 0,5 → 0,8 bajo 1 km; default del trainer para reproducir corridas anteriores y reanudar sus checkpoints), `--loss pinball_inv` (q 0,5 → 0,2 bajo 1 km) y `--loss pinball_band` (q 0,3 según la distancia restante, §6.2) son opciones del trainer y no se usan. Comparación en §7 ("Pérdida asimétrica vs ajuste en producto").
 
 **Registro de error (corregido el 2026-11-13).** Hasta esa fecha la pinball usaba q 0,5 → 0,8 bajo 1 km, lo que castigaba que el colectivo llegue después de lo anunciado, y la vara rotulaba "subest. >60 s (el usuario pierde el colectivo)" a las filas donde el colectivo llega después. Afecta a:
@@ -131,7 +140,12 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
 
 **Decisión: paradas por tramo (2026-11-13).** La feature `--stops-feature` queda activada en los entrenamientos siguientes: no cuesta nada en líneas vistas y ayuda en generalización (resultado en §7). Producción no cambia ahora: las 12 líneas habilitadas son todas vistas y sumar la feature exige portar a la app el cálculo de paradas por tramo. Se porta junto con el próximo modelo (escalado a 30–40 líneas).
 
-**Próximo paso en curso: "Oráculo de ramal".** Replay en condiciones de producción que compara la regla de asignación vigente (§4.5, ramal desconocido en tiempo real) contra el ramal conocido de antemano (el ramal ex post usado como oráculo). Acota cuánto ganaría la predicción si se conociera el ramal en tiempo real, por ejemplo vía CuandoSubo en las líneas donde su ramal es correcto. Las métricas se registran en §7 cuando estén.
+**Decisión (2026-11-14): integrar el ramal de CuandoSubo como restricción de shapes candidatos.** Basada en el oráculo de ramal (§7, "Oráculo de ramal (2026-11-14)"): conocer el ramal en tiempo real reduce falsas alarmas y "viene" vacío, sobre todo en tramo exclusivo; no afina la ETA. Especificación:
+- La restricción usa la misma lógica que la variante oráculo del replay: los shapes candidatos del coche se restringen a los del ramal informado. Se define en el pipeline (`prediccion/`) y se porta a la app. Si el coche no tiene ramal informado, queda sin restricción (comportamiento actual).
+- El modelo no cambia (`path_v2c_l1_s1`); solo cambia el conjunto de shapes candidatos.
+- Se habilita **línea por línea**, empezando por 39, 42, 106, 132 y 168, y **solo en las líneas donde se mida antes que el ramal de CuandoSubo es correcto**: el techo del oráculo supone un ramal siempre correcto y cualquier error de CuandoSubo lo reduce. En líneas sin ramales no hay nada que ganar.
+- Se valida con la vara de producto (§5) en cada línea habilitada.
+- **Pendiente:** investigar la omisión de 17 %, que el oráculo no cambia.
 
 **Próximo paso propuesto:** evaluación en condiciones de producción por replay de días posteriores al entrenamiento grabados por el NUC, con la regla de candidatos de producción (`INFERENCIA_PATH.md`: sentido, shapes del usuario, pasa seguro / puede venir) contra el paso real del coche por el punto. Es la vara fija para lo que siga.
 
@@ -287,6 +301,37 @@ De 46.785 viajes emparejados (mismo coche e inicio), 768 (1,6 %) cambian de reco
 | Diferencia entre semillas | 0,7 | 4,0 |
 
   **Lectura:** en seen el efecto es nulo (0,1 s contra 0,7 s entre semillas). En heldout mejora 5,6 s (6 %), por encima de los 4,0 s entre semillas: supera el criterio por poco. En líneas entrenadas la memoria por tramo ya captura el efecto de las paradas; la feature es transferible y ayuda en recorridos no vistos o con pocos datos.
+
+- **Oráculo de ramal (2026-11-14).** Replay de la vara de producto (§5): 12 líneas habilitadas (26, 39, 42, 50, 92, 106, 107, 108, 124, 132, 151, 168), 40 paradas por línea (mitad tronco compartido, mitad tramo exclusivo), instantes cada 10 min de 6 a 23 h, 10 días del período de evaluación (15, 16, 17, 18, 19, 20 de sep. y 3, 4, 6, 8 de oct.; la línea 26 solo tiene datos 15–17 de sep.). Lógica de `geo_assign.py` y `path_reference.py` fijada en el commit e7479f7 (contrato 2.1); modelo `path_v2c_l1_s1`. Variantes: `base` (producción: ramal y sentido por historial + geometría), `solo sentido` (shapes restringidos al sentido del recorrido ex post) y `oráculo ramal` (shapes restringidos al recorrido ex post del viaje en curso; sin restricción si el coche no tiene viaje ex post). Informe y tablas completas: `data/ml/replay/ORACULO_RAMAL.md`.
+
+  Global (465.560 pares parada-instante). MAE del próximo coche en la banda 3–7 min (s); falsas alarmas; omisión con coche en ≤10 min; "viene" vacío con coche en ≤10 min:
+
+| Variante | MAE 3–7 min | Falsas alarmas | Omisión ≤10 min | "Viene" vacío |
+|---|---|---|---|---|
+| base | 107 | 24,0 % | 17,0 % | 13,7 % |
+| solo sentido | 104 | 23,5 % | 17,2 % | 13,6 % |
+| oráculo ramal | 94 | 17,4 % | 17,0 % | 7,9 % |
+
+  Tramo exclusivo contra tronco compartido (base → oráculo ramal):
+
+| Tipo de parada | MAE 3–7 min | Falsas alarmas | "Viene" vacío |
+|---|---|---|---|
+| Tramo exclusivo | 113 → 82 s | 45,6 → 24,4 % | 30,5 → 7,5 % |
+| Tronco compartido | 124 → 112 s | 16,0 → 15,1 % | 11,0 → 9,6 % |
+
+  Línea 39 (base → oráculo ramal): MAE 86 → 82 s; falsas alarmas 30,4 → 11,3 %; "viene" vacío 24,6 → 5,0 % (en su tramo exclusivo, 42,1 → 5,3 %). La ganancia es de confiabilidad más que de precisión.
+
+  - **Mejoran claramente:** 42 (MAE 164 → 103 s), 106 (115 → 80 s), 132 (117 → 75 s; falsas alarmas 25,4 → 7,1 %) y 168 (117 → 97 s).
+  - **No mejoran:** 26, 92, 108 y 124 (un solo recorrido por sentido; no hay ramal que restringir) y, en el MAE, 107, 151 y 50.
+
+  **Lectura:** conocer solo el sentido no aporta (con contrato 2.1 el sentido ya sale bien). Conocer el ramal aporta por sacar de la lista coches de otro ramal, sobre todo en tramo exclusivo; no por afinar la ETA.
+
+  **Salvedades:**
+  - Es un techo: supone el ramal siempre correcto; cualquier error del ramal de CuandoSubo lo reduce.
+  - Los huecos de GPS impiden interpolar algunos cruces, por lo que falsas alarmas y omisiones están algo sobrestimadas, por igual en las tres variantes. La omisión no cuenta los coches sin ping vigente en t.
+  - Con el oráculo, casi todo lo que queda en "puede venir" son coches sin viaje ex post; su tasa de falsas alarmas (~96 %) no es comparable con la de base.
+  - La omisión de 17 % no cambia con el oráculo: queda por investigar (§6).
+  - En la línea 151, tramo exclusivo, el MAE de la banda (225 → 862 s) sale de muy pocos instantes y no se interpreta.
 
 ## 8. Decisiones previas que siguen vigentes (no re-discutir sin dato nuevo)
 
