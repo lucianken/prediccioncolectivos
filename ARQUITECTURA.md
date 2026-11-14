@@ -140,6 +140,8 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
 
 **Decisión: paradas por tramo (2026-11-13).** La feature `--stops-feature` queda activada en los entrenamientos siguientes: no cuesta nada en líneas vistas y ayuda en generalización (resultado en §7). Producción no cambia ahora: las 12 líneas habilitadas son todas vistas y sumar la feature exige portar a la app el cálculo de paradas por tramo. Se porta junto con el próximo modelo (escalado a 30–40 líneas).
 
+**Escalado a 36 líneas, v3 (2026-11-14): en curso.** Modelo por tramos con `--loss l1 --stops-feature` (LR 2e-3, 12 épocas, OneCycle, batch 1024, semillas 0 y 1) sobre 33 líneas de train (las 12 de v2c más 21 nuevas) y control 12, 15, 128 fuera de train. Las 21 nuevas salen de `data/ml/v2/lines.json`: se excluyen las de control, las marcadas con recorrido OSM parcial (7, 84, 115), las excluidas (`dropped`, `not_in_dataset_first_pass`) y las que no cumplen ≥ 95 % de pings en movimiento a ≤ 150 m, ≥ 97 % de viajes con perp mediano ≤ 50 m y perp mediano ≤ 4,5 m; de las restantes se toman las 21 de mayor volumen (28, 98, 21, 68, 34, 180, 118, 33, 85, 194, 100, 188, 102, 197, 65, 29, 44, 64, 110, 41, 9; 7 de ellas de CABA). Datos en `data/ml/v3`, `data/ml/v3_sub`, eval `data/ml/v3/eval`; modelos en `data/ml/v3_sub/runs/`; comparación contra `path_v2c_l1_s1` y los modelos con paradas de v2c, en el mismo eval y sobre las 12 líneas que ellos conocen, en `runs/comparacion.md`. Lanzador: `prediccion/scripts/run_v3.py`. Resultados pendientes.
+
 **Pendiente (sin fecha):** integrar el ramal de CuandoSubo como restricción de shapes candidatos. No está en curso ni planificada; spec en §11, ítem 8.
 
 **Próximo paso propuesto:** evaluación en condiciones de producción por replay de días posteriores al entrenamiento grabados por el NUC, con la regla de candidatos de producción (`INFERENCIA_PATH.md`: sentido, shapes del usuario, pasa seguro / puede venir) contra el paso real del coche por el punto. Es la vara fija para lo que siga.
@@ -415,6 +417,21 @@ Mismo comando que v2b más `--assign geo3` y otro `--out-dir` (el lanzador `pred
 & $PY -m prediccion.v2.make_eval --v2-dir data/ml/v2c --lines-file data/ml/v2c/lines.json --n-per-bucket 7500
 ```
 Un día construido con otra asignación (`meta.assign`) se reprocesa. Las constantes T y M están solo en `prediccion/v2/geo_assign.py` y `meta.json` de cada día guarda los parámetros usados.
+
+### Escalado a 36 líneas (v3)
+Lanzador único y reanudable (build por bloques de 14 días, validación, ensamblado, eval, entrenamiento, evaluación); probar antes con `--smoke` (2 días, CPU, `data/ml/v3_smoke`):
+```powershell
+& $PY -m prediccion.scripts.run_v3 --smoke
+Start-Process $PY -ArgumentList "-u","-m","prediccion.scripts.run_v3" -WindowStyle Hidden -RedirectStandardOutput data\ml\v3_sub\runs\launcher.out -RedirectStandardError data\ml\v3_sub\runs\launcher.err
+```
+Equivale a (el lanzador agrega la lista de líneas, `data/ml/v3/lines.json` con 33 de train y control 12, 15, 128, y reparte los días en bloques):
+```powershell
+& $PY -m prediccion.v2.build --lines-file data/ml/v3/lines.json --lines <36 líneas> --days 2026-03-28:2026-10-14 --pairs-per-trip 32 --workers 3 --segmentation geo2 --assign geo3 --low-priority --out-dir data/ml/v3 --no-assemble
+& $PY -m prediccion.v2.assemble --v2-dir data/ml/v3 --lines-file data/ml/v3/lines.json --only-lines <33 de train> --dest data/ml/v3_sub --train-start 2026-07-20 --val-sample-frac 0.4
+& $PY -m prediccion.v2.make_eval --v2-dir data/ml/v3 --lines-file data/ml/v3/lines.json --n-per-bucket 15000
+& $PY -m prediccion.train_path --ml-dir data/ml/v3_sub --out-dir data/ml/v3_sub/runs/path_lr2e-3_s0 --lines-file data/ml/v3/lines.json --epochs 12 --batch-size 1024 --lr 2e-3 --seed 0 --loss l1 --stops-feature --resume
+```
+Con el eval de v3 se usan 15.000 filas por bucket de ETA (60.000 por conjunto) en vez de 7.500 para que el desglose por línea tenga muestra. Restricción de recursos de esta corrida (la PC en uso hasta las 19:00 del 2026-11-14): hasta esa hora el build usa 2 workers con prioridad baja y no se usa la GPU; el entrenamiento y la evaluación esperan a las 19:00 (`GATE` en `run_v3.py`); después el build pasa a más workers y el entrenamiento usa la GPU completa. Log: `data/ml/v3_sub/runs/launcher.log`.
 
 ## 11. Ideas a testear para el modelo final (anotadas 2026-11-11, no implementadas)
 
