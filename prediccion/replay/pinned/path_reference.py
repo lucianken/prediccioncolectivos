@@ -9,7 +9,8 @@ igual que en el navegador.
 La línea sale solo del sufijo del label (LABEL_LINE_MAP); aquí entra ya resuelta. Nunca route_id/trip_id/start_time.
 
 La asignación de un ping a recorrido y sentido NO se define acá: se importa de `prediccion/v2/geo_assign.py`
-(compatible_shapes, direction_from_history, forward_fraction y sus constantes), el mismo módulo que usa el pipeline
+(compatible_shapes, direction_from_geometry, direction_from_history, forward_fraction y sus constantes), el mismo
+módulo que usa el pipeline
 de entrenamiento. `load_bundle` verifica que el manifest exportado declare los mismos parámetros.
 """
 
@@ -244,6 +245,25 @@ def user_shapes(bundle: Bundle, line: str, user: tuple[float, float], user_kind:
     return out
 
 
+def snap_to_route(bundle: Bundle, line: str, lat: float, lon: float) -> dict | None:
+    """
+    Ajuste del punto del usuario (GPS o toque en el mapa) al recorrido: el punto más cercano entre los shapes de la línea.
+    {"lat", "lon", "perp", "shape_id", "on_route"} con on_route = perp <= TOL_M (manifest.assignment.tol_m). Un punto
+    fuera del recorrido (on_route False) no se usa como punto del usuario. None si la línea no tiene shapes.
+    """
+    shapes = bundle.lines.get(line) or {}
+    best = None
+    for sid, sh in shapes.items():
+        d, perp = sh.project(lat, lon)
+        if best is None or perp < best[2]:
+            best = (sid, d, perp)
+    if best is None:
+        return None
+    sid, d, perp = best
+    sla, slo = shapes[sid].latlon_at(d)
+    return {"lat": sla, "lon": slo, "perp": perp, "shape_id": sid, "on_route": perp <= G.TOL_M}
+
+
 def last_bus(c: dict, shape: Shape, others: list[dict], d_t: float, ts_ping: float) -> tuple[float, bool]:
     """
     Coche de adelante: entre los otros coches de la línea (cada uno {"pings": [(ts, lat, lon), ...]}, ascendente),
@@ -283,18 +303,22 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
     [{ts, lat, lon}] ascendentes (puede ser []). others: otros coches de la línea con historial (puede ser []).
     user_kind: "punto" (GPS o mapa) o "parada"; stop_recorridos: nombres de los recorridos que sirven la parada.
 
-    Devuelve {"status", "eta_s", "shape_id", "candidates", "en_cabecera", "group", "depends_on", "compatible", "discarded"}.
-      status: ok | llegando (rem < min_rem_m en algún shape que sirve el punto) | provisional (sin sentido conocido: ETA
-              mínimo entre los shapes de sentido desconocido donde el usuario queda adelante; group "provisional") | pasado (el coche ya pasó al usuario en
-              todos sus shapes compatibles) | sin_sentido (sentido aún desconocido) | sin_candidatos | linea_fuera_del_modelo
-      group: "seguro" (todos los shapes compatibles del coche sirven el punto y el usuario está adelante) |
-             "puede_venir" (solo algunos: depends_on lista los shapes de los que depende) | None.
+    Devuelve {"status", "eta_s", "shape_id", "candidates", "en_cabecera", "group", "depends_on", "sense", "compatible",
+    "provisional", "discarded"}.
+      status: ok | llegando (rem < min_rem_m en algún shape que sirve el punto) | provisional (sentido desconocido ni por
+              geometría ni por historial: ETA mínimo entre los shapes de sentido desconocido donde el usuario queda
+              adelante; group "provisional") | pasado (el coche ya pasó al usuario en todos sus shapes compatibles) |
+              sin_sentido | sin_candidatos | linea_fuera_del_modelo
+      group: "seguro" (viene: sentido conocido y todos los shapes compatibles en ese sentido sirven el punto con el
+             usuario adelante; el ramal puede ser desconocido) | "puede_venir" (sentido conocido y solo algunos:
+             depends_on lista los shapes de los que depende) | "provisional" | None.
+      sense: "geometria" (todos los shapes compatibles con la posición van en el mismo sentido) | "historial" | None.
       compatible: [{shape_id, passes, reason}]; discarded: [{shape_id, reason}] de los shapes que no son candidatos.
     eta_s es el MÍNIMO entre los shapes que pasan por el punto, medido desde now_ts (eta del modelo − antigüedad del ping).
     """
     c = bundle.const
     empty = {"status": "linea_fuera_del_modelo", "eta_s": None, "shape_id": None, "candidates": [], "en_cabecera": False,
-             "group": None, "depends_on": [], "compatible": [], "provisional": [], "discarded": []}
+             "group": None, "depends_on": [], "sense": None, "compatible": [], "provisional": [], "discarded": []}
     if line not in bundle.lines:
         return empty
     age = max(0.0, now_ts - vehicle["ts"])
@@ -303,6 +327,7 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
     p_cands, p_compat = [], []   # evaluación provisional: shapes cercanos con sentido aún desconocido (sin_sentido)
     llegando = pasado = near_any = p_llegando = p_pasado = False
     pos = {sid: d for sid, _, d in G.compatible_shapes(vehicle["lat"], vehicle["lon"], bundle.lines[line])}
+    geo = G.direction_from_geometry(vehicle["lat"], vehicle["lon"], bundle.lines[line])
     for sid, sh in bundle.lines[line].items():
         if only_shapes is not None and sid not in only_shapes:
             continue
@@ -312,6 +337,8 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
         d_p = pos[sid]
         near_any = True
         ok, why = _sense(sh, history or [], vehicle)
+        if not ok and why == G.REASON_NO_DIRECTION and geo:
+            ok, why = True, None     # sentido por geometría: el historial no alcanza pero no lo contradice
         prov = (not ok) and why == "sin_sentido"
         if not ok:
             discarded.append({"shape_id": sid, "reason": why})
@@ -361,6 +388,7 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
         res["group"] = "provisional"
     else:
         res["group"] = "seguro" if all(k["passes"] for k in compat) else "puede_venir"
+        res["sense"] = "geometria" if geo else "historial"
         if res["group"] == "puede_venir":
             res["depends_on"] = [k["shape_id"] for k in compat if k["passes"]]
     cands = p_cands if provisional else cands

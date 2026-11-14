@@ -48,9 +48,10 @@ class _Memo:
         self.eta: dict = {}
         self.lb_valid: dict = {}
         self.lb_scan: dict = {}
+        self.geo: dict = {}
 
     def clear(self):
-        for d in (self.project, self.sense, self.eta, self.lb_valid, self.lb_scan):
+        for d in (self.project, self.sense, self.eta, self.lb_valid, self.lb_scan, self.geo):
             d.clear()
 
 
@@ -117,6 +118,14 @@ def _sense_cached(shape, pings, vehicle):
     return r
 
 
+def _geo_cached(lat, lon, shapes, *a, **k):
+    key = (lat, lon, id(shapes), a, tuple(sorted(k.items())))
+    r = MEMO.geo.get(key)
+    if r is None:
+        r = MEMO.geo[key] = _ORIG["geo"](lat, lon, shapes, *a, **k)
+    return r
+
+
 def _project_cached(self, lat, lon):
     key = (id(self), lat, lon)
     r = MEMO.project.get(key)
@@ -131,13 +140,18 @@ def memoized():
     if _ORIG:
         yield
         return
-    _ORIG.update(project=PR.Shape.project, _sense=PR._sense, eta_on_shapes=PR.eta_on_shapes, last_bus=PR.last_bus)
+    _ORIG.update(project=PR.Shape.project, _sense=PR._sense, eta_on_shapes=PR.eta_on_shapes, last_bus=PR.last_bus,
+                 geo=getattr(G, "direction_from_geometry", None))
+    if _ORIG["geo"]:
+        G.direction_from_geometry = _geo_cached
     PR.Shape.project, PR._sense, PR.eta_on_shapes, PR.last_bus = _project_cached, _sense_cached, _eta_cached, _last_bus_cached
     try:
         yield
     finally:
         PR.Shape.project, PR._sense = _ORIG["project"], _ORIG["_sense"]
         PR.eta_on_shapes, PR.last_bus = _ORIG["eta_on_shapes"], _ORIG["last_bus"]
+        if _ORIG["geo"]:
+            G.direction_from_geometry = _ORIG["geo"]
         _ORIG.clear()
         MEMO.clear()
 
