@@ -140,12 +140,7 @@ E0–E2 fueron parches sucesivos sobre la arquitectura A3 de junio (ubicación �
 
 **Decisión: paradas por tramo (2026-11-13).** La feature `--stops-feature` queda activada en los entrenamientos siguientes: no cuesta nada en líneas vistas y ayuda en generalización (resultado en §7). Producción no cambia ahora: las 12 líneas habilitadas son todas vistas y sumar la feature exige portar a la app el cálculo de paradas por tramo. Se porta junto con el próximo modelo (escalado a 30–40 líneas).
 
-**Decisión (2026-11-14): integrar el ramal de CuandoSubo como restricción de shapes candidatos.** Basada en el oráculo de ramal (§7, "Oráculo de ramal (2026-11-14)"): conocer el ramal en tiempo real reduce falsas alarmas y "viene" vacío, sobre todo en tramo exclusivo; no afina la ETA. Especificación:
-- La restricción usa la misma lógica que la variante oráculo del replay: los shapes candidatos del coche se restringen a los del ramal informado. Se define en el pipeline (`prediccion/`) y se porta a la app. Si el coche no tiene ramal informado, queda sin restricción (comportamiento actual).
-- El modelo no cambia (`path_v2c_l1_s1`); solo cambia el conjunto de shapes candidatos.
-- Se habilita **línea por línea**, empezando por 39, 42, 106, 132 y 168, y **solo en las líneas donde se mida antes que el ramal de CuandoSubo es correcto**: el techo del oráculo supone un ramal siempre correcto y cualquier error de CuandoSubo lo reduce. En líneas sin ramales no hay nada que ganar.
-- Se valida con la vara de producto (§5) en cada línea habilitada.
-- **Pendiente:** investigar la omisión de 17 %, que el oráculo no cambia.
+**Pendiente (sin fecha):** integrar el ramal de CuandoSubo como restricción de shapes candidatos. No está en curso ni planificada; spec en §11, ítem 8.
 
 **Próximo paso propuesto:** evaluación en condiciones de producción por replay de días posteriores al entrenamiento grabados por el NUC, con la regla de candidatos de producción (`INFERENCIA_PATH.md`: sentido, shapes del usuario, pasa seguro / puede venir) contra el paso real del coche por el punto. Es la vara fija para lo que siga.
 
@@ -439,3 +434,10 @@ Importantes para el modelo óptimo; cada una entra a la escalera como **un solo 
    - *Prioridad:* menor que escalar a 30–40 líneas.
    - *Nota:* la dirección / mano de las calles ya está implícita en los shapes.
    - *Relación con `arreglar OSM/`:* ese proyecto corrige la nomenclatura y las referencias de OSM; estos atributos dependerían de la calidad de esos datos, y no se necesita ninguno de los dos para el otro.
+8. **Pendiente (sin fecha): integración del ramal de CuandoSubo como restricción de shapes candidatos.** No está en curso ni planificada para ahora; es solo especificación para cuando se retome. Se basa en el oráculo de ramal (§7, "Oráculo de ramal (2026-11-14)"): conocer el ramal en tiempo real reduce falsas alarmas y "viene" vacío, sobre todo en tramo exclusivo; no afina la ETA.
+   - *Cómo sería:* la restricción usa la misma lógica que la variante oráculo del replay: los shapes candidatos del coche se restringen a los del ramal informado. Se definiría en el pipeline (`prediccion/`) y se portaría a la app. Si el coche no tiene ramal informado, queda sin restricción (comportamiento actual).
+   - *El modelo no cambia* (`path_v2c_l1_s1`); solo cambia el conjunto de shapes candidatos.
+   - *Alcance:* línea por línea, con candidatas 39, 42, 106, 132 y 168. En líneas sin ramales no hay nada que ganar.
+   - *Requisito previo:* medir antes el acierto del ramal de CuandoSubo por línea. El techo del oráculo supone un ramal siempre correcto y cualquier error de CuandoSubo lo reduce; solo se habilitaría en las líneas donde ese acierto sea suficiente.
+   - *Validación:* con la vara de producto (§5) en cada línea habilitada.
+   - *Pendiente relacionado:* investigar la omisión de 17 %, que el oráculo no cambia.
