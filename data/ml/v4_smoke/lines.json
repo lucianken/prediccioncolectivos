@@ -1,0 +1,14 @@
+{
+ "train": [
+  "39",
+  "26",
+  "154",
+  "60",
+  "1",
+  "12"
+ ],
+ "heldout": [],
+ "n_train": 6,
+ "n_heldout": 0,
+ "criteria": "todas las l\u00edneas AMBA < 200 con shapes en proyectoconsola/data/line_shapes y en LABEL_LINE_MAP (build); la selecci\u00f3n por volumen est\u00e1 en selection.json"
+}

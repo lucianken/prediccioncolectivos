@@ -1,0 +1,473 @@
+{
+ "v1": {
+  "trips": 46484,
+  "rows": 1444325,
+  "trips_start_gt1km": 14966,
+  "pct_trips_start_gt1km": 32.2,
+  "pct_rows_start_gt1km": 31.16,
+  "rows_total_parquet": 1444325,
+  "rows_tss_nan": 0,
+  "coherence": {
+   "rows_tss>=300s": 1158416,
+   "v_implicita_mps_p10_50_90": [
+    2.7,
+    4.3,
+    14.3
+   ],
+   "pct_gt_60kmh": 8.48,
+   "pct_gt_40kmh": 12.98
+  },
+  "por_linea": {
+   "12": {
+    "trips": 4718,
+    "completos": 2126,
+    "L_km_mediana": 13.1,
+    "dur_min_p10_50_90": [
+     43.6,
+     63.9,
+     79.4
+    ],
+    "vel_kmh_mediana": 12.3
+   },
+   "15": {
+    "trips": 2481,
+    "completos": 300,
+    "L_km_mediana": 54.1,
+    "dur_min_p10_50_90": [
+     114.0,
+     146.0,
+     171.3
+    ],
+    "vel_kmh_mediana": 21.5
+   },
+   "26": {
+    "trips": 2103,
+    "completos": 1212,
+    "L_km_mediana": 15.3,
+    "dur_min_p10_50_90": [
+     52.0,
+     72.0,
+     86.6
+    ],
+    "vel_kmh_mediana": 12.2
+   },
+   "39": {
+    "trips": 4254,
+    "completos": 2090,
+    "L_km_mediana": 17.0,
+    "dur_min_p10_50_90": [
+     54.0,
+     71.9,
+     88.1
+    ],
+    "vel_kmh_mediana": 14.3
+   },
+   "42": {
+    "trips": 2316,
+    "completos": 507,
+    "L_km_mediana": 22.9,
+    "dur_min_p10_50_90": [
+     58.8,
+     84.4,
+     103.1
+    ],
+    "vel_kmh_mediana": 16.3
+   },
+   "50": {
+    "trips": 2724,
+    "completos": 1157,
+    "L_km_mediana": 21.3,
+    "dur_min_p10_50_90": [
+     66.1,
+     84.1,
+     99.6
+    ],
+    "vel_kmh_mediana": 15.6
+   },
+   "92": {
+    "trips": 3268,
+    "completos": 1077,
+    "L_km_mediana": 33.9,
+    "dur_min_p10_50_90": [
+     72.0,
+     107.6,
+     146.9
+    ],
+    "vel_kmh_mediana": 17.3
+   },
+   "106": {
+    "trips": 5489,
+    "completos": 3094,
+    "L_km_mediana": 20.4,
+    "dur_min_p10_50_90": [
+     53.5,
+     77.5,
+     100.8
+    ],
+    "vel_kmh_mediana": 15.1
+   },
+   "107": {
+    "trips": 2047,
+    "completos": 997,
+    "L_km_mediana": 22.8,
+    "dur_min_p10_50_90": [
+     75.0,
+     95.0,
+     111.0
+    ],
+    "vel_kmh_mediana": 14.6
+   },
+   "108": {
+    "trips": 1928,
+    "completos": 423,
+    "L_km_mediana": 32.6,
+    "dur_min_p10_50_90": [
+     74.0,
+     101.1,
+     118.8
+    ],
+    "vel_kmh_mediana": 15.3
+   },
+   "124": {
+    "trips": 2056,
+    "completos": 1052,
+    "L_km_mediana": 20.6,
+    "dur_min_p10_50_90": [
+     72.1,
+     96.6,
+     108.5
+    ],
+    "vel_kmh_mediana": 13.4
+   },
+   "128": {
+    "trips": 2058,
+    "completos": 1346,
+    "L_km_mediana": 14.0,
+    "dur_min_p10_50_90": [
+     53.5,
+     69.0,
+     77.0
+    ],
+    "vel_kmh_mediana": 12.3
+   },
+   "132": {
+    "trips": 4657,
+    "completos": 2619,
+    "L_km_mediana": 15.4,
+    "dur_min_p10_50_90": [
+     52.0,
+     69.0,
+     86.5
+    ],
+    "vel_kmh_mediana": 12.8
+   },
+   "151": {
+    "trips": 3629,
+    "completos": 589,
+    "L_km_mediana": 24.2,
+    "dur_min_p10_50_90": [
+     61.9,
+     90.0,
+     115.7
+    ],
+    "vel_kmh_mediana": 12.4
+   },
+   "168": {
+    "trips": 2756,
+    "completos": 1133,
+    "L_km_mediana": 31.2,
+    "dur_min_p10_50_90": [
+     74.9,
+     98.5,
+     137.1
+    ],
+    "vel_kmh_mediana": 14.3
+   }
+  }
+ },
+ "v2": {
+  "trips": 38600,
+  "rows": 1223257,
+  "trips_start_gt1km": 6957,
+  "pct_trips_start_gt1km": 18.02,
+  "pct_rows_start_gt1km": 17.68,
+  "trips_with_joined_gap": 9819,
+  "pct_rows_in_joined_trips": 25.43,
+  "pct_rows_start_unknown": 17.68,
+  "joined_trips_start_unknown": 1917,
+  "rows_total_parquet": 1223257,
+  "rows_tss_nan": 216228,
+  "coherence": {
+   "rows_tss>=300s": 901426,
+   "v_implicita_mps_p10_50_90": [
+    2.6,
+    3.7,
+    5.3
+   ],
+   "pct_gt_60kmh": 0.01,
+   "pct_gt_40kmh": 0.09
+  },
+  "por_linea": {
+   "12": {
+    "trips": 4014,
+    "completos": 2695,
+    "L_km_mediana": 13.1,
+    "dur_min_p10_50_90": [
+     44.6,
+     66.9,
+     80.6
+    ],
+    "vel_kmh_mediana": 11.7
+   },
+   "15": {
+    "trips": 2005,
+    "completos": 445,
+    "L_km_mediana": 54.1,
+    "dur_min_p10_50_90": [
+     120.1,
+     151.0,
+     175.0
+    ],
+    "vel_kmh_mediana": 20.7
+   },
+   "26": {
+    "trips": 1786,
+    "completos": 1524,
+    "L_km_mediana": 14.7,
+    "dur_min_p10_50_90": [
+     53.5,
+     73.9,
+     85.5
+    ],
+    "vel_kmh_mediana": 12.0
+   },
+   "39": {
+    "trips": 3767,
+    "completos": 2477,
+    "L_km_mediana": 17.0,
+    "dur_min_p10_50_90": [
+     55.0,
+     74.1,
+     89.5
+    ],
+    "vel_kmh_mediana": 13.7
+   },
+   "42": {
+    "trips": 1869,
+    "completos": 607,
+    "L_km_mediana": 22.9,
+    "dur_min_p10_50_90": [
+     62.0,
+     91.9,
+     106.0
+    ],
+    "vel_kmh_mediana": 15.0
+   },
+   "50": {
+    "trips": 2146,
+    "completos": 1776,
+    "L_km_mediana": 21.3,
+    "dur_min_p10_50_90": [
+     70.0,
+     86.0,
+     100.1
+    ],
+    "vel_kmh_mediana": 15.3
+   },
+   "92": {
+    "trips": 2830,
+    "completos": 1414,
+    "L_km_mediana": 33.9,
+    "dur_min_p10_50_90": [
+     73.1,
+     117.0,
+     148.5
+    ],
+    "vel_kmh_mediana": 16.6
+   },
+   "106": {
+    "trips": 4603,
+    "completos": 3865,
+    "L_km_mediana": 20.4,
+    "dur_min_p10_50_90": [
+     55.0,
+     79.0,
+     99.6
+    ],
+    "vel_kmh_mediana": 14.9
+   },
+   "107": {
+    "trips": 1699,
+    "completos": 1290,
+    "L_km_mediana": 22.8,
+    "dur_min_p10_50_90": [
+     77.9,
+     96.0,
+     111.7
+    ],
+    "vel_kmh_mediana": 14.5
+   },
+   "108": {
+    "trips": 1607,
+    "completos": 532,
+    "L_km_mediana": 32.6,
+    "dur_min_p10_50_90": [
+     75.6,
+     102.5,
+     116.5
+    ],
+    "vel_kmh_mediana": 15.1
+   },
+   "124": {
+    "trips": 1617,
+    "completos": 1438,
+    "L_km_mediana": 20.6,
+    "dur_min_p10_50_90": [
+     76.0,
+     98.0,
+     109.9
+    ],
+    "vel_kmh_mediana": 13.2
+   },
+   "128": {
+    "trips": 1822,
+    "completos": 1579,
+    "L_km_mediana": 14.0,
+    "dur_min_p10_50_90": [
+     55.0,
+     69.5,
+     77.0
+    ],
+    "vel_kmh_mediana": 12.3
+   },
+   "132": {
+    "trips": 4003,
+    "completos": 3254,
+    "L_km_mediana": 15.0,
+    "dur_min_p10_50_90": [
+     54.0,
+     70.1,
+     86.0
+    ],
+    "vel_kmh_mediana": 12.6
+   },
+   "151": {
+    "trips": 2798,
+    "completos": 936,
+    "L_km_mediana": 24.2,
+    "dur_min_p10_50_90": [
+     68.1,
+     94.0,
+     116.0
+    ],
+    "vel_kmh_mediana": 11.9
+   },
+   "168": {
+    "trips": 2034,
+    "completos": 1691,
+    "L_km_mediana": 21.2,
+    "dur_min_p10_50_90": [
+     78.8,
+     102.0,
+     142.0
+    ],
+    "vel_kmh_mediana": 13.8
+   }
+  }
+ },
+ "huecos": {
+  "total": 12953,
+  "unidos": 9962,
+  "no_unidos": 2991,
+  "por_duracion": [
+   {
+    "dur_s": "300-420",
+    "n": 7527,
+    "unidos": 6972,
+    "no_unidos": 555
+   },
+   {
+    "dur_s": "420-600",
+    "n": 1557,
+    "unidos": 1327,
+    "no_unidos": 230
+   },
+   {
+    "dur_s": "600-900",
+    "n": 520,
+    "unidos": 333,
+    "no_unidos": 187
+   },
+   {
+    "dur_s": "900-1800",
+    "n": 1557,
+    "unidos": 804,
+    "no_unidos": 753
+   },
+   {
+    "dur_s": "1800-3600",
+    "n": 926,
+    "unidos": 526,
+    "no_unidos": 400
+   },
+   {
+    "dur_s": "3600-inf",
+    "n": 866,
+    "unidos": 0,
+    "no_unidos": 866
+   }
+  ],
+  "dur_s_p10_50_90": [
+   302.0,
+   364.0,
+   1852.0
+  ],
+  "v_implicita_mps_p10_50_90_unidos": [
+   0.0,
+   3.2,
+   5.2
+  ],
+  "no_unidos_por_parado(v<1.4)": 2705,
+  "no_unidos_por_retroceso(adv<-150)": 820
+ },
+ "excursiones": {
+  "total": 6008,
+  "unidas": 4780,
+  "no_unidas": 1228,
+  "dur_s_p10_50_90": [
+   414.0,
+   600.0,
+   1052.6
+  ]
+ },
+ "esperas": {
+  "n": 16809,
+  "pings_en_espera": 93304,
+  "pct_de_pings_de_viaje_v1": 3.91,
+  "dur_s_p10_50_90_max": [
+   84.0,
+   362.0,
+   1074.0,
+   6482
+  ],
+  "n_mayor_5min": 9794,
+  "n_mayor_10min": 4927
+ },
+ "cars": {
+  "espera_larga": [
+   "2026-07-14",
+   "79051",
+   "132"
+  ],
+  "hueco_unido": [
+   "2026-10-07",
+   "35700",
+   "15"
+  ],
+  "start_unknown": [
+   "2026-07-14",
+   "94785",
+   "108"
+  ]
+ }
+}

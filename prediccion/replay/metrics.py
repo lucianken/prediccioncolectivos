@@ -7,6 +7,7 @@ import pandas as pd
 BAND = (180.0, 420.0)     # tiempo real hasta el próximo coche: banda principal 3-7 min
 GLOBAL_MAX = 1200.0       # y global <= 20 min
 TOL_S = 60.0
+HORIZON_S = 2400.0      # horizonte de la verdad (core.HORIZON_S); una falsa alarma solo se cuenta si el ETA anunciado cae dentro
 
 
 def load_run(run_dir) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -18,54 +19,106 @@ def load_run(run_dir) -> tuple[pd.DataFrame, pd.DataFrame]:
     return inst, veh.merge(cls, on=["line", "stop_id"], how="left")
 
 
-def next_bus(inst: pd.DataFrame, col: str, lo: float = 0.0, hi: float = GLOBAL_MAX) -> dict:
-    """Próximo coche que sirve: real (min de los pasos) contra lo anunciado (`col`). Instantes con real en [lo, hi]."""
-    s = inst[(inst.real_next_s >= lo) & (inst.real_next_s <= hi)]
+def _real(inst: pd.DataFrame, corrected: bool) -> pd.Series:
+    return inst.real_next2_s if corrected else inst.real_next_s
+
+
+def _unverifiable(inst: pd.DataFrame, real: pd.Series) -> pd.Series:
+    """Instantes cuyo próximo paso real es incierto: hay un par de pings con hueco de 10-40 min que encierra la parada y
+    el paso pudo ocurrir antes del próximo paso verificado (o no hay ninguno) y dentro de GLOBAL_MAX."""
+    u = inst.unv_first_s
+    return u.notna() & (u < real.fillna(np.inf)) & (u <= GLOBAL_MAX)
+
+
+def next_bus(inst: pd.DataFrame, col: str, lo: float = 0.0, hi: float = GLOBAL_MAX, corrected: bool = False) -> dict:
+    """Próximo coche que sirve: real (min de los pasos) contra lo anunciado (`col`). Instantes con real en [lo, hi].
+    corrected: paso de la vara corregida; se excluyen los instantes con paso previo no verificable (n_excl_unv)."""
+    real = _real(inst, corrected)
+    n_unv = 0
+    if corrected:
+        unv = _unverifiable(inst, real)
+        n_unv = int(((real >= lo) & (real <= hi) & unv).sum())
+        inst, real = inst[~unv], real[~unv]
+    s = inst[(real >= lo) & (real <= hi)]
     ann = s[col]
     has = ann.notna()
-    err = (s.real_next_s - ann)[has]          # <0: llega antes de lo anunciado
+    err = (_real(s, corrected) - ann)[has]          # <0: llega antes de lo anunciado
     return {"n": int(len(s)), "sin_anuncio_pct": float(100 * (1 - has.mean())) if len(s) else np.nan,
             "mae_s": float(err.abs().mean()) if has.any() else np.nan,
             "antes_pct": float(100 * (err < -TOL_S).mean()) if has.any() else np.nan,
-            "despues_pct": float(100 * (err > TOL_S).mean()) if has.any() else np.nan}
+            "despues_pct": float(100 * (err > TOL_S).mean()) if has.any() else np.nan, "n_excl_unv": n_unv}
 
 
-def false_alarms(veh: pd.DataFrame) -> dict:
+def false_alarms(veh: pd.DataFrame, corrected: bool = False, eta_band: tuple | None = None) -> dict:
+    """
+    Anterior: coche listado sin cruce estricto en 40 min. Corregida: sobre los listados con ETA anunciado (eta0) dentro del
+    horizonte (<= HORIZON_S; el resto se informa en n_fuera_horizonte), sin los "no verificables" (n_no_verificable);
+    un coche que ya pasó entre su último ping y t no es falsa alarma (n_ya_paso: llegó antes de lo anunciado).
+    eta_band: (lo, hi) filtra por ETA anunciado (eta0).
+    """
     l = veh[veh.listed]
-    fa = l.tp_s.isna()
-    out = {"listados": int(len(l)), "falsa_alarma_pct": float(100 * fa.mean()) if len(l) else np.nan}
+    if eta_band is not None:
+        l = l[(l.eta0_s >= eta_band[0]) & (l.eta0_s < eta_band[1])]
+    out = {"listados": int(len(l))}
+    if not corrected:
+        fa = l.tp_s.isna()
+        out["falsa_alarma_pct"] = float(100 * fa.mean()) if len(l) else np.nan
+        groups = {g: l[l.group == g] for g in ("seguro", "puede_venir", "provisional")}
+        out.update({f"fa_{g}_pct": float(100 * x.tp_s.isna().mean()) if len(x) else np.nan for g, x in groups.items()})
+        out.update({f"n_{g}": int(len(x)) for g, x in groups.items()})
+        return out
+    fuera = l.eta0_s > HORIZON_S
+    unv = ~fuera & l.tp2_s.isna() & l.unv
+    base = l[~fuera & ~unv]
+    fa = base.tp2_s.isna() & ~base.past
+    out.update({"n_fuera_horizonte": int(fuera.sum()), "n_no_verificable": int(unv.sum()),
+                "n_ya_paso": int((base.tp2_s.isna() & base.past).sum()), "n_evaluados": int(len(base)),
+                "falsa_alarma_pct": float(100 * fa.mean()) if len(base) else np.nan})
     for g in ("seguro", "puede_venir", "provisional"):
-        x = l[l.group == g]
-        out[f"fa_{g}_pct"] = float(100 * x.tp_s.isna().mean()) if len(x) else np.nan
-        out[f"n_{g}"] = int(len(x))
+        m = base.group == g
+        out[f"fa_{g}_pct"] = float(100 * fa[m].mean()) if m.any() else np.nan
+        out[f"n_{g}"] = int(m.sum())
     return out
 
 
-def omissions(veh: pd.DataFrame, within_s: float = 600.0) -> dict:
-    """Coches que pasan en <= within_s y no están en la lista (o fuera del top 5). Los sin ping vigente en t se cuentan aparte."""
-    p = veh[veh.tp_s <= within_s]
+def omissions(veh: pd.DataFrame, within_s: float = 600.0, corrected: bool = False) -> dict:
+    """Coches que pasan en <= within_s y no están en la lista (o fuera del top 5). Los sin ping vigente en t se cuentan aparte.
+    corrected: pasos de la vara corregida (columna tp2_s)."""
+    col = "tp2_s" if corrected else "tp_s"
+    p = veh[veh[col] <= within_s]
     vis = p[p.visible]
-    return {"pasan": int(len(p)), "visibles": int(len(vis)),
-            "omision_pct": float(100 * (~vis.listed).mean()) if len(vis) else np.nan,
-            "omision_con_invisibles_pct": float(100 * (~p.listed).mean()) if len(p) else np.nan}
+    out = {"pasan": int(len(p)), "visibles": int(len(vis)),
+           "omision_pct": float(100 * (~vis.listed).mean()) if len(vis) else np.nan,
+           "omision_con_invisibles_pct": float(100 * (~p.listed).mean()) if len(p) else np.nan}
+    return out
 
 
-def seguro_vacio(inst: pd.DataFrame, within_s: float = 600.0) -> dict:
-    s = inst[inst.real_next_s <= within_s]
-    return {"n": int(len(s)), "sin_seguro_pct": float(100 * (~s.has_seguro).mean()) if len(s) else np.nan}
+def seguro_vacio(inst: pd.DataFrame, within_s: float = 600.0, corrected: bool = False) -> dict:
+    real = _real(inst, corrected)
+    n_unv = 0
+    if corrected:
+        unv = _unverifiable(inst, real)
+        n_unv = int(((real <= within_s) & unv).sum())
+        inst, real = inst[~unv], real[~unv]
+    s = inst[real <= within_s]
+    return {"n": int(len(s)), "sin_seguro_pct": float(100 * (~s.has_seguro).mean()) if len(s) else np.nan, "n_excl_unv": n_unv}
 
 
-def coverage(inst: pd.DataFrame) -> dict:
+def coverage(inst: pd.DataFrame, corrected: bool = False) -> dict:
+    c = "n_pass2_20" if corrected else "n_pass_20"
     return {"instantes": int(len(inst)), "coches_evaluados": int(inst.n_shown_status.sum()),
-            "con_paso_20min_pct": float(100 * (inst.n_pass_20 > 0).mean()) if len(inst) else np.nan}
+            "con_paso_20min_pct": float(100 * (inst[c] > 0).mean()) if len(inst) else np.nan}
 
 
-def summarize(inst: pd.DataFrame, veh: pd.DataFrame) -> dict:
-    out = {"cobertura": coverage(inst), "falsas": false_alarms(veh), "omisiones": omissions(veh),
-           "seguro_vacio": seguro_vacio(inst)}
-    for name, col in (("seguro", "ann_seguro_s"), ("seguro_o_fallback", "ann_any_s")):
-        out[f"prox_{name}_banda"] = next_bus(inst, col, *BAND)
-        out[f"prox_{name}_global"] = next_bus(inst, col, 0.0, GLOBAL_MAX)
+def summarize(inst: pd.DataFrame, veh: pd.DataFrame, corrected: bool = False, ann0: bool = False) -> dict:
+    """ann0: ETA anunciado en la hora común (sin el descuento de 60 s del sello de CABA), como V3_PRODUCCION.md y los informes
+    posteriores; por defecto el ETA con el descuento (report.py)."""
+    pre = "ann0" if ann0 else "ann"
+    out = {"cobertura": coverage(inst, corrected), "falsas": false_alarms(veh, corrected), "omisiones": omissions(veh, corrected=corrected),
+           "seguro_vacio": seguro_vacio(inst, corrected=corrected)}
+    for name, col in (("seguro", f"{pre}_seguro_s"), ("seguro_o_fallback", f"{pre}_any_s")):
+        out[f"prox_{name}_banda"] = next_bus(inst, col, *BAND, corrected=corrected)
+        out[f"prox_{name}_global"] = next_bus(inst, col, 0.0, GLOBAL_MAX, corrected=corrected)
     return out
 
 

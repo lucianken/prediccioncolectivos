@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(ls Z:\\\\\\\\grabaciones 2>&1 | tail -5; echo \"---\"; ls Z:\\\\\\\\grabaciones 2>&1 | wc -l)",
+      "Read(//z//**)"
+    ]
+  }
+}

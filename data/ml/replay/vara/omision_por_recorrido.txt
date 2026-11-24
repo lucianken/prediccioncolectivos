@@ -1,0 +1,16 @@
+pasos con recorrido ex post conocido: 1330599 de 1334991 (variante base: 443533 de 444997)
+de ellos (base), el recorrido real tiene la parada en su lista: 96.0 %
+base omision todos 11.3 | recorrido real con la parada en su lista 10.3 (n=425607) | sin la parada en su lista 35.7 (n=17926)
+cs omision todos 13.2 | recorrido real con la parada en su lista 10.2 (n=425607) | sin la parada en su lista 85.0 (n=17926)
+ramal omision todos 13.0 | recorrido real con la parada en su lista 9.5 (n=425607) | sin la parada en su lista 96.0 (n=17926)
+39 omision (recorrido real con la parada) base/cs/oraculo: 7.4 / 8.5 / 6.9  pct sin la parada en su lista: 9.9
+42 omision (recorrido real con la parada) base/cs/oraculo: 9.2 / 10.3 / 11.4  pct sin la parada en su lista: 1.0
+50 omision (recorrido real con la parada) base/cs/oraculo: 7.1 / 9.5 / 6.8  pct sin la parada en su lista: 3.2
+92 omision (recorrido real con la parada) base/cs/oraculo: 5.1 / 5.2 / 5.3  pct sin la parada en su lista: 0.0
+106 omision (recorrido real con la parada) base/cs/oraculo: 17.2 / 13.8 / 11.4  pct sin la parada en su lista: 0.9
+107 omision (recorrido real con la parada) base/cs/oraculo: 10.0 / 9.9 / 9.9  pct sin la parada en su lista: 13.4
+108 omision (recorrido real con la parada) base/cs/oraculo: 6.4 / 6.8 / 6.5  pct sin la parada en su lista: 0.9
+124 omision (recorrido real con la parada) base/cs/oraculo: 4.9 / 4.9 / 4.9  pct sin la parada en su lista: 0.0
+132 omision (recorrido real con la parada) base/cs/oraculo: 13.8 / 13.9 / 12.9  pct sin la parada en su lista: 7.3
+151 omision (recorrido real con la parada) base/cs/oraculo: 13.2 / 13.2 / 13.6  pct sin la parada en su lista: 0.8
+168 omision (recorrido real con la parada) base/cs/oraculo: 7.7 / 7.8 / 7.5  pct sin la parada en su lista: 5.6

@@ -81,11 +81,12 @@ def read_meta(out_dir: Path, day: str) -> dict | None:
 
 
 def day_is_done(meta: dict | None, lines, k_pairs: int, include_fleet: bool, segmentation: str = "geo",
-                assign: str = "legacy") -> bool:
+                assign: str = "legacy", targets: str = "any", stop_frac: float = 1.0) -> bool:
     if meta is None:
         return False
     return (set(lines) <= set(meta["lines"]) and meta["k_pairs"] == k_pairs
             and meta.get("segmentation") == segmentation and meta.get("assign", "legacy") == assign
+            and meta.get("targets", "any") == targets and meta.get("stop_frac", 1.0) == stop_frac
             and bool(meta.get("include_fleet")) == include_fleet)
 
 
@@ -249,6 +250,11 @@ def geometry_for_trip(trip, line_indices: dict[str, ShapeIndex], max_perp: float
 
 # ── process_day ──────────────────────────────────────────────────────────────
 
+def ST_noise(ts, dist, seg):
+    from prediccion.v2.stop_targets import interpolation_noise
+    return interpolation_noise(ts, dist, seg)
+
+
 WAITING_SCHEMA_FIELDS = ("vehicle_id", "line", "shape_id", "wait_start_ts", "wait_end_ts", "depart_ts",
                          "n_pings", "wait_s", "trip_start_ts")
 
@@ -320,8 +326,11 @@ def process_day(
     interval_s: int = 30,
     segmentation: str = "geo",
     assign: str = "legacy",
+    targets: str = "any",
+    stop_frac: float = 1.0,
 ) -> dict:
     """
+    targets="stops": T en paradas reales con hora de paso interpolada (v2/stop_targets.py; stop_frac < 1 mezcla con T cualquiera).
     Procesa un día. Retorna el meta dict con meta["status"] en {"skipped", "processed"}
     (status no se persiste). Ver docstring del módulo para la semántica de idempotencia.
     """
@@ -333,11 +342,12 @@ def process_day(
     paths = _paths(out_dir, day)
     lines = sorted(set(map(str, lines)))
     meta_old = read_meta(out_dir, day)
-    if not force and day_is_done(meta_old, lines, k_pairs, include_fleet, segmentation, assign):
+    if not force and day_is_done(meta_old, lines, k_pairs, include_fleet, segmentation, assign, targets, stop_frac):
         return {**meta_old, "status": "skipped"}
     if (meta_old and not force and meta_old["k_pairs"] == k_pairs
             and bool(meta_old.get("include_fleet")) == include_fleet
-            and meta_old.get("segmentation") == segmentation and meta_old.get("assign", "legacy") == assign):
+            and meta_old.get("segmentation") == segmentation and meta_old.get("assign", "legacy") == assign
+            and meta_old.get("targets", "any") == targets and meta_old.get("stop_frac", 1.0) == stop_frac):
         lines = sorted(set(lines) | set(meta_old["lines"]))   # unión: el resultado == build desde cero
 
     t0 = time.time()
@@ -373,6 +383,7 @@ def process_day(
     chunks: list[dict] = []
     wait_recs: list[dict] = []
     trip_recs: list[dict] = []
+    noise_parts: list = []
     per_line: dict[str, dict] = {ln: {"trips": 0, "trips_shaped": 0, "rows": 0} for ln in lines}
 
     for trip in trips:
@@ -410,11 +421,18 @@ def process_day(
                     a_, b_ = int(pts_ts[q]), int(pts_ts[q + 1])
                     brk[q] = not any(a_ <= g1 and b_ >= g0 for g0, g1 in jg)     # el hueco no coincide con uno unido
                 seg = np.concatenate([[0], np.cumsum(brk)]).astype(np.int64)
-            cols = trip_rows(
+            tgt = None
+            if targets == "stops":
+                noise_parts.append(ST_noise(pts_ts, dist, seg))
+                from prediccion.v2 import stop_targets as ST
+                stops_m = ST.line_stop_targets(ln, shapes.dir).get(sid)
+                tgt = (ST.mixed_targets(dist, pts_ts, stops_m, length, k_pairs, trip_seed(day, trip.vehicle_id, trip.start_time),
+                                        seg, stop_frac) if stops_m is not None and len(stops_m) else None)
+            cols = None if (targets == "stops" and tgt is None) else trip_rows(
                 line=ln, shape_id=sid, shape_length_m=length, vehicle_id=trip.vehicle_id,
                 ts=pts_ts, frame_ts=pts_fts, speed=pts_sp, dist=dist, k_pairs=k_pairs,
                 seed=trip_seed(day, trip.vehicle_id, trip.start_time), passage_cache=passage_cache,
-                start_unknown=su, seg=seg)
+                start_unknown=su, seg=seg, targets=tgt)
             if cols is not None:
                 if include_fleet:
                     p_pos = np.searchsorted(pts_ts, cols["ts_p"])
@@ -475,7 +493,7 @@ def process_day(
 
     meta = {
         "version": META_VERSION, "date": day, "lines": lines, "k_pairs": k_pairs,
-        "include_fleet": include_fleet, "segmentation": segmentation, "assign": assign,
+        "include_fleet": include_fleet, "segmentation": segmentation, "assign": assign, "targets": targets, "stop_frac": stop_frac,
         "assign_params": geo_assign.manifest_params() if assign == "geo3" else None, "n_rows": int(n_rows), "n_trips": len(trip_recs),
         "pings_in_shaped_trips": int(sum(r["n_points"] for r in trip_recs if r["shape_id"])),
         "pings_valid": int(sum(r["n_valid"] for r in trip_recs if r["shape_id"])),
@@ -492,6 +510,10 @@ def process_day(
                         "off_cut": sum(not g["joined"] and g["kind"] == "off" for g in gl),
                         "n_waiting": len(wait_recs),
                         "n_start_unknown": sum(bool(r.get("start_unknown")) for r in trip_recs)}
+    if targets == "stops":
+        e = np.abs(np.concatenate(noise_parts)) if noise_parts else np.empty(0)
+        meta["stop_noise_abs_s"] = ({"n": int(len(e)), "p50": float(np.percentile(e, 50)), "p90": float(np.percentile(e, 90)),
+                                     "mean": float(e.mean())} if len(e) else None)
     _atomic_json(meta, paths["meta"])
     return {**meta, "status": "processed"}
 

@@ -1,0 +1,135 @@
+dias 10, pares (dia,linea) 113; listados 1933795; falsas alarmas 474285 (24.5 %); FA con oraculo de ramal 17.4 % de 1839261 listados
+
+## causas
+
+| causa | n | % de las FA | pp de los listados | % FA banda 3-7 | oraculo la saca % | provisional % | puede venir % |
+|---|---|---|---|---|---|---|---|
+| X0 ETA anunciado > 40 min (fuera del horizonte) | 87276 | 18.4 | 4.51 | 0.0 | 29 | 5 | 35 |
+| X3 parada en el ultimo tramo del shape: el coche llega pero el cruce no existe por construccion | 14131 | 3.0 | 0.73 | 5.4 | 6 | 0 | 23 |
+| X2a pasa en 40 min durante un hueco de GPS > 10 min (la vara no interpola) | 21654 | 4.6 | 1.12 | 7.7 | 9 | 3 | 13 |
+| X2b pasa en 40 min con salto > 5 km entre pings (la vara lo descarta) | 1844 | 0.4 | 0.10 | 0.6 | 56 | 1 | 70 |
+| X2c pasa en 40 min con pings no compatibles (> 45 m) en el cruce | 10101 | 2.1 | 0.52 | 4.1 | 40 | 1 | 42 |
+| X2d pasa en 40 min por un shape no asociado a la parada | 19089 | 4.0 | 0.99 | 7.0 | 84 | 2 | 82 |
+| X1 pasa despues de 40 min en el mismo viaje (ETA subestimado) | 21549 | 4.5 | 1.11 | 1.5 | 7 | 15 | 15 |
+| X4 alcanza la parada sobre el shape elegido pero ningun par de pings consecutivos compatibles la cruza | 9944 | 2.1 | 0.51 | 3.7 | 2 | 2 | 6 |
+| P el coche ya cruzo la parada antes de t (ping desactualizado) | 33059 | 7.0 | 1.71 | 0.2 | 1 | 0 | 2 |
+| S sentido contrario (el recorrido ex post va en el otro sentido) | 23117 | 4.9 | 1.20 | 7.1 | 94 | 23 | 45 |
+| R1 otro ramal: no sirve la parada (tramo compartido y diverge) | 152202 | 32.1 | 7.87 | 41.3 | 98 | 4 | 96 |
+| T1 el viaje termina antes de la parada, a mitad de recorrido (fraccionado / corta / se pierde) | 23448 | 4.9 | 1.21 | 4.9 | 3 | 3 | 29 |
+| T2 el viaje termina antes de la parada, a < 1,5 km del final del recorrido | 7687 | 1.6 | 0.40 | 2.4 | 1 | 0 | 4 |
+| C coche en cabecera / sin viaje: arranca despues de 40 min o nunca | 24232 | 5.1 | 1.25 | 7.4 | 13 | 20 | 33 |
+| G hueco de GPS > 10 min en el horizonte (no se sabe) | 6458 | 1.4 | 0.33 | 0.9 | 4 | 3 | 13 |
+| D desvio / fuera de shape cerca de la parada | 14447 | 3.0 | 0.75 | 4.6 | 3 | 3 | 28 |
+| O otro: sirve la parada, sigue el viaje y no llega en 40 min | 4047 | 0.9 | 0.21 | 1.2 | 7 | 1 | 20 |
+
+Banda 3-7: 347344 listados, FA 14.6 % (50585)
+
+## por banda de ETA anunciada
+
+| causa | 0-2 | 2-3 | 3-5 | 5-7 | 7-10 | 10-20 | 20-40 | >40 |
+|---|---|---|---|---|---|---|---|---|
+| listados | 219376 | 87048 | 175560 | 171784 | 236004 | 549361 | 401366 | 93296 |
+| FA % | 31.5 | 11.4 | 13.2 | 16.0 | 18.9 | 19.4 | 26.4 | 93.5 |
+| X0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 100.0 |
+| X3 | 3.0 | 7.5 | 6.1 | 4.7 | 3.8 | 3.7 | 2.8 | 0.0 |
+| X2a | 3.7 | 9.4 | 8.5 | 6.9 | 6.3 | 6.8 | 3.9 | 0.0 |
+| X2b | 0.1 | 0.9 | 0.7 | 0.6 | 0.4 | 0.6 | 0.5 | 0.0 |
+| X2c | 1.7 | 4.4 | 4.5 | 3.9 | 3.1 | 2.9 | 1.8 | 0.0 |
+| X2d | 5.8 | 8.1 | 7.8 | 6.3 | 6.1 | 5.5 | 2.1 | 0.0 |
+| X1 | 0.8 | 1.4 | 1.7 | 1.3 | 1.4 | 2.0 | 16.4 | 0.0 |
+| X4 | 1.0 | 4.5 | 4.1 | 3.4 | 3.0 | 3.4 | 1.8 | 0.0 |
+| P | 47.3 | 2.9 | 0.3 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| S | 4.8 | 8.2 | 7.4 | 6.9 | 6.0 | 5.2 | 6.7 | 0.0 |
+| R1 | 8.5 | 25.1 | 36.7 | 45.2 | 48.7 | 51.5 | 43.6 | 0.0 |
+| T1 | 2.7 | 4.9 | 4.9 | 4.9 | 4.6 | 6.7 | 8.9 | 0.0 |
+| T2 | 1.5 | 4.9 | 2.7 | 2.2 | 1.7 | 2.0 | 1.9 | 0.0 |
+| C | 10.3 | 10.4 | 7.3 | 7.4 | 9.7 | 3.9 | 3.6 | 0.0 |
+| G | 6.4 | 1.4 | 1.1 | 0.8 | 0.7 | 0.7 | 0.4 | 0.0 |
+| D | 1.3 | 4.7 | 4.9 | 4.4 | 3.7 | 4.1 | 4.5 | 0.0 |
+| O | 1.2 | 1.5 | 1.2 | 1.1 | 0.8 | 1.0 | 1.0 | 0.0 |
+
+## por linea
+
+| linea | FA % | FA % 3-7 | X0 | X3 | X2a | X2b | X2c | X2d | X1 | X4 | P | S | R1 | T1 | T2 | C | G | D | O |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 26 | 7.0 | 4.2 | 1.5 | 0.0 | 21.5 | 0.0 | 4.6 | 0.6 | 1.6 | 3.8 | 31.5 | 1.0 | 0.0 | 4.3 | 9.5 | 6.5 | 6.2 | 5.0 | 2.4 |
+| 39 | 31.5 | 18.9 | 2.1 | 0.0 | 3.0 | 0.0 | 3.9 | 1.6 | 1.3 | 0.5 | 5.5 | 1.4 | 74.6 | 1.7 | 0.0 | 1.9 | 0.8 | 1.4 | 0.2 |
+| 42 | 38.8 | 33.3 | 9.4 | 4.1 | 2.9 | 1.9 | 2.0 | 3.3 | 4.0 | 3.8 | 3.0 | 6.8 | 18.1 | 8.9 | 0.6 | 25.1 | 1.4 | 2.9 | 1.7 |
+| 50 | 32.3 | 15.7 | 19.9 | 6.9 | 3.0 | 0.0 | 1.4 | 7.8 | 4.3 | 1.3 | 4.6 | 2.9 | 33.9 | 1.8 | 4.9 | 2.0 | 0.9 | 3.3 | 0.9 |
+| 92 | 14.2 | 4.6 | 29.8 | 0.0 | 9.1 | 1.2 | 2.6 | 0.9 | 7.8 | 2.5 | 10.4 | 11.6 | 0.0 | 15.1 | 0.0 | 2.7 | 1.4 | 4.2 | 0.8 |
+| 106 | 22.4 | 13.9 | 13.8 | 11.1 | 3.8 | 0.0 | 1.2 | 1.6 | 4.0 | 0.5 | 10.8 | 3.6 | 38.5 | 1.9 | 1.9 | 2.4 | 2.0 | 1.9 | 0.9 |
+| 107 | 18.3 | 14.3 | 32.9 | 0.0 | 7.4 | 0.1 | 2.3 | 0.7 | 10.0 | 5.9 | 8.1 | 4.3 | 21.3 | 1.5 | 0.0 | 0.0 | 1.4 | 3.4 | 0.8 |
+| 108 | 24.5 | 11.9 | 40.7 | 1.3 | 5.1 | 0.5 | 1.8 | 0.5 | 10.3 | 3.5 | 4.8 | 6.8 | 0.0 | 9.9 | 7.1 | 1.9 | 0.9 | 4.2 | 0.8 |
+| 124 | 11.1 | 4.8 | 25.7 | 7.8 | 15.2 | 0.0 | 0.5 | 0.4 | 11.9 | 1.4 | 14.5 | 1.3 | 0.0 | 1.5 | 3.5 | 5.2 | 5.5 | 3.0 | 2.7 |
+| 132 | 25.0 | 18.4 | 1.0 | 0.0 | 3.1 | 0.0 | 1.1 | 19.7 | 1.0 | 1.1 | 10.1 | 4.1 | 51.8 | 2.1 | 0.0 | 1.8 | 1.1 | 1.8 | 0.4 |
+| 151 | 12.4 | 5.5 | 10.7 | 4.5 | 9.2 | 0.0 | 7.1 | 5.2 | 3.8 | 2.9 | 19.5 | 11.6 | 5.3 | 14.4 | 0.1 | 0.3 | 2.8 | 2.0 | 0.8 |
+| 168 | 40.8 | 18.1 | 32.8 | 0.0 | 2.4 | 0.0 | 1.4 | 0.4 | 2.7 | 1.6 | 2.5 | 4.5 | 42.5 | 2.8 | 0.0 | 0.5 | 0.5 | 4.9 | 0.5 |
+
+## por linea: FA con oraculo de ramal
+
+| linea | base % | oraculo % |
+|---|---|---|
+| 26 | 7.0 | 6.9 |
+| 39 | 31.5 | 12.1 |
+| 42 | 38.8 | 35.8 |
+| 50 | 32.3 | 21.4 |
+| 92 | 14.2 | 13.9 |
+| 106 | 22.4 | 13.1 |
+| 107 | 18.3 | 14.0 |
+| 108 | 24.5 | 23.4 |
+| 124 | 11.1 | 11.0 |
+| 132 | 25.0 | 8.1 |
+| 151 | 12.4 | 10.7 |
+| 168 | 40.8 | 32.0 |
+
+## por grupo y clase de parada
+
+- group provisional: 48786 listados, FA 53.4 %
+- group puede_venir: 401327 listados, FA 59.7 %
+- group seguro: 1483682 listados, FA 14.1 %
+- stop_class compartido: 845985 listados, FA 15.7 %
+- stop_class exclusivo: 527985 listados, FA 47.9 %
+- stop_class unico: 559825 listados, FA 15.8 %
+
+## que tan lejos esta el coche listado en FA (rem_m a la parada), mediana por causa
+
+     rem_med  eta_med
+c                    
+X0   14030.0   2911.0
+X3    3135.0    586.0
+X2a   2840.0    640.0
+X2b   3808.0    814.0
+X2c   2545.0    597.0
+X2d   2511.0    504.0
+X1    9260.0   2099.0
+X4    2879.0    683.0
+P      252.0      0.0
+S     4005.0    699.0
+R1    3949.0    833.0
+T1    4874.0   1018.0
+T2    3098.0    681.0
+C     3619.0    431.0
+G     1231.0      0.0
+D     3590.0    834.0
+O     3373.0    669.0
+
+## FA que el oraculo no saca, por causa (% del total de FA)
+
+c
+X0     13.11
+X3      2.79
+X2a     4.17
+X2b     0.17
+X2c     1.28
+X2d     0.66
+X1      4.20
+X4      2.06
+P       6.90
+S       0.29
+R1      0.67
+T1      4.80
+T2      1.61
+C       4.45
+G       1.31
+D       2.96
+O       0.79

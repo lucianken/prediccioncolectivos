@@ -1,0 +1,221 @@
+{
+ "feriados": {
+  "2026-08-17": "feriado (Paso a la Inmortalidad de San Martin, lunes)",
+  "2026-10-12": "feriado (Dia del Respeto a la Diversidad Cultural, lunes)"
+ },
+ "comparaciones": [
+  {
+   "feriado": "2026-10-12",
+   "periodo": "val",
+   "contra": "lunes no feriado",
+   "dias_ref": 2,
+   "MAE_fer": 58.540000915527344,
+   "MAE_ref": 53.310001373291016,
+   "dif_MAE": 5.230000019073486,
+   "IC95_lo": 4.16,
+   "IC95_hi": 6.39,
+   "sesgo_fer": -28.700000762939453,
+   "sesgo_ref": 4.75,
+   "dif_sesgo": -33.459999084472656,
+   "IC_sesgo_lo": -35.02,
+   "IC_sesgo_hi": -31.97,
+   "antes60_fer": 28.14,
+   "antes60_ref": 14.65,
+   "despues60_fer": 7.95,
+   "despues60_ref": 18.74
+  },
+  {
+   "feriado": "2026-10-12",
+   "periodo": "val",
+   "contra": "domingos",
+   "dias_ref": 3,
+   "MAE_fer": 58.540000915527344,
+   "MAE_ref": 44.939998626708984,
+   "dif_MAE": 13.600000381469727,
+   "IC95_lo": 12.53,
+   "IC95_hi": 14.72,
+   "sesgo_fer": -28.700000762939453,
+   "sesgo_ref": 8.369999885559082,
+   "dif_sesgo": -37.08000183105469,
+   "IC_sesgo_lo": -38.5,
+   "IC_sesgo_hi": -35.67,
+   "antes60_fer": 28.14,
+   "antes60_ref": 9.75,
+   "despues60_fer": 7.95,
+   "despues60_ref": 15.35
+  },
+  {
+   "feriado": "2026-10-12",
+   "periodo": "val",
+   "contra": "habiles Mar-Vie",
+   "dias_ref": 15,
+   "MAE_fer": 58.540000915527344,
+   "MAE_ref": 53.779998779296875,
+   "dif_MAE": 4.760000228881836,
+   "IC95_lo": 3.78,
+   "IC95_hi": 5.76,
+   "sesgo_fer": -28.700000762939453,
+   "sesgo_ref": 8.430000305175781,
+   "dif_sesgo": -37.130001068115234,
+   "IC_sesgo_lo": -38.46,
+   "IC_sesgo_hi": -35.86,
+   "antes60_fer": 28.14,
+   "antes60_ref": 13.35,
+   "despues60_fer": 7.95,
+   "despues60_ref": 20.05
+  },
+  {
+   "feriado": "2026-08-17",
+   "periodo": "train",
+   "contra": "lunes no feriado",
+   "dias_ref": 6,
+   "MAE_fer": 57.27000045776367,
+   "MAE_ref": 51.400001525878906,
+   "dif_MAE": 5.869999885559082,
+   "IC95_lo": 4.94,
+   "IC95_hi": 6.78,
+   "sesgo_fer": -28.040000915527344,
+   "sesgo_ref": 5.349999904632568,
+   "dif_sesgo": -33.400001525878906,
+   "IC_sesgo_lo": -34.77,
+   "IC_sesgo_hi": -32.07,
+   "antes60_fer": 27.55,
+   "antes60_ref": 13.13,
+   "despues60_fer": 7.68,
+   "despues60_ref": 17.69
+  },
+  {
+   "feriado": "2026-08-17",
+   "periodo": "train",
+   "contra": "domingos",
+   "dias_ref": 6,
+   "MAE_fer": 57.27000045776367,
+   "MAE_ref": 43.66999816894531,
+   "dif_MAE": 13.600000381469727,
+   "IC95_lo": 12.71,
+   "IC95_hi": 14.48,
+   "sesgo_fer": -28.040000915527344,
+   "sesgo_ref": 7.730000019073486,
+   "dif_sesgo": -35.77000045776367,
+   "IC_sesgo_lo": -37.09,
+   "IC_sesgo_hi": -34.45,
+   "antes60_fer": 27.55,
+   "antes60_ref": 9.48,
+   "despues60_fer": 7.68,
+   "despues60_ref": 14.71
+  },
+  {
+   "feriado": "2026-08-17",
+   "periodo": "train",
+   "contra": "habiles Mar-Vie",
+   "dias_ref": 27,
+   "MAE_fer": 57.27000045776367,
+   "MAE_ref": 50.939998626708984,
+   "dif_MAE": 6.329999923706055,
+   "IC95_lo": 5.49,
+   "IC95_hi": 7.21,
+   "sesgo_fer": -28.040000915527344,
+   "sesgo_ref": 5.110000133514404,
+   "dif_sesgo": -33.15999984741211,
+   "IC_sesgo_lo": -34.46,
+   "IC_sesgo_hi": -31.93,
+   "antes60_fer": 27.55,
+   "antes60_ref": 13.24,
+   "despues60_fer": 7.68,
+   "despues60_ref": 17.34
+  }
+ ],
+ "estandarizado": {
+  "2026-10-12 vs lunes no feriado": {
+   "cobertura": 0.9999269219526455,
+   "MAE_ref_estandarizado": 51.8721011589121,
+   "sesgo_ref_estandarizado": 5.209177899225448,
+   "MAE_fer_en_celdas": 58.53940963745117,
+   "sesgo_fer_en_celdas": -28.704208374023438
+  },
+  "2026-10-12 vs domingos": {
+   "cobertura": 0.9999269219526455,
+   "MAE_ref_estandarizado": 44.66843387459067,
+   "sesgo_ref_estandarizado": 8.276672710363249,
+   "MAE_fer_en_celdas": 58.53940963745117,
+   "sesgo_fer_en_celdas": -28.704208374023438
+  },
+  "2026-08-17 vs lunes no feriado": {
+   "cobertura": 1.0,
+   "MAE_ref_estandarizado": 50.37240783939207,
+   "sesgo_ref_estandarizado": 6.056218006171009,
+   "MAE_fer_en_celdas": 57.26988220214844,
+   "sesgo_fer_en_celdas": -28.042638778686523
+  },
+  "2026-08-17 vs domingos": {
+   "cobertura": 1.0,
+   "MAE_ref_estandarizado": 43.514646602656555,
+   "sesgo_ref_estandarizado": 7.733914031709935,
+   "MAE_fer_en_celdas": 57.26988220214844,
+   "sesgo_fer_en_celdas": -28.042638778686523
+  }
+ },
+ "contrafactual_dow": {
+  "2026-08-17": {
+   "dow=lunes (como hoy)": {
+    "MAE_global": 112.02976501682282,
+    "sesgo_global": -70.23884036304474,
+    "antes60_global": 33.788000000000004,
+    "despues60_global": 7.991,
+    "MAE_b37": 57.26988310477248,
+    "sesgo_b37": -28.042638036111992,
+    "antes60_b37": 27.546296296296298,
+    "despues60_b37": 7.682291666666667,
+    "n_b37": 27648
+   },
+   "dow=domingo": {
+    "MAE_global": 64.21571005811691,
+    "sesgo_global": 11.921759594974517,
+    "antes60_global": 13.217,
+    "despues60_global": 17.332,
+    "MAE_b37": 42.7803743329865,
+    "sesgo_b37": 6.226083494170949,
+    "antes60_b37": 9.751157407407407,
+    "despues60_b37": 13.961226851851851,
+    "n_b37": 27648
+   }
+  },
+  "2026-10-12": {
+   "dow=lunes (como hoy)": {
+    "MAE_global": 111.22570270302772,
+    "sesgo_global": -70.4017735005474,
+    "antes60_global": 33.727000000000004,
+    "despues60_global": 8.125,
+    "MAE_b37": 58.536509637071596,
+    "sesgo_b37": -28.7034889938747,
+    "antes60_b37": 28.142356036246714,
+    "despues60_b37": 7.950891552177726,
+    "n_b37": 27368
+   },
+   "dow=domingo": {
+    "MAE_global": 64.55146681921005,
+    "sesgo_global": 11.705289093761444,
+    "antes60_global": 13.434,
+    "despues60_global": 17.75,
+    "MAE_b37": 43.59439354352664,
+    "sesgo_b37": 6.8552190644878355,
+    "antes60_b37": 9.953230049693072,
+    "despues60_b37": 14.51695410698626,
+    "n_b37": 27368
+   }
+  }
+ },
+ "variabilidad_val_dias_no_feriados": {
+  "MAE_b37_media": 51.32077503204346,
+  "sd": 4.043628823265235,
+  "min": 44.48725891113281,
+  "max": 56.30912399291992
+ },
+ "variabilidad_val_habiles": {
+  "MAE_b37_media": 53.73293910307043,
+  "sd": 1.4305850306711885,
+  "min": 50.17284393310547,
+  "max": 56.30912399291992,
+  "n": 17
+ }
+}

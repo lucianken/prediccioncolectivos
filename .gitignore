@@ -62,3 +62,16 @@ data/ml/v2/*
 !data/ml/v2/lines.json
 !data/ml/v2/line_metrics.json
 data/ml/v2_smoke*/
+
+# Artefactos generados del pipeline / replay (se regeneran; no se versionan)
+data/ml/**/daily/
+*.carry.json
+data/ml/**/*.log
+data/ml/**/*.err
+data/ml/**/*.out
+data/ml/**/*.npy
+data/ml/**/*.npz
+data/ml/**/*.ndjson
+data/ml/**/*.pkl
+flota-historial-sim-datos/
+analisis_latencia_fuentes/datos/*.ndjson

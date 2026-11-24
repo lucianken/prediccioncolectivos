@@ -1,0 +1,23 @@
+{
+ "model": "PathETAModel",
+ "epochs": 1,
+ "batch_size": 1024,
+ "lr": 0.002,
+ "loss": "l1",
+ "loss_cfg": null,
+ "best_epoch": 1,
+ "best_val_mae_s": 111.77592406844896,
+ "last_val_mae_s": 111.77592406844896,
+ "training_time_s": 14.353151082992554,
+ "n_params": 655626,
+ "n_train_rows_approx": 222249,
+ "history": [
+  {
+   "epoch": 1,
+   "train_pinball": 58.292278868412865,
+   "val_mae_s": 111.77592406844896,
+   "lr": 2e-06,
+   "epoch_s": 14.342201471328735
+  }
+ ]
+}

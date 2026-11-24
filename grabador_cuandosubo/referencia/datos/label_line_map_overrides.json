@@ -1,0 +1,64 @@
+{
+  "_doc": "Correcciones locales de bondiradar sobre proyectoconsola/LABEL_LINE_MAP.json. build-data.js reemplaza la entrada completa de cada línea listada. Cada corrección debe tener evidencia en 'reason'. Cuando el map de proyectoconsola incorpore el cambio, borrar la entrada de acá.",
+  "lines": {
+    "26": {
+      "reason": "Cambio de operador 2026-09-18: sufijo 1336 (17 DE AGOSTO, agencia 13) visto por última vez el 2026-09-17 con 55 coches; desde 2026-09-18 sufijo 4820 (58 coches/día). 52 de 57 patentes del 1336 aparecen en 4820 el 2026-10-15 (mismos internos). En OBA, los ids 4820 reportan bajo la agencia 12 (NUEVOS RUMBOS, operadora del 132); 14 con trip y vehicleLabel *-4820.",
+      "agencies": [
+        {
+          "agencyId": "13",
+          "agencyName": "17 DE AGOSTO S.A.",
+          "from": "2026-03-28",
+          "to": "2026-09-17"
+        },
+        {
+          "agencyId": "12",
+          "agencyName": "NUEVOS RUMBOS S.A.T.A.C.I.F.I.",
+          "from": "2026-09-18",
+          "to": null
+        }
+      ],
+      "suffixes": [
+        {
+          "suffix": "1336",
+          "agencyId": "13",
+          "from": "2026-03-28",
+          "to": "2026-09-17"
+        },
+        {
+          "suffix": "4820",
+          "agencyId": "12",
+          "from": "2026-09-18",
+          "to": null
+        }
+      ]
+    }
+  },
+  "notes": {
+    "124": "Map correcto (sufijo 4757, agencia 705; 48 de 52 patentes del sufijo viejo 621 siguen en 4757 al 2026-10-15). CuandoSubo no reporta la flota: agencia 705 sin vehículos y fuera de coverage; 0 de 53 ids en las 189 agencias AMBA de OBA (2026-10-19). Cruce por patentes (2026-10-19): las 53 patentes usaron 59 ids más en 186 días (48 del sufijo viejo 621); de todos esos ids solo 7 están en OBA: 2 como 4756 (línea 12, misma empresa Callao: coches que rotan) y 5 de otras líneas: coches transferidos al 124, verificados por foto de patente (PNN487 102/39→124, AB068XD 39→124, PEJ023 64→124; 2026-10-19). La flota del 124 no está en OBA bajo ningún id. OBA tiene las rutas del 124 bajo la agencia 6 con viajes programados sin vehículo (2026-10-19): CuandoSubo conoce la línea pero no recibe su GPS.",
+    "25": "Map correcto (sufijo 4847, agencia 7; 39 de 43 patentes del 4046 siguen en 4847). CuandoSubo no reporta la flota: agencia 7 con 0 vehículos; 0 de 48 ids en las 189 agencias AMBA de OBA (2026-10-19). Cruce por patentes (2026-10-19): 46 patentes, 49 ids más (43 del sufijo viejo 4046); solo 2 en OBA, como 4868 (otra línea). La flota del 25 no está en OBA bajo ningún id. OBA tiene las rutas del 25 bajo la agencia 11 con viajes programados sin vehículo (2026-10-19).",
+    "_patentes": "Verificado por foto (2026-10-19): las 'superposiciones' de patente entre líneas son transferencias reales de coches; el id de la línea vieja conserva la patente vieja un tiempo (dato desactualizado). La patente es informativa, nunca clave. Patentes ZZ… son imposibles (filtradas)."
+  },
+  "obaAgencies": {
+    "_doc": "Agencias de OBA a consultar además de las del map, por línea: OBA a veces tiene las rutas de una línea bajo un agencyId distinto (o viejo).",
+    "124": {
+      "agencies": [
+        "6",
+        "704"
+      ],
+      "reason": "routes-for-location (2026-10-19): rutas 6_1649/6_1650 '124' bajo la agencia 6 (id previo de Callao); trips-for-route con 6 viajes activos SIN vehículo. 2026-10-20: el usuario indica que pasó a la entidad de la línea 12 (agencia 704); barrido: ningún coche reportando ahí todavía (ver docs/IDENTIFICACION.md §10)."
+    },
+    "25": {
+      "agencies": [
+        "11",
+        "707"
+      ],
+      "reason": "routes-for-location (2026-10-19): rutas 11_2002/11_2003 '25A' bajo la agencia 11; trips-for-route con 12 viajes activos SIN vehículo. 2026-10-20: el usuario indica que pasó a la entidad de la línea 134 (agencia 707); barrido: ningún coche reportando ahí todavía (ver docs/IDENTIFICACION.md §10)."
+    },
+    "84": {
+      "agencies": [
+        "707"
+      ],
+      "reason": "2026-10-20: el usuario indica que pasó a la entidad del 134 (agencia 707). En la 706 hay 49 coches 4848 listados pero 1 reportando; en la 707 ninguno todavía."
+    }
+  }
+}

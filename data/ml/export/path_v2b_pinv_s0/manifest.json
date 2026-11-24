@@ -1,5 +1,5 @@
 {
- "contract_version": "2.1",
+ "contract_version": "2.3",
  "model_version": "path_v2b_pinv_s0",
  "checkpoint": {
   "path": "data/ml/v2b_sub/runs_l1/path_pinv_lr2e-3_s0/path_eta_best.pt",
@@ -87,8 +87,8 @@
   "tol_m": 45.0,
   "margin_m": 20.0,
   "history_window_s": 900,
+  "direction_rule": "trailing_run",
   "min_near_pings": 2,
-  "min_near_frac": 0.8,
   "min_forward_frac": 0.6,
   "min_net_forward_m": 40.0,
   "step_moving_m": 30.0,

@@ -1,0 +1,14 @@
+{
+ "best_lr": {
+  "a3": "1e-3",
+  "path": "2e-3"
+ },
+ "runs": [
+  "a3_lr1e-3_s0",
+  "a3_lr2e-3_s0",
+  "path_lr1e-3_s0",
+  "path_lr2e-3_s0",
+  "a3_lr1e-3_s1",
+  "path_lr2e-3_s1"
+ ]
+}

@@ -1,0 +1,9 @@
+{
+ "runs": [
+  "a3_lr1e-3_s0",
+  "a3_lr1e-3_s1",
+  "path_lr2e-3_s0",
+  "path_lr2e-3_s1",
+  "a1"
+ ]
+}

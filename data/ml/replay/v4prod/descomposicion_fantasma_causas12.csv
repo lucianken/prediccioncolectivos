@@ -1,0 +1,19 @@
+cause,n,abs_sum,peso_pct,aporte_s_por_instante_con_anuncio
+R1 otro ramal: no sirve la parada (tramo compartido y diverge),2549,341663.2974104881,36.300199373397895,2.7157949335523592
+C coche en cabecera / sin viaje: arranca despues de 40 min o nunca,757,151565.0610780716,10.78040444317858,1.2047522461414526
+S sentido contrario (el recorrido ex post va en el otro sentido),755,152107.73376989365,10.751922529193962,1.2090658137918195
+sin clasificar,618,102253.70933938026,8.800911421247507,0.8127888124523494
+"T1 el viaje termina antes de la parada, a mitad de recorrido (fraccionado / corta / se pierde)",473,106152.99865174294,6.7359726573625744,0.8437832746589427
+X2d pasa en 40 min por un shape no asociado a la parada,469,71553.23323845863,6.679008829393335,0.5687585110285569
+X0 ETA anunciado > 40 min (fuera del horizonte),290,1148222.3707015514,4.1298775277698665,9.126928530448081
+X2c pasa en 40 min con pings no compatibles (> 45 m) en el cruce,228,30027.59297800064,3.2469381942466535,0.23868172406721969
+"T2 el viaje termina antes de la parada, a < 1,5 km del final del recorrido",153,27860.541600704193,2.1788664198234122,0.2214563820541484
+X3 parada en el ultimo tramo del shape: el coche llega pero el cruce no existe por construccion,148,31635.036677837372,2.107661634861863,0.2514588865224025
+X1 pasa despues de 40 min en el mismo viaje (ETA subestimado),113,36197.545889139175,1.609228140131017,0.2877251155679314
+D desvio / fuera de shape cerca de la parada,105,23286.359616279602,1.4953004841925377,0.18509736909431665
+"O otro: sirve la parada, sigue el viaje y no llega en 40 min",94,17288.656566619873,1.338649957277129,0.1374231480741767
+G hueco de GPS > 10 min en el horizonte (no se sabe),81,17800.05322408676,1.1535175163771005,0.14148811045647078
+P el coche ya cruzo la parada antes de t (ping desactualizado),61,16203.994996070862,0.8686983765309029,0.12880144823037742
+X2a pasa en 40 min durante un hueco de GPS > 10 min (la vara no interpola),50,19930.55765557289,0.7120478496154942,0.15842295006257961
+X4 alcanza la parada sobre el shape elegido pero ningun par de pings consecutivos compatibles la cruza,40,11693.435368061066,0.5696382796923953,0.09294815325231758
+X2b pasa en 40 min con salto > 5 km entre pings (la vara lo descarta),38,3940.012765645981,0.5411563657077756,0.03131816261264153

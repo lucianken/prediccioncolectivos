@@ -1,5 +1,7 @@
 # Oráculo de ramal: techo de ganancia de conocer el ramal en tiempo real
 
+> **Registro (2026-11-16):** las falsas alarmas, la omisión y el «viene» vacío de este informe usan la definición anterior de la vara de producto. Siguen válidos como comparaciones relativas; las falsas alarmas absolutas están infladas (≈ 24,5 contra ≈ 14,7 % con la vara corregida) y la omisión y el «viene» vacío absolutos algo subestimados. Ver `VARA_CORREGIDA.md` y `ARQUITECTURA.md` §5.
+
 Replay en condiciones de producción (`prediccion/replay/`, comando: `python -m prediccion.replay.run --workers 3 --out data/ml/replay/run2`). Lógica de la app: `path_reference.predict_from_raw` + presentación de `app.js` (viene / puede venir / sentido sin confirmar, orden por ETA, tope de 5), solo con pings hasta t, historial de 15 min, ping máximo de 10 min.
 - **Versión fijada:** `geo_assign.py` y `path_reference.py` del commit **e7479f7** (contrato 2.1, sentido por geometría), copiados a `prediccion/replay/pinned/`. Modelo: `data/ml/export/path_v2c_l1_s1` (2.1).
 - **Muestras:** 12 líneas habilitadas, 40 paradas por línea (mitad tronco compartido, mitad tramo exclusivo; líneas con un recorrido por sentido: «únicas»), instantes cada 10 min de 6 a 23 h, 10 días del período de evaluación (6 hábiles: 15, 16, 17, 18 de sep., 6 y 8 de oct.; 4 de fin de semana: 19, 20 de sep., 3, 4 de oct.). La línea 26 solo tiene datos los 3 primeros días (15–17 de sep.).

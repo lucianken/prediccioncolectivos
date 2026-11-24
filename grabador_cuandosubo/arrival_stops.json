@@ -1,0 +1,333 @@
+{
+ "_doc": "Panel de paradas para arribos (arrivals-and-departures-for-stop). Generado por tools/elegir_paradas.py: por línea, tronco común a todos los ramales de cada sentido; sentido 0 al ~20% (inicio) y ~80% (final), sentido 1 al ~50% (medio); validado a <=60 m de prediccion/data/line_shapes.json. 151 excluido (casi no reporta y CuandoSubo le asigna viajes del 65); 124 no está en CuandoSubo.",
+ "generated": "2026-11-13",
+ "stops": [
+  {
+   "id": "14_206600",
+   "line": "39",
+   "name": "1165 CIUDADELA",
+   "lat": -34.627347,
+   "lon": -58.381675,
+   "direction": 0,
+   "headsign": "R1 a Chacarita x Pza. Italia",
+   "position": "inicio",
+   "frac_along": 0.229,
+   "routes": [
+    "56_1932",
+    "56_1934",
+    "56_1936",
+    "56_1938",
+    "56_1940",
+    "56_1942"
+   ],
+   "routes_serving": 6,
+   "dist_to_shape_m": 0.2
+  },
+  {
+   "id": "14_203270",
+   "line": "39",
+   "name": "1754 SANTA FE AV.",
+   "lat": -34.595872,
+   "lon": -58.39267,
+   "direction": 1,
+   "headsign": "R1 a Barracas x Pza. Italia",
+   "position": "medio",
+   "frac_along": 0.5,
+   "routes": [
+    "56_1933",
+    "56_1935",
+    "56_1937",
+    "56_1939",
+    "56_1941",
+    "56_1943"
+   ],
+   "routes_serving": 6,
+   "dist_to_shape_m": 2.2
+  },
+  {
+   "id": "14_201063",
+   "line": "39",
+   "name": "6481 CORDOBA",
+   "lat": -34.582148,
+   "lon": -58.450465,
+   "direction": 0,
+   "headsign": "R1 a Chacarita x Pza. Italia",
+   "position": "final",
+   "frac_along": 0.932,
+   "routes": [
+    "56_1932",
+    "56_1934",
+    "56_1936",
+    "56_1938",
+    "56_1940",
+    "56_1942"
+   ],
+   "routes_serving": 6,
+   "dist_to_shape_m": 1.3
+  },
+  {
+   "id": "14_2093",
+   "line": "26",
+   "name": "1185 CORDOBA AV.",
+   "lat": -34.59913,
+   "lon": -58.383732,
+   "direction": 0,
+   "headsign": "a B° Rivadavia",
+   "position": "inicio",
+   "frac_along": 0.204,
+   "routes": [
+    "13_1994"
+   ],
+   "routes_serving": 1,
+   "dist_to_shape_m": 5.4
+  },
+  {
+   "id": "14_202133",
+   "line": "26",
+   "name": "459 GASCON",
+   "lat": -34.606517,
+   "lon": -58.42459,
+   "direction": 1,
+   "headsign": "a Retiro",
+   "position": "medio",
+   "frac_along": 0.502,
+   "routes": [
+    "13_1995"
+   ],
+   "routes_serving": 1,
+   "dist_to_shape_m": 1.2
+  },
+  {
+   "id": "14_201708",
+   "line": "26",
+   "name": "Barco Del Centenera 789",
+   "lat": -34.628675,
+   "lon": -58.439728,
+   "direction": 0,
+   "headsign": "a B° Rivadavia",
+   "position": "final",
+   "frac_along": 0.802,
+   "routes": [
+    "13_1994"
+   ],
+   "routes_serving": 1,
+   "dist_to_shape_m": 6.4
+  },
+  {
+   "id": "14_204691",
+   "line": "42",
+   "name": "Juramento 1293",
+   "lat": -34.555272,
+   "lon": -58.44543,
+   "direction": 0,
+   "headsign": "a Alcorta",
+   "position": "inicio",
+   "frac_along": 0.206,
+   "routes": [
+    "15_1981",
+    "15_1983"
+   ],
+   "routes_serving": 2,
+   "dist_to_shape_m": 4.4
+  },
+  {
+   "id": "14_20796",
+   "line": "42",
+   "name": "375 GUZMAN",
+   "lat": -34.589912,
+   "lon": -58.451548,
+   "direction": 1,
+   "headsign": "a Cdad. Universitaria",
+   "position": "medio",
+   "frac_along": 0.504,
+   "routes": [
+    "15_1980",
+    "15_1982"
+   ],
+   "routes_serving": 2,
+   "dist_to_shape_m": 0.7
+  },
+  {
+   "id": "14_206135",
+   "line": "42",
+   "name": "1685 CACHIMAYO",
+   "lat": -34.638527,
+   "lon": -58.435992,
+   "direction": 0,
+   "headsign": "a Alcorta",
+   "position": "final",
+   "frac_along": 0.791,
+   "routes": [
+    "15_1981",
+    "15_1983"
+   ],
+   "routes_serving": 2,
+   "dist_to_shape_m": 1.2
+  },
+  {
+   "id": "14_205731",
+   "line": "92",
+   "name": "Centro de Transbordo Flores - Bolivia",
+   "lat": -34.629698,
+   "lon": -58.465938,
+   "direction": 0,
+   "headsign": "a B° 9 de Abril",
+   "position": "inicio",
+   "frac_along": 0.422,
+   "routes": [
+    "89_1467",
+    "89_1469",
+    "89_1471",
+    "89_1473"
+   ],
+   "routes_serving": 4,
+   "dist_to_shape_m": 6.7
+  },
+  {
+   "id": "14_201704",
+   "line": "92",
+   "name": "8350 RIVADAVIA AV.",
+   "lat": -34.633665,
+   "lon": -58.481142,
+   "direction": 1,
+   "headsign": "Ramal A - Retiro",
+   "position": "medio",
+   "frac_along": 0.493,
+   "routes": [
+    "89_1468",
+    "89_1470",
+    "89_1472",
+    "89_1474"
+   ],
+   "routes_serving": 4,
+   "dist_to_shape_m": 0.6
+  },
+  {
+   "id": "14_203994",
+   "line": "92",
+   "name": "Avenida Eva Perón 7463",
+   "lat": -34.673688,
+   "lon": -58.501303,
+   "direction": 0,
+   "headsign": "a B° 9 de Abril",
+   "position": "final",
+   "frac_along": 0.683,
+   "routes": [
+    "89_1467",
+    "89_1469",
+    "89_1471",
+    "89_1473"
+   ],
+   "routes_serving": 4,
+   "dist_to_shape_m": 9.0
+  },
+  {
+   "id": "14_S00094695",
+   "line": "168",
+   "name": "Metrobús Norte - General Paz",
+   "lat": -34.539648,
+   "lon": -58.475422,
+   "direction": 0,
+   "headsign": "a La Boca",
+   "position": "inicio",
+   "frac_along": 0.382,
+   "routes": [
+    "80_1717",
+    "80_1719",
+    "80_1721"
+   ],
+   "routes_serving": 3,
+   "dist_to_shape_m": 5.6
+  },
+  {
+   "id": "14_S00094827",
+   "line": "168",
+   "name": "Avenida Elcano 3006",
+   "lat": -34.571073,
+   "lon": -58.458155,
+   "direction": 1,
+   "headsign": "a San Isidro",
+   "position": "medio",
+   "frac_along": 0.502,
+   "routes": [
+    "80_1716",
+    "80_1718",
+    "80_1720"
+   ],
+   "routes_serving": 3,
+   "dist_to_shape_m": 8.6
+  },
+  {
+   "id": "14_S00094902",
+   "line": "168",
+   "name": "Adolfo Alsina 2410",
+   "lat": -34.61215,
+   "lon": -58.40051,
+   "direction": 0,
+   "headsign": "a La Boca",
+   "position": "final",
+   "frac_along": 0.799,
+   "routes": [
+    "80_1717",
+    "80_1719",
+    "80_1721"
+   ],
+   "routes_serving": 3,
+   "dist_to_shape_m": 5.2
+  },
+  {
+   "id": "14_S00081644",
+   "line": "152",
+   "name": "Metrobús Norte - Álvarez",
+   "lat": -34.53402,
+   "lon": -58.478393,
+   "direction": 0,
+   "headsign": "a La Boca",
+   "position": "inicio",
+   "frac_along": 0.131,
+   "routes": [
+    "20_1376",
+    "20_835",
+    "20_873"
+   ],
+   "routes_serving": 3,
+   "dist_to_shape_m": null
+  },
+  {
+   "id": "14_S00081575",
+   "line": "152",
+   "name": "Avenida Santa Fe 933",
+   "lat": -34.5952,
+   "lon": -58.380432,
+   "direction": 1,
+   "headsign": "a Estación Mitre",
+   "position": "medio",
+   "frac_along": 0.294,
+   "routes": [
+    "20_1375",
+    "20_834",
+    "20_872"
+   ],
+   "routes_serving": 3,
+   "dist_to_shape_m": null
+  },
+  {
+   "id": "14_S00081526",
+   "line": "152",
+   "name": "Metrobus Del Bajo - Av. Corrientes",
+   "lat": -34.602825,
+   "lon": -58.37036,
+   "direction": 0,
+   "headsign": "a La Boca",
+   "position": "final",
+   "frac_along": 0.795,
+   "routes": [
+    "20_1376",
+    "20_835",
+    "20_873"
+   ],
+   "routes_serving": 3,
+   "dist_to_shape_m": null
+  }
+ ]
+}

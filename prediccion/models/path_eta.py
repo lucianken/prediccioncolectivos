@@ -32,6 +32,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from prediccion.models.a3_eta import CityGridEncoder, TimeEncoder
+from prediccion.v2.traffic.feature import (N_NORM, N_POOLED, SPEED_NORM_MPS, TRAFFIC_DIM, TrafficTable,
+                                           last_complete_window)
 
 SEG_BASE_M = 250.0
 MAX_SEG = 160
@@ -155,8 +157,9 @@ def stop_input(count: torch.Tensor, nxt: torch.Tensor) -> torch.Tensor:
 class IndexMaps:
     """shape_id / línea -> índice. Liviano y picklable (lo usan los workers del DataLoader, sin el modelo)."""
 
-    def __init__(self, shape_ids, line_ids, start_unknown: bool = False):
+    def __init__(self, shape_ids, line_ids, start_unknown: bool = False, traffic_feature: bool = False):
         self.start_unknown = bool(start_unknown)
+        self.traffic_feature = bool(traffic_feature)      # el batch lleva `tw` (ventana completa previa a ts_p)
         self._s = {s: i for i, s in enumerate(shape_ids)}
         self._l = {s: i + 1 for i, s in enumerate(line_ids)}       # 0 = línea desconocida
 
@@ -171,8 +174,11 @@ class PathETAModel(nn.Module):
     def __init__(self, shape_ids: list[str], seg_lat, seg_lon, shape_off, line_ids: list[str],
                  max_seg: int = MAX_SEG, grid_dim: int = 16, line_dim: int = 16, hidden: int = 96,
                  grid_cell_m: float = 500.0, start_unknown: bool = False, stops_feature: bool = False,
-                 stop_key=None):
+                 stop_key=None, traffic_feature: bool = False):
         super().__init__()
+        self.traffic_feature = bool(traffic_feature)  # tránsito actual por tramo (§11.1): TRAFFIC_DIM entradas más; ver v2/traffic/feature.py
+        self.traffic_w_base = 0
+        self.traffic_sha1 = None
         self.stops_feature = bool(stops_feature)      # paradas por tramo (§6.2): 2 entradas más al MLP del tramo
         self.start_unknown = bool(start_unknown)      # v2b: una entrada más al ajuste global (inicio desconocido 0/1)
         self.n_state = N_STATE + (1 if start_unknown else 0)
@@ -181,6 +187,8 @@ class PathETAModel(nn.Module):
         self.max_seg = int(max_seg)
         self.cfg = {"max_seg": self.max_seg, "grid_dim": grid_dim, "line_dim": line_dim, "hidden": hidden,
                     "grid_cell_m": grid_cell_m, "start_unknown": self.start_unknown}
+        if self.traffic_feature:
+            self.cfg["traffic_feature"] = True     # solo si está: los checkpoints viejos siguen cargando
         if self.stops_feature:
             self.cfg["stops_feature"] = True       # solo si está: los checkpoints viejos siguen cargando
             self.register_buffer("stop_key", torch.as_tensor(np.asarray(stop_key if stop_key is not None else [], dtype=np.float64)))
@@ -192,7 +200,7 @@ class PathETAModel(nn.Module):
         nn.init.normal_(self.line_emb.weight, std=0.1)
         self.inter = nn.Sequential(nn.Linear(grid_dim + line_dim, 32), nn.GELU(), nn.Linear(32, 16))
         self.time_enc = TimeEncoder(dow_embed_dim=8, out_dim=16)
-        seg_in = grid_dim + line_dim + 16 + 16 + 2 + (2 if self.stops_feature else 0)
+        seg_in = grid_dim + line_dim + 16 + 16 + 2 + (2 if self.stops_feature else 0) + (TRAFFIC_DIM if self.traffic_feature else 0)
         self.seg_mlp = nn.Sequential(nn.Linear(seg_in, hidden), nn.GELU(), nn.Linear(hidden, 64), nn.GELU(),
                                      nn.Linear(64, 1))
         with torch.no_grad():
@@ -205,7 +213,7 @@ class PathETAModel(nn.Module):
     # índices ---------------------------------------------------------------
     @property
     def maps(self) -> IndexMaps:
-        return IndexMaps(self.shape_ids, self.line_ids, self.start_unknown)
+        return IndexMaps(self.shape_ids, self.line_ids, self.start_unknown, self.traffic_feature)
 
     def shape_index(self, shape_ids) -> np.ndarray:
         return self.maps.shape_index(shape_ids)
@@ -213,10 +221,50 @@ class PathETAModel(nn.Module):
     def line_index(self, lines) -> np.ndarray:
         return self.maps.line_index(lines)
 
-    def segment_times(self, shape_idx, line_idx, d0, rem, h_sin, h_cos, dow, time_row=None):
-        """Tiempo (s) de cada tramo. Devuelve (times (B, N), length (B, N), mask (B, N))."""
+    # tránsito ---------------------------------------------------------------
+    def attach_traffic(self, table: TrafficTable) -> None:
+        """Carga la tabla densa de tránsito (buffers que no van al checkpoint) y mapea cada celda de 250 m a su columna."""
+        from prediccion.v2.traffic.grid import cell_index, grid_from_encoder
+        dev = self.seg_lat.device
+        gcell = cell_index(grid_from_encoder(self.cfg["grid_cell_m"]), self.seg_lat.cpu().numpy(), self.seg_lon.cpu().numpy())
+        t = lambda a: torch.as_tensor(a).to(dev)  # noqa: E731
+        self.register_buffer("seg_tcell", t(table.column_of(gcell)), persistent=False)
+        self.register_buffer("tr_speed", t(table.speed), persistent=False)
+        self.register_buffer("tr_n", t(table.n), persistent=False)
+        self.register_buffer("tr_ns", t(table.n_stopped), persistent=False)
+        self.traffic_w_base = int(table.w_base)
+        self.traffic_sha1 = table.sha1()
+
+    def traffic_inputs(self, tcol, win):
+        """(n, TRAFFIC_DIM) por tramo: tcol (n,) columna de la celda (-1 = fuera de tabla), win (n,) ventana absoluta de w0 - 1.
+        Mismo contrato que `traffic_features_np` (v2/traffic/feature.py): solo ventanas w0 - 1 y w0 - 2."""
+        if not hasattr(self, "tr_speed"):
+            raise RuntimeError("modelo con traffic_feature sin tabla: llamar a attach_traffic(TrafficTable)")
+        W = self.tr_speed.shape[0]
+        wrel = win - self.traffic_w_base
+        zero = torch.zeros((), device=wrel.device)
+        sp, n, ns = [], [], []
+        for k in range(N_POOLED):
+            w = wrel - k
+            ok = (tcol >= 0) & (w >= 0) & (w < W)
+            wc, cc = w.clamp(0, W - 1), tcol.clamp(min=0)
+            n.append(torch.where(ok, self.tr_n[wc, cc].float(), zero))
+            ns.append(torch.where(ok, self.tr_ns[wc, cc].float(), zero))
+            sp.append(self.tr_speed[wc, cc].float())
+        sp, n, ns = torch.stack(sp, -1), torch.stack(n, -1), torch.stack(ns, -1)
+        nm = (n - ns).clamp(min=0.0)
+        s0 = torch.where(nm > 0, torch.nan_to_num(sp), torch.zeros_like(sp))
+        N, NS, NM = n.sum(-1), ns.sum(-1), nm.sum(-1)
+        v = torch.where(NM > 0, (s0 * nm).sum(-1) / NM.clamp(min=1.0), torch.zeros_like(NM))
+        has = N > 0
+        z = torch.zeros_like(N)
+        return torch.stack([has.float(), torch.where(has, (v / SPEED_NORM_MPS).clamp(0.0, 2.0), z),
+                            torch.where(has, (torch.log1p(N) / N_NORM).clamp(0.0, 1.5), z),
+                            torch.where(has, NS / N.clamp(min=1.0), z)], dim=-1)
+
+    def _locate(self, shape_idx, d0, rem):
+        """Tramos del camino P->T de cada fila: (k, step, length, mask, row, col, kk, st, mid_m, s_idx, flat)."""
         k, step, length, mask = build_path_segments(d0, rem, self.max_seg)
-        B, N = mask.shape
         row, col = mask.nonzero(as_tuple=True)
         kk = k[row, col]
         st = step[row]
@@ -226,6 +274,23 @@ class PathETAModel(nn.Module):
         n_cells = self.shape_off[s_idx + 1] - self.shape_off[s_idx]
         cell = torch.minimum(cell.clamp(min=0), n_cells - 1)
         flat = self.shape_off[s_idx] + cell
+        return k, step, length, mask, row, col, kk, st, mid_m, s_idx, flat
+
+    @torch.no_grad()
+    def traffic_coverage(self, shape_idx, d0, rem, win):
+        """(n_tramos, con_dato, con_velocidad) por fila (B,): tramos del camino P->T cuya celda tiene dato de tránsito
+        (algún coche en las 2 ventanas previas) y los que además tienen alguien en movimiento (velocidad)."""
+        _, _, _, mask, row, _, _, _, _, _, flat = self._locate(shape_idx, d0, rem)
+        f = self.traffic_inputs(self.seg_tcell[flat], win[row])
+        B = mask.shape[0]
+        cnt = lambda w: torch.zeros(B, device=mask.device).index_add_(0, row, w.float())  # noqa: E731
+        return mask.sum(1).float(), cnt(f[:, 0] > 0), cnt(f[:, 1] > 0)
+
+    def segment_times(self, shape_idx, line_idx, d0, rem, h_sin, h_cos, dow, time_row=None, win=None):
+        """Tiempo (s) de cada tramo. Devuelve (times (B, N), length (B, N), mask (B, N)).
+        win (B,) long: ventana absoluta de w0 - 1 (ancla causal del tránsito); obligatorio con traffic_feature."""
+        k, step, length, mask, row, col, kk, st, mid_m, s_idx, flat = self._locate(shape_idx, d0, rem)
+        B, N = mask.shape
         g = self.grid.encode(self.seg_lat[flat], self.seg_lon[flat])
         le = self.line_emb(line_idx[row])
         it = self.inter(torch.cat([g, le], dim=-1))
@@ -237,6 +302,10 @@ class PathETAModel(nn.Module):
             lo = torch.maximum(kk.double() * st, d0.double()[row])
             hi = torch.minimum((kk.double() + 1.0) * st, (d0.double() + rem.double().clamp(min=0.0))[row])
             parts.append(stop_input(*stop_features(self.stop_key, s_idx, lo, hi)))
+        if self.traffic_feature:
+            if win is None:
+                raise ValueError("traffic_feature necesita `win` (batch['tw'])")
+            parts.append(self.traffic_inputs(self.seg_tcell[flat], win[row]))
         feats = torch.cat(parts, dim=-1)
         slow = F.softplus(self.seg_mlp(feats).squeeze(-1))        # s/m, positivo
         t_valid = slow * seg_len
@@ -244,13 +313,13 @@ class PathETAModel(nn.Module):
         times[row, col] = t_valid
         return times, length, mask
 
-    def forward(self, shape_idx, line_idx, d0, rem, h_sin, h_cos, dow, state):
+    def forward(self, shape_idx, line_idx, d0, rem, h_sin, h_cos, dow, state, win=None):
         """
         shape_idx (B,) long, line_idx (B,) long, d0/rem (B,) metros, h_sin/h_cos (B,1), dow (B,1) long,
         state (B, N_STATE) float. Devuelve (eta (B,), suma_tramos (B,), ajuste (B,)).
         """
         time_row = self.time_enc(h_sin, h_cos, dow)
-        times, _, _ = self.segment_times(shape_idx, line_idx, d0, rem, h_sin, h_cos, dow, time_row)
+        times, _, _ = self.segment_times(shape_idx, line_idx, d0, rem, h_sin, h_cos, dow, time_row, win)
         total = times.sum(dim=1)
         a_in = torch.cat([state, time_row], dim=-1)
         # el término de tramos entra al ajuste como escala (log), para que pueda hablar de proporciones
@@ -261,15 +330,30 @@ class PathETAModel(nn.Module):
 
     # checkpoints ---------------------------------------------------------------
     def checkpoint_dict(self) -> dict:
-        return {"model_state_dict": self.state_dict(), "shape_ids": self.shape_ids, "line_ids": self.line_ids,
-                "cfg": self.cfg, "n_seg_total": int(self.seg_lat.numel())}
+        d = {"model_state_dict": self.state_dict(), "shape_ids": self.shape_ids, "line_ids": self.line_ids,
+             "cfg": self.cfg, "n_seg_total": int(self.seg_lat.numel())}
+        if self.traffic_feature:      # la tabla no va en el checkpoint: ruta y huella para recargarla y verificarla
+            d["traffic"] = {"table": getattr(self, "traffic_table_path", None), "sha1": self.traffic_sha1}
+        return d
 
     @classmethod
-    def from_checkpoint(cls, ckpt: dict) -> "PathETAModel":
+    def from_checkpoint(cls, ckpt: dict, traffic_table=None) -> "PathETAModel":
+        """traffic_table: TrafficTable o ruta; si no se da, la ruta guardada en el checkpoint. Verifica la huella."""
         sd = ckpt["model_state_dict"]
         m = cls(ckpt["shape_ids"], sd["seg_lat"], sd["seg_lon"], sd["shape_off"], ckpt["line_ids"],
                 stop_key=sd.get("stop_key"), **ckpt["cfg"])
         m.load_state_dict(sd)
+        if m.traffic_feature:
+            info = ckpt.get("traffic", {})
+            tab = traffic_table if traffic_table is not None else info.get("table")
+            if tab is None:
+                raise ValueError("checkpoint con traffic_feature: falta la tabla de tránsito (traffic_table=)")
+            if not isinstance(tab, TrafficTable):
+                m.traffic_table_path = str(tab)
+                tab = TrafficTable.load(tab)
+            if info.get("sha1") and tab.sha1() != info["sha1"]:
+                raise ValueError("la tabla de tránsito no es la del entrenamiento (huella distinta)")
+            m.attach_traffic(tab)
         return m
 
 
@@ -282,10 +366,10 @@ STOPPED_MPS = 0.5
 OPTIONAL_COLS = ["start_unknown"]      # v2b; si el parquet no la trae, start_unknown = 0 (o NaN en time_since_start)
 
 
-def read_cols(parquet_path) -> list[str]:
+def read_cols(parquet_path, traffic: bool = False) -> list[str]:
     import pyarrow.parquet as pq
     names = set(pq.ParquetFile(str(parquet_path)).schema_arrow.names)
-    return PATH_COLS + [c for c in OPTIONAL_COLS if c in names]
+    return PATH_COLS + [c for c in OPTIONAL_COLS if c in names] + (["ts_p"] if traffic else [])
 
 
 def state_features(speed, ts_age, tss, d0, tlb, lbf, rem, start_unknown=None) -> np.ndarray:
@@ -344,12 +428,15 @@ def table_to_batch(df: dict, model: "PathETAModel | IndexMaps", max_eta_s: float
         "state": torch.from_numpy(state),
         "eta": torch.from_numpy(np.clip(eta[v], 1.0, max_eta_s)[:, None]),
     }
+    if getattr(model, "traffic_feature", False):      # ancla causal: última ventana completa antes del ts del ping de P
+        batch["tw"] = torch.from_numpy(last_complete_window(np.asarray(df["ts_p"])[v]))
     return batch, v
 
 
 def run_model(model: PathETAModel, batch: dict, device) -> torch.Tensor:
     g = lambda k: batch[k].to(device)  # noqa: E731
-    return model(g("shape_idx"), g("line_idx"), g("d0"), g("rem"), g("h_sin"), g("h_cos"), g("dow"), g("state"))[0]
+    return model(g("shape_idx"), g("line_idx"), g("d0"), g("rem"), g("h_sin"), g("h_cos"), g("dow"), g("state"),
+                 g("tw") if "tw" in batch else None)[0]
 
 
 class PathETADataset(torch.utils.data.IterableDataset):
@@ -363,7 +450,7 @@ class PathETADataset(torch.utils.data.IterableDataset):
         self.bs = batch_size
         self.shuffle = shuffle
         self.unk_line_p = unk_line_p
-        self.cols = read_cols(self.path)
+        self.cols = read_cols(self.path, getattr(model, "traffic_feature", False))
         pf = pq.ParquetFile(self.path)
         total = pf.metadata.num_row_groups
         self.n_groups = min(total, max_groups) if max_groups else total
@@ -438,13 +525,14 @@ def pinball(pred: torch.Tensor, target: torch.Tensor, dist_m: torch.Tensor, loss
     return torch.where(err >= 0, q * err, (q - 1.0) * err).mean()
 
 
-def predict_path(parquet_path, ckpt_path, n_expected: int, batch_size: int = 8192, device: str | None = None) -> np.ndarray:
+def predict_path(parquet_path, ckpt_path, n_expected: int, batch_size: int = 8192, device: str | None = None,
+                 traffic_table=None) -> np.ndarray:
     """Predice (en segundos, >= 0) sobre un parquet de eval; verifica que no se descarte ninguna fila."""
     import pyarrow.parquet as pq
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
-    model = PathETAModel.from_checkpoint(ckpt).to(device).eval()
-    cols = read_cols(parquet_path)
+    model = PathETAModel.from_checkpoint(ckpt, traffic_table).to(device).eval()
+    cols = read_cols(parquet_path, model.traffic_feature)
     tbl = pq.read_table(parquet_path, columns=cols)
     df = {c: (tbl[c].to_pylist() if c in ("line", "shape_id") else np.asarray(tbl[c])) for c in cols}
     batch, v = table_to_batch(df, model)
@@ -456,3 +544,26 @@ def predict_path(parquet_path, ckpt_path, n_expected: int, batch_size: int = 819
             b = {k: t[s:s + batch_size] for k, t in batch.items()}
             out.append(run_model(model, b, device).clamp(min=0.0).float().cpu().numpy())
     return np.concatenate(out).astype(np.float64) if out else np.empty(0)
+
+
+def path_traffic_coverage(parquet_path, ckpt_path, n_expected: int, batch_size: int = 8192, device: str | None = None,
+                          traffic_table=None) -> dict:
+    """Cobertura de tránsito por fila de un parquet de eval con un checkpoint traffic_feature (no depende de las semillas):
+    {'n_seg', 'con_dato', 'con_velocidad'} (arrays por fila, mismo orden que el parquet). Un tramo "con dato" tiene algún
+    coche de la flota en su celda en las 2 ventanas completas previas al ts del ping de P."""
+    import pyarrow.parquet as pq
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
+    model = PathETAModel.from_checkpoint(ckpt, traffic_table).to(device).eval()
+    cols = read_cols(parquet_path, True)
+    tbl = pq.read_table(parquet_path, columns=cols)
+    df = {c: (tbl[c].to_pylist() if c in ("line", "shape_id") else np.asarray(tbl[c])) for c in cols}
+    batch, v = table_to_batch(df, model)
+    if len(v) != n_expected:
+        raise RuntimeError(f"cobertura: {len(v)} filas válidas de {n_expected}")
+    out = {"n_seg": [], "con_dato": [], "con_velocidad": []}
+    for s in range(0, len(v), batch_size):
+        b = {k: t[s:s + batch_size].to(device) for k, t in batch.items()}
+        for k, x in zip(out, model.traffic_coverage(b["shape_idx"], b["d0"], b["rem"], b["tw"])):
+            out[k].append(x.cpu().numpy())
+    return {k: np.concatenate(x) for k, x in out.items()}

@@ -1,0 +1,143 @@
+Procesando 655 relaciones — líneas: [1, 2, 4, 7, 8, 9, 10, 12, 15, 17, 19, 20, 21, 22, 24, 25, 26, 28, 29, 31, 32, 33, 34, 37, 39, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 55, 56, 57, 59, 60, 61, 62, 63, 64, 65, 67, 68, 70, 71, 74, 76, 78, 79, 80, 84, 85, 86, 87, 88, 91, 92, 93, 95, 96, 97, 98, 100, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 113, 114, 115, 117, 118, 119, 123, 124, 126, 127, 128, 129, 130, 132, 133, 134, 135, 136, 140, 143, 145, 146, 150, 151, 152, 153, 154, 158, 159, 160, 161, 163, 164, 166, 168, 169, 172, 174, 176, 177, 178, 179, 180, 181, 182, 184, 185, 188, 193, 194, 195, 197]
+
+  [1/655] rel 382224  1 — 1
+    813 puntos | 69 paradas (69 con nombre, 0 con ref)
+  [2/655] rel 2670988  1 — 1
+    732 puntos | 72 paradas (72 con nombre, 0 con ref)
+  [3/655] rel 374994  2 — 2
+    928 puntos | 71 paradas (71 con nombre, 0 con ref)
+  [4/655] rel 374995  2 — 2
+    852 puntos | 57 paradas (57 con nombre, 0 con ref)
+  [5/655] rel 11819002  4 — 4B
+    963 puntos | 76 paradas (76 con nombre, 0 con ref)
+  [6/655] rel 11819004  4 — 4B
+    859 puntos | 65 paradas (65 con nombre, 0 con ref)
+  [7/655] rel 1126140  4 — 4PM
+    827 puntos | 76 paradas (76 con nombre, 0 con ref)
+  [8/655] rel 1126166  4 — 4PM
+    676 puntos | 58 paradas (58 con nombre, 0 con ref)
+  [9/655] rel 370825  7 — 7PA
+    687 puntos | 44 paradas (44 con nombre, 0 con ref)
+  [10/655] rel 370830  7 — 7PA
+    663 puntos | 58 paradas (58 con nombre, 0 con ref)
+  [11/655] rel 370836  7 — 7S
+    791 puntos | 39 paradas (39 con nombre, 0 con ref)
+  [12/655] rel 370839  7 — 7S
+    762 puntos | 53 paradas (53 con nombre, 0 con ref)
+  [13/655] rel 47871  8 — 8D
+    798 puntos | 50 paradas (50 con nombre, 0 con ref)
+  [14/655] rel 369818  8 — 8D
+    813 puntos | 48 paradas (48 con nombre, 0 con ref)
+  [15/655] rel 1152412  8 — 8A
+    1896 puntos | 101 paradas (101 con nombre, 0 con ref)
+  [16/655] rel 1152419  8 — 8A
+    1873 puntos | 104 paradas (104 con nombre, 0 con ref)
+  [17/655] rel 16830092  8 — 8B
+    1096 puntos | 81 paradas (81 con nombre, 0 con ref)
+  [18/655] rel 16831190  8 — 8B
+    1208 puntos | 82 paradas (82 con nombre, 0 con ref)
+  [19/655] rel 8757513  8 — 8G
+    1345 puntos | 37 paradas (37 con nombre, 0 con ref)
+  [20/655] rel 10980909  8 — 8G
+    1258 puntos | 28 paradas (28 con nombre, 0 con ref)
+  [21/655] rel 9705296  8 — 8F
+    518 puntos | 15 paradas (15 con nombre, 0 con ref)
+  [22/655] rel 9705297  8 — 8F
+    540 puntos | 14 paradas (14 con nombre, 0 con ref)
+  [23/655] rel 9705298  8 — 8SLJ
+    468 puntos | 8 paradas (8 con nombre, 0 con ref)
+  [24/655] rel 1162815  9 — 9-1
+    709 puntos | 27 paradas (27 con nombre, 0 con ref)
+  [25/655] rel 7204823  9 — 9-1
+    633 puntos | 30 paradas (30 con nombre, 0 con ref)
+  [26/655] rel 9516612  9 — 9-2
+    HTTP 504 (https://overpass-api.de/api/interpreter)
+    HTTP 504 (https://overpass.kumi.systems/api/interpreter)
+    Reintentando en 5s...
+    616 puntos | 30 paradas (30 con nombre, 0 con ref)
+  [27/655] rel 9516613  9 — 9-2
+    691 puntos | 27 paradas (27 con nombre, 0 con ref)
+  [28/655] rel 9516610  9 — 9-E
+    670 puntos | 11 paradas (11 con nombre, 0 con ref)
+  [29/655] rel 9516611  9 — 9-E
+    776 puntos | 9 paradas (9 con nombre, 0 con ref)
+  [30/655] rel 13406536  10 — 10
+    898 puntos | 39 paradas (39 con nombre, 0 con ref)
+  [31/655] rel 13406537  10 — 10
+    959 puntos | 46 paradas (46 con nombre, 0 con ref)
+  [32/655] rel 370664  12 — 12
+    512 puntos | 31 paradas (31 con nombre, 0 con ref)
+  [33/655] rel 370813  12 — 12
+    HTTP 504 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): HTTPSConnectionPool(host='overpass.kumi.systems', port=443): Read timed out. (read timeout=180)
+    Reintentando en 5s...
+    477 puntos | 31 paradas (31 con nombre, 0 con ref)
+  [34/655] rel 19336739  12 — 12 C
+    499 puntos | 31 paradas (31 con nombre, 0 con ref)
+  [35/655] rel 19336740  12 — 12 C
+    535 puntos | 32 paradas (32 con nombre, 0 con ref)
+  [36/655] rel 1162980  15 — 15B
+    1464 puntos | 78 paradas (78 con nombre, 0 con ref)
+  [37/655] rel 1162996  15 — 15B
+    1446 puntos | 71 paradas (71 con nombre, 0 con ref)
+  [38/655] rel 3735806  15 — 15P
+    HTTP 502 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): HTTPSConnectionPool(host='overpass.kumi.systems', port=443): Max retries exceeded with url: /api/interpreter (Caused by ConnectTimeoutError(<HTTPSConnection(host='overpass.kumi.systems', port=443) at 0x207b178aad0>, 'Connection to overpass.kumi.systems timed out. (connect timeout=180)'))
+    Reintentando en 5s...
+    HTTP 502 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+    Reintentando en 10s...
+    HTTP 502 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): HTTPSConnectionPool(host='overpass.kumi.systems', port=443): Read timed out. (read timeout=180)
+    SKIP: Todas las instancias Overpass fallaron
+  [39/655] rel 3735807  15 — 15P
+    1268 puntos | 73 paradas (73 con nombre, 0 con ref)
+  [40/655] rel 3751922  15 — 15SB
+    1093 puntos | 45 paradas (45 con nombre, 0 con ref)
+  [41/655] rel 3751923  15 — 15SB
+    1265 puntos | 58 paradas (58 con nombre, 0 con ref)
+  [42/655] rel 3735804  15 — 15SP
+    989 puntos | 44 paradas (44 con nombre, 0 con ref)
+  [43/655] rel 3735805  15 — 15SP
+    1069 puntos | 54 paradas (54 con nombre, 0 con ref)
+  [44/655] rel 13406598  17 — 17
+    678 puntos | 29 paradas (29 con nombre, 0 con ref)
+  [45/655] rel 13406599  17 — 17
+    647 puntos | 41 paradas (41 con nombre, 0 con ref)
+  [46/655] rel 4308166  19 — 19
+    729 puntos | 93 paradas (93 con nombre, 0 con ref)
+  [47/655] rel 4425961  19 — 19
+    HTTP 502 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): HTTPSConnectionPool(host='overpass.kumi.systems', port=443): Read timed out.
+    Reintentando en 5s...
+    727 puntos | 83 paradas (83 con nombre, 0 con ref)
+  [48/655] rel 7223181  20 — 20-1
+    837 puntos | 32 paradas (32 con nombre, 0 con ref)
+  [49/655] rel 16008850  20 — 20-1
+    911 puntos | 43 paradas (43 con nombre, 0 con ref)
+  [50/655] rel 13836394  20 — 20-3
+    772 puntos | 33 paradas (33 con nombre, 0 con ref)
+  [51/655] rel 16026233  20 — 20-3
+    820 puntos | 35 paradas (35 con nombre, 0 con ref)
+  [52/655] rel 4078790  21 — 21F
+    496 puntos | 38 paradas (38 con nombre, 0 con ref)
+  [53/655] rel 4078794  21 — 21F
+    540 puntos | 42 paradas (42 con nombre, 0 con ref)
+  [54/655] rel 4078792  21 — 21LF
+    HTTP 504 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): HTTPSConnectionPool(host='overpass.kumi.systems', port=443): Read timed out. (read timeout=180)
+    Reintentando en 5s...
+    919 puntos | 51 paradas (51 con nombre, 0 con ref)
+  [55/655] rel 4078795  21 — 21LF
+    HTTP 429 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): HTTPSConnectionPool(host='overpass.kumi.systems', port=443): Read timed out. (read timeout=180)
+    Reintentando en 5s...
+    881 puntos | 54 paradas (54 con nombre, 0 con ref)
+  [56/655] rel 4040128  21 — 21LT
+    HTTP 502 (https://overpass-api.de/api/interpreter)
+    874 puntos | 54 paradas (54 con nombre, 0 con ref)
+  [57/655] rel 4040208  21 — 21LT
+    900 puntos | 55 paradas (55 con nombre, 0 con ref)
+  [58/655] rel 4078791  21 — 21NF
+    HTTP 502 (https://overpass-api.de/api/interpreter)
+    Error (https://overpass.kumi.systems/api/interpreter): HTTPSConnectionPool(host='overpass.kumi.systems', port=443): Max retries exceeded with url: /api/interpreter (Caused by ConnectTimeoutError(<HTTPSConnection(host='overpass.kumi.systems', port=443) at 0x207b178b250>, 'Connection to overpass.kumi.systems timed out. (connect timeout=180)'))

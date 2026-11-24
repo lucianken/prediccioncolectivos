@@ -27,6 +27,7 @@ from prediccion.models.stops import stop_features_np
 from prediccion.v2 import geo_assign as G
 
 STATE_FALLBACK_TLB_S = 3600.0
+PROJECT_TIE_M = 1e-6     # tolerancia de empate de la proyección (m)
 FALLBACK_M = 250.0       # radio del fallback de "coche de adelante" (ping más cercano a T)
 
 # ── carga ────────────────────────────────────────────────────────────────────
@@ -62,7 +63,9 @@ class Shape:
         dy = ap_y - t * self.ab_y
         dx = ap_x - t * self.ab_x
         perp = np.sqrt(dx * dx + dy * dy)
-        i = int(np.argmin(perp))
+        # empate: el primer segmento a <= PROJECT_TIE_M de la mínima (un recorrido que repite la misma calle da perp iguales salvo
+        # ruido de coma flotante, que no puede decidir el tramo; el JS aplica la misma regla)
+        i = int(np.argmax(perp <= float(perp.min()) + PROJECT_TIE_M))
         return float(self.cum[i] + t[i] * self.seg_len[i]), float(perp[i])
 
     def latlon_at(self, d: float) -> tuple[float, float]:

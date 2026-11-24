@@ -399,3 +399,38 @@ def test_historial_que_contradice_la_geometria_descarta_el_shape():
     out = predict_from_raw(b, "168", _veh_at(a, d_s - 1000, ts), stop, ts, history=_hist(a, ts, [d_s - 400, d_s - 700]),
                            user_kind="parada")
     assert out["group"] is None and any(k["reason"] == "sentido_incoherente" for k in out["discarded"])
+
+
+# ── v3: modelo con paradas por tramo (contrato 2.2) ─────────────────────────────────────────────────────────────
+
+EXPORT_V3 = ROOT / "data" / "ml" / "export" / "path_v3_l1_s1"
+CKPT_V3 = ROOT / "data" / "ml" / "v3_sub" / "runs" / "path_lr2e-3_s1" / "path_eta_best.pt"
+
+
+@pytest.mark.skipif(not (EXPORT_V3 / "manifest.json").exists() or not CKPT_V3.exists(),
+                    reason="falta el export o el checkpoint v3")
+def test_la_referencia_con_paradas_da_el_mismo_eta_que_el_modelo_entrenado():
+    import torch
+    from prediccion.inference.path_reference import encode_time, eta_on_shape, load_bundle
+    from prediccion.models.path_eta import PathETAModel, state_features
+    model = PathETAModel.from_checkpoint(torch.load(str(CKPT_V3), map_location="cpu", weights_only=False)).eval()
+    b = load_bundle(EXPORT_V3)
+    assert b.manifest["contract_version"] == "2.3" and b.manifest["stops_feature"]
+    rng = np.random.default_rng(1)
+    items = [(ln, sid, sh) for ln, d in b.lines.items() for sid, sh in d.items() if sh.length_m > 400]
+    worst = 0.0
+    for _ in range(200):
+        ln, sid, sh = items[rng.integers(len(items))]
+        d0 = rng.random() * sh.length_m * 0.6
+        rem = 100 + rng.random() * (sh.length_m - d0 - 100)
+        ts = 1784214000 + int(rng.integers(0, 6 * 86400))
+        sp, age = float(rng.choice([0, 3, 8])), float(rng.choice([0, 30, 120]))
+        got = eta_on_shape(b, ln, sh, d0, rem, ts, sp, age)
+        hs, hc, dow = encode_time(ts)
+        st = state_features([sp], [age], [0.0], [d0], [3600.0], [0.0], [rem], start_unknown=[1.0])
+        t = lambda x, dt=torch.float32: torch.tensor(x, dtype=dt)  # noqa: E731
+        with torch.no_grad():
+            ref = model(torch.tensor([model.shape_ids.index(sid)]), torch.tensor([model.line_ids.index(ln) + 1]),
+                        t([d0]), t([rem]), t([[hs]]), t([[hc]]), torch.tensor([[dow]]), torch.tensor(st))[0].item()
+        worst = max(worst, abs(max(ref, 0.0) - got))
+    assert worst < 0.5

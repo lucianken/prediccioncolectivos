@@ -1,0 +1,810 @@
+{
+ "tablas": {
+  "dist_along": [
+   {
+    "dist_along_m": "0-300 m",
+    "b37_n": 1076.0,
+    "b37_MAE": 74.54,
+    "b37_sesgo": 14.04,
+    "b37_P90": 148.73,
+    "b37_antes60": 15.33,
+    "b37_despues60": 26.95,
+    "glob_n": 6072.0,
+    "glob_MAE": 137.33,
+    "glob_sesgo": 37.15,
+    "glob_P90": 300.7,
+    "glob_antes60": 24.34,
+    "glob_despues60": 35.36
+   },
+   {
+    "dist_along_m": "300-600 m",
+    "b37_n": 565.0,
+    "b37_MAE": 67.24,
+    "b37_sesgo": -1.49,
+    "b37_P90": 121.6,
+    "b37_antes60": 16.81,
+    "b37_despues60": 21.59,
+    "glob_n": 3431.0,
+    "glob_MAE": 132.09,
+    "glob_sesgo": 33.13,
+    "glob_P90": 296.96,
+    "glob_antes60": 24.66,
+    "glob_despues60": 31.77
+   },
+   {
+    "dist_along_m": "600-1000 m",
+    "b37_n": 682.0,
+    "b37_MAE": 51.82,
+    "b37_sesgo": 9.38,
+    "b37_P90": 110.15,
+    "b37_antes60": 13.2,
+    "b37_despues60": 19.79,
+    "glob_n": 4010.0,
+    "glob_MAE": 116.86,
+    "glob_sesgo": 22.41,
+    "glob_P90": 268.12,
+    "glob_antes60": 24.46,
+    "glob_despues60": 30.05
+   },
+   {
+    "dist_along_m": "1-2 km",
+    "b37_n": 1565.0,
+    "b37_MAE": 55.82,
+    "b37_sesgo": 5.13,
+    "b37_P90": 114.17,
+    "b37_antes60": 15.85,
+    "b37_despues60": 21.47,
+    "glob_n": 9331.0,
+    "glob_MAE": 116.89,
+    "glob_sesgo": 21.91,
+    "glob_P90": 261.73,
+    "glob_antes60": 24.62,
+    "glob_despues60": 30.28
+   },
+   {
+    "dist_along_m": "2-5 km",
+    "b37_n": 4680.0,
+    "b37_MAE": 55.37,
+    "b37_sesgo": 3.44,
+    "b37_P90": 117.33,
+    "b37_antes60": 15.45,
+    "b37_despues60": 18.7,
+    "glob_n": 26052.0,
+    "glob_MAE": 111.44,
+    "glob_sesgo": 19.32,
+    "glob_P90": 249.56,
+    "glob_antes60": 23.55,
+    "glob_despues60": 29.18
+   },
+   {
+    "dist_along_m": ">5 km",
+    "b37_n": 26240.0,
+    "b37_MAE": 55.21,
+    "b37_sesgo": 10.2,
+    "b37_P90": 116.84,
+    "b37_antes60": 13.33,
+    "b37_despues60": 20.99,
+    "glob_n": 111104.0,
+    "glob_MAE": 96.7,
+    "glob_sesgo": 26.36,
+    "glob_P90": 209.31,
+    "glob_antes60": 18.85,
+    "glob_despues60": 27.15
+   }
+  ],
+  "start_unknown": [
+   {
+    "su": "start_unknown=0",
+    "b37_n": 25847.0,
+    "b37_MAE": 54.08,
+    "b37_sesgo": 9.48,
+    "b37_P90": 114.66,
+    "b37_antes60": 13.51,
+    "b37_despues60": 20.48,
+    "glob_n": 120892.0,
+    "glob_MAE": 98.41,
+    "glob_sesgo": 21.28,
+    "glob_P90": 219.33,
+    "glob_antes60": 20.61,
+    "glob_despues60": 27.8
+   },
+   {
+    "su": "start_unknown=1",
+    "b37_n": 8961.0,
+    "b37_MAE": 61.51,
+    "b37_sesgo": 7.52,
+    "b37_P90": 127.8,
+    "b37_antes60": 14.81,
+    "b37_despues60": 22.02,
+    "glob_n": 39108.0,
+    "glob_MAE": 117.53,
+    "glob_sesgo": 38.2,
+    "glob_P90": 253.07,
+    "glob_antes60": 19.86,
+    "glob_despues60": 29.23
+   }
+  ],
+  "time_since_start": [
+   {
+    "tss_c": "0-1 min",
+    "b37_n": 826.0,
+    "b37_MAE": 73.7,
+    "b37_sesgo": 14.56,
+    "b37_P90": 149.52,
+    "b37_antes60": 15.86,
+    "b37_despues60": 27.72,
+    "glob_n": 4698.0,
+    "glob_MAE": 143.05,
+    "glob_sesgo": 44.17,
+    "glob_P90": 312.54,
+    "glob_antes60": 24.29,
+    "glob_despues60": 36.23
+   },
+   {
+    "tss_c": "1-3 min",
+    "b37_n": 961.0,
+    "b37_MAE": 55.41,
+    "b37_sesgo": 8.53,
+    "b37_P90": 115.09,
+    "b37_antes60": 14.36,
+    "b37_despues60": 20.81,
+    "glob_n": 5374.0,
+    "glob_MAE": 118.27,
+    "glob_sesgo": 25.44,
+    "glob_P90": 269.25,
+    "glob_antes60": 23.37,
+    "glob_despues60": 30.59
+   },
+   {
+    "tss_c": "15-30 min",
+    "b37_n": 5354.0,
+    "b37_MAE": 53.82,
+    "b37_sesgo": 6.66,
+    "b37_P90": 115.1,
+    "b37_antes60": 14.72,
+    "b37_despues60": 19.46,
+    "glob_n": 27290.0,
+    "glob_MAE": 100.2,
+    "glob_sesgo": 15.99,
+    "glob_P90": 225.74,
+    "glob_antes60": 22.58,
+    "glob_despues60": 27.26
+   },
+   {
+    "tss_c": "3-7 min",
+    "b37_n": 1722.0,
+    "b37_MAE": 56.5,
+    "b37_sesgo": 7.19,
+    "b37_P90": 113.81,
+    "b37_antes60": 13.7,
+    "b37_despues60": 20.5,
+    "glob_n": 10245.0,
+    "glob_MAE": 117.25,
+    "glob_sesgo": 22.65,
+    "glob_P90": 266.32,
+    "glob_antes60": 23.58,
+    "glob_despues60": 30.28
+   },
+   {
+    "tss_c": "7-15 min",
+    "b37_n": 3184.0,
+    "b37_MAE": 52.11,
+    "b37_sesgo": 7.89,
+    "b37_P90": 112.37,
+    "b37_antes60": 13.63,
+    "b37_despues60": 19.16,
+    "glob_n": 18022.0,
+    "glob_MAE": 106.82,
+    "glob_sesgo": 17.31,
+    "glob_P90": 241.1,
+    "glob_antes60": 22.93,
+    "glob_despues60": 29.1
+   },
+   {
+    "tss_c": ">30 min",
+    "b37_n": 13800.0,
+    "b37_MAE": 53.06,
+    "b37_sesgo": 10.98,
+    "b37_P90": 112.45,
+    "b37_antes60": 12.8,
+    "b37_despues60": 20.72,
+    "glob_n": 55263.0,
+    "glob_MAE": 85.56,
+    "glob_sesgo": 22.58,
+    "glob_P90": 187.94,
+    "glob_antes60": 17.75,
+    "glob_despues60": 26.19
+   },
+   {
+    "tss_c": "sin dato (start_unknown)",
+    "b37_n": 8961.0,
+    "b37_MAE": 61.51,
+    "b37_sesgo": 7.52,
+    "b37_P90": 127.8,
+    "b37_antes60": 14.81,
+    "b37_despues60": 22.02,
+    "glob_n": 39108.0,
+    "glob_MAE": 117.53,
+    "glob_sesgo": 38.2,
+    "glob_P90": 253.07,
+    "glob_antes60": 19.86,
+    "glob_despues60": 29.23
+   }
+  ],
+  "dist_remaining": [
+   {
+    "dist_remaining_m": "<0,5 km",
+    "b37_n": 2144.0,
+    "b37_MAE": 107.93,
+    "b37_sesgo": 98.04,
+    "b37_P90": 215.99,
+    "b37_antes60": 2.15,
+    "b37_despues60": 66.6,
+    "glob_n": 18451.0,
+    "glob_MAE": 61.71,
+    "glob_sesgo": 40.65,
+    "glob_P90": 102.86,
+    "glob_antes60": 3.33,
+    "glob_despues60": 14.88
+   },
+   {
+    "dist_remaining_m": "0,5-1 km",
+    "b37_n": 10600.0,
+    "b37_MAE": 56.11,
+    "b37_sesgo": 33.35,
+    "b37_P90": 118.82,
+    "b37_antes60": 5.89,
+    "b37_despues60": 30.56,
+    "glob_n": 21192.0,
+    "glob_MAE": 69.87,
+    "glob_sesgo": 37.33,
+    "glob_P90": 132.13,
+    "glob_antes60": 8.14,
+    "glob_despues60": 22.86
+   },
+   {
+    "dist_remaining_m": "1-2 km",
+    "b37_n": 17428.0,
+    "b37_MAE": 47.21,
+    "b37_sesgo": -4.1,
+    "b37_P90": 99.21,
+    "b37_antes60": 15.78,
+    "b37_despues60": 13.03,
+    "glob_n": 30462.0,
+    "glob_MAE": 73.66,
+    "glob_sesgo": 29.06,
+    "glob_P90": 142.61,
+    "glob_antes60": 13.66,
+    "glob_despues60": 25.68
+   },
+   {
+    "dist_remaining_m": "2-5 km",
+    "b37_n": 4236.0,
+    "b37_MAE": 60.65,
+    "b37_sesgo": -34.49,
+    "b37_P90": 128.84,
+    "b37_antes60": 30.81,
+    "b37_despues60": 7.29,
+    "glob_n": 45603.0,
+    "glob_MAE": 93.18,
+    "glob_sesgo": 17.19,
+    "glob_P90": 189.94,
+    "glob_antes60": 24.24,
+    "glob_despues60": 29.07
+   },
+   {
+    "dist_remaining_m": "5-10 km",
+    "b37_n": 387.0,
+    "b37_MAE": 63.75,
+    "b37_sesgo": -40.85,
+    "b37_P90": 130.33,
+    "b37_antes60": 22.74,
+    "b37_despues60": 4.91,
+    "glob_n": 24801.0,
+    "glob_MAE": 135.73,
+    "glob_sesgo": 17.69,
+    "glob_P90": 281.75,
+    "glob_antes60": 32.24,
+    "glob_despues60": 34.51
+   },
+   {
+    "dist_remaining_m": ">10 km",
+    "b37_n": 13.0,
+    "b37_MAE": 1410.0,
+    "b37_sesgo": -1380.9,
+    "b37_P90": 3232.62,
+    "b37_antes60": 46.15,
+    "b37_despues60": 7.69,
+    "glob_n": 19491.0,
+    "glob_MAE": 205.95,
+    "glob_sesgo": 21.41,
+    "glob_P90": 434.03,
+    "glob_antes60": 36.58,
+    "glob_despues60": 40.06
+   }
+  ],
+  "su_x_along": [
+   {
+    "index": 0,
+    "start_unknown": 0,
+    "dist_along": "0-300 m",
+    "vara": "b37",
+    "n": 1075.0,
+    "MAE": 74.5,
+    "sesgo": 14.1,
+    "P90": 148.7,
+    "antes60": 15.3,
+    "despues60": 27.0
+   },
+   {
+    "index": 1,
+    "start_unknown": 0,
+    "dist_along": "0-300 m",
+    "vara": "glob",
+    "n": 6051.0,
+    "MAE": 136.8,
+    "sesgo": 36.5,
+    "P90": 299.2,
+    "antes60": 24.3,
+    "despues60": 35.3
+   },
+   {
+    "index": 2,
+    "start_unknown": 0,
+    "dist_along": "300-600 m",
+    "vara": "b37",
+    "n": 562.0,
+    "MAE": 59.3,
+    "sesgo": 6.3,
+    "P90": 121.6,
+    "antes60": 16.7,
+    "despues60": 21.5
+   },
+   {
+    "index": 3,
+    "start_unknown": 0,
+    "dist_along": "300-600 m",
+    "vara": "glob",
+    "n": 3420.0,
+    "MAE": 130.7,
+    "sesgo": 34.4,
+    "P90": 295.4,
+    "antes60": 24.7,
+    "despues60": 31.7
+   },
+   {
+    "index": 4,
+    "start_unknown": 0,
+    "dist_along": "600-1000 m",
+    "vara": "b37",
+    "n": 677.0,
+    "MAE": 51.7,
+    "sesgo": 9.8,
+    "P90": 109.8,
+    "antes60": 12.9,
+    "despues60": 19.9
+   },
+   {
+    "index": 5,
+    "start_unknown": 0,
+    "dist_along": "600-1000 m",
+    "vara": "glob",
+    "n": 3970.0,
+    "MAE": 116.7,
+    "sesgo": 23.0,
+    "P90": 268.1,
+    "antes60": 24.2,
+    "despues60": 30.1
+   },
+   {
+    "index": 6,
+    "start_unknown": 1,
+    "dist_along": "0-300 m",
+    "vara": "b37",
+    "n": 1.0,
+    "MAE": 79.7,
+    "sesgo": -79.7,
+    "P90": 79.7,
+    "antes60": 100.0,
+    "despues60": 0.0
+   },
+   {
+    "index": 7,
+    "start_unknown": 1,
+    "dist_along": "0-300 m",
+    "vara": "glob",
+    "n": 21.0,
+    "MAE": 284.6,
+    "sesgo": 220.1,
+    "P90": 568.6,
+    "antes60": 23.8,
+    "despues60": 61.9
+   },
+   {
+    "index": 8,
+    "start_unknown": 1,
+    "dist_along": "300-600 m",
+    "vara": "b37",
+    "n": 3.0,
+    "MAE": 1547.8,
+    "sesgo": -1467.6,
+    "P90": 3634.4,
+    "antes60": 33.3,
+    "despues60": 33.3
+   },
+   {
+    "index": 9,
+    "start_unknown": 1,
+    "dist_along": "300-600 m",
+    "vara": "glob",
+    "n": 11.0,
+    "MAE": 564.6,
+    "sesgo": -351.3,
+    "P90": 717.9,
+    "antes60": 18.2,
+    "despues60": 45.5
+   },
+   {
+    "index": 10,
+    "start_unknown": 1,
+    "dist_along": "600-1000 m",
+    "vara": "b37",
+    "n": 5.0,
+    "MAE": 63.7,
+    "sesgo": -51.2,
+    "P90": 105.7,
+    "antes60": 60.0,
+    "despues60": 0.0
+   },
+   {
+    "index": 11,
+    "start_unknown": 1,
+    "dist_along": "600-1000 m",
+    "vara": "glob",
+    "n": 40.0,
+    "MAE": 127.5,
+    "sesgo": -32.0,
+    "P90": 233.4,
+    "antes60": 50.0,
+    "despues60": 25.0
+   }
+  ],
+  "detenido_cabecera": [
+   {
+    "det": "detenido 2-3 pings (~1-3 min)",
+    "glob_n": 404.0,
+    "glob_MAE": 211.35,
+    "glob_sesgo": 101.66,
+    "glob_P90": 485.02,
+    "glob_antes60": 19.55,
+    "glob_despues60": 49.26,
+    "b37_n": 85.0,
+    "b37_MAE": 117.63,
+    "b37_sesgo": 25.6,
+    "b37_P90": 218.32,
+    "b37_antes60": 10.59,
+    "b37_despues60": 43.53
+   },
+   {
+    "det": "detenido >=4 pings (>=3 min)",
+    "glob_n": 80.0,
+    "glob_MAE": 362.85,
+    "glob_sesgo": 288.57,
+    "glob_P90": 781.64,
+    "glob_antes60": 15.0,
+    "glob_despues60": 63.75,
+    "b37_n": 6.0,
+    "b37_MAE": 134.24,
+    "b37_sesgo": 110.52,
+    "b37_P90": 285.35,
+    "b37_antes60": 16.67,
+    "b37_despues60": 50.0
+   },
+   {
+    "det": "en movimiento",
+    "glob_n": 9019.0,
+    "glob_MAE": 130.02,
+    "glob_sesgo": 30.5,
+    "glob_P90": 286.16,
+    "glob_antes60": 24.76,
+    "glob_despues60": 33.12,
+    "b37_n": 1550.0,
+    "b37_MAE": 69.28,
+    "b37_sesgo": 7.38,
+    "b37_P90": 142.19,
+    "b37_antes60": 16.13,
+    "b37_despues60": 24.0
+   }
+  ],
+  "detenido_resto": [
+   {
+    "det": "detenido 2-3 pings (~1-3 min)",
+    "glob_n": 4689.0,
+    "glob_MAE": 142.74,
+    "glob_sesgo": 53.98,
+    "glob_P90": 315.65,
+    "glob_antes60": 24.03,
+    "glob_despues60": 33.63,
+    "b37_n": 1019.0,
+    "b37_MAE": 71.07,
+    "b37_sesgo": 1.7,
+    "b37_P90": 159.48,
+    "b37_antes60": 18.94,
+    "b37_despues60": 21.88
+   },
+   {
+    "det": "detenido >=4 pings (>=3 min)",
+    "glob_n": 562.0,
+    "glob_MAE": 561.18,
+    "glob_sesgo": 468.77,
+    "glob_P90": 1320.29,
+    "glob_antes60": 15.66,
+    "glob_despues60": 69.22,
+    "b37_n": 83.0,
+    "b37_MAE": 160.43,
+    "b37_sesgo": 27.18,
+    "b37_P90": 320.4,
+    "b37_antes60": 22.89,
+    "b37_despues60": 45.78
+   },
+   {
+    "det": "en movimiento",
+    "glob_n": 145246.0,
+    "glob_MAE": 97.91,
+    "glob_sesgo": 22.1,
+    "glob_P90": 216.94,
+    "glob_antes60": 20.06,
+    "glob_despues60": 27.43,
+    "b37_n": 32065.0,
+    "b37_MAE": 54.42,
+    "b37_sesgo": 9.17,
+    "b37_P90": 115.12,
+    "b37_antes60": 13.56,
+    "b37_despues60": 20.56
+   }
+  ]
+ },
+ "techo": {
+  "300": {
+   "banda 3-7 min": {
+    "n": 34808,
+    "n_cab": 1076,
+    "peso_filas": 3.091243392323604,
+    "peso_error": 4.115360205740566,
+    "MAE": 55.989492744940286,
+    "MAE_cab": 74.53859212584655,
+    "MAE_resto": 55.39780440941748,
+    "techo_simple": 55.39780440941748,
+    "techo_por_eta": 55.4170509966996,
+    "techo_por_eta_y_dist": 55.64041731437125
+   },
+   "global": {
+    "n": 160000,
+    "n_cab": 6072,
+    "peso_filas": 3.795,
+    "peso_error": 5.056034647325758,
+    "MAE": 103.0799750050962,
+    "MAE_cab": 137.3322595708141,
+    "MAE_resto": 101.72882464984544,
+    "techo_simple": 101.72882464984544,
+    "techo_por_eta": 102.6258077786902,
+    "techo_por_eta_y_dist": 102.6967050275893
+   }
+  },
+  "600": {
+   "banda 3-7 min": {
+    "n": 34808,
+    "n_cab": 1641,
+    "peso_filas": 4.714433463571592,
+    "peso_error": 6.064648037335009,
+    "MAE": 55.989492744940286,
+    "MAE_cab": 72.0248933219096,
+    "MAE_resto": 55.19611099962697,
+    "techo_simple": 55.19611099962697,
+    "techo_por_eta": 55.22888141457021,
+    "techo_por_eta_y_dist": 55.46853855054693
+   },
+   "global": {
+    "n": 160000,
+    "n_cab": 9503,
+    "peso_filas": 5.939375,
+    "peso_error": 7.803998935212884,
+    "MAE": 103.0799750050962,
+    "MAE_cab": 135.44118954966498,
+    "MAE_resto": 101.03655472550898,
+    "techo_simple": 101.03655472550899,
+    "techo_por_eta": 102.50881969770393,
+    "techo_por_eta_y_dist": 102.50830491662028
+   }
+  },
+  "1000": {
+   "banda 3-7 min": {
+    "n": 34808,
+    "n_cab": 2323,
+    "peso_filas": 6.673753160193059,
+    "peso_error": 7.878191400034499,
+    "MAE": 55.989492744940286,
+    "MAE_cab": 66.09413468668392,
+    "MAE_resto": 55.26691053066691,
+    "techo_simple": 55.266910530666905,
+    "techo_por_eta": 55.30246874443688,
+    "techo_por_eta_y_dist": 55.4890965535428
+   },
+   "global": {
+    "n": 160000,
+    "n_cab": 13513,
+    "peso_filas": 8.445625,
+    "peso_error": 10.645211069038368,
+    "MAE": 103.0799750050962,
+    "MAE_cab": 129.92621516115722,
+    "MAE_resto": 100.60348737664553,
+    "techo_simple": 100.60348737664553,
+    "techo_por_eta": 102.7723056774669,
+    "techo_por_eta_y_dist": 102.58005145181679
+   }
+  }
+ },
+ "techo_natural": {
+  "300": {
+   "banda 3-7 min": {
+    "n": 680449,
+    "n_cab": 21198,
+    "peso_filas": 3.115295929599426,
+    "peso_error": 4.288209438323975,
+    "MAE": 51.60196304321289,
+    "MAE_cab": 71.03018188476562,
+    "MAE_resto": 50.977256774902344,
+    "techo_simple": 50.977257500730225,
+    "techo_por_eta": 50.99468231201172,
+    "techo_por_eta_y_dist": 51.15993118286133
+   },
+   "global": {
+    "n": 2500000,
+    "n_cab": 85551,
+    "peso_filas": 3.42204,
+    "peso_error": 5.150734901428223,
+    "MAE": 78.74837493896484,
+    "MAE_cab": 118.529296875,
+    "MAE_resto": 77.33881378173828,
+    "techo_simple": 77.3388147431366,
+    "techo_por_eta": 78.2103042602539,
+    "techo_por_eta_y_dist": 78.25994873046875
+   }
+  },
+  "600": {
+   "banda 3-7 min": {
+    "n": 680449,
+    "n_cab": 32409,
+    "peso_filas": 4.7628845071416075,
+    "peso_error": 6.014252185821533,
+    "MAE": 51.60196304321289,
+    "MAE_cab": 65.15950775146484,
+    "MAE_resto": 50.9239387512207,
+    "techo_simple": 50.92393982647974,
+    "techo_por_eta": 50.94924545288086,
+    "techo_por_eta_y_dist": 51.12882995605469
+   },
+   "global": {
+    "n": 2500000,
+    "n_cab": 133915,
+    "peso_filas": 5.3566,
+    "peso_error": 7.848317623138428,
+    "MAE": 78.74837493896484,
+    "MAE_cab": 115.37958526611328,
+    "MAE_resto": 76.67512512207031,
+    "techo_simple": 76.67512855228883,
+    "techo_por_eta": 78.04847717285156,
+    "techo_por_eta_y_dist": 78.10323333740234
+   }
+  },
+  "1000": {
+   "banda 3-7 min": {
+    "n": 680449,
+    "n_cab": 45248,
+    "peso_filas": 6.649726871521598,
+    "peso_error": 7.886549949645996,
+    "MAE": 51.60196304321289,
+    "MAE_cab": 61.19972610473633,
+    "MAE_resto": 50.918277740478516,
+    "techo_simple": 50.918276360463715,
+    "techo_por_eta": 50.94979476928711,
+    "techo_por_eta_y_dist": 51.11083984375
+   },
+   "global": {
+    "n": 2500000,
+    "n_cab": 190977,
+    "peso_filas": 7.63908,
+    "peso_error": 10.682104110717773,
+    "MAE": 78.74837493896484,
+    "MAE_cab": 110.11775970458984,
+    "MAE_resto": 76.15384674072266,
+    "techo_simple": 76.1538436756012,
+    "techo_por_eta": 78.15362548828125,
+    "techo_por_eta_y_dist": 78.08491516113281
+   }
+  }
+ },
+ "natural": {
+  "banda 3-7 min": [
+   {
+    "dist_along_m": "0-300 m",
+    "n": 21198,
+    "MAE": 71.02999877929688,
+    "pct_filas": 3.12
+   },
+   {
+    "dist_along_m": "300-600 m",
+    "n": 11211,
+    "MAE": 54.060001373291016,
+    "pct_filas": 1.65
+   },
+   {
+    "dist_along_m": "600-1000 m",
+    "n": 12839,
+    "MAE": 51.20000076293945,
+    "pct_filas": 1.89
+   },
+   {
+    "dist_along_m": "1-2 km",
+    "n": 30732,
+    "MAE": 49.65999984741211,
+    "pct_filas": 4.52
+   },
+   {
+    "dist_along_m": "2-5 km",
+    "n": 90637,
+    "MAE": 50.900001525878906,
+    "pct_filas": 13.32
+   },
+   {
+    "dist_along_m": ">5 km",
+    "n": 513832,
+    "MAE": 51.0,
+    "pct_filas": 75.51
+   }
+  ],
+  "global": [
+   {
+    "dist_along_m": "0-300 m",
+    "n": 85551,
+    "MAE": 118.52999877929688,
+    "pct_filas": 3.42
+   },
+   {
+    "dist_along_m": "300-600 m",
+    "n": 48364,
+    "MAE": 109.80999755859375,
+    "pct_filas": 1.93
+   },
+   {
+    "dist_along_m": "600-1000 m",
+    "n": 57062,
+    "MAE": 97.7699966430664,
+    "pct_filas": 2.28
+   },
+   {
+    "dist_along_m": "1-2 km",
+    "n": 132476,
+    "MAE": 94.18000030517578,
+    "pct_filas": 5.3
+   },
+   {
+    "dist_along_m": "2-5 km",
+    "n": 376264,
+    "MAE": 89.2699966430664,
+    "pct_filas": 15.05
+   },
+   {
+    "dist_along_m": ">5 km",
+    "n": 1800283,
+    "MAE": 72.08999633789062,
+    "pct_filas": 72.01
+   }
+  ]
+ },
+ "n_implausibles_removidos": 0,
+ "n": 160000,
+ "n_band": 34808,
+ "MAE_band": 55.989492744940286,
+ "MAE_glob": 103.0799750050962
+}

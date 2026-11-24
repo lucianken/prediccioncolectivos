@@ -6,7 +6,7 @@ historial propio y de otros coches) y la salida de `predict_from_raw`. El test d
 JS sobre las mismas entradas y compara (tolerancia 0,5 s en el ETA).
 
 Uso (desde "prediccion colectivos/"):
-  python -m prediccion.scripts.gen_path_parity_fixture --export data/ml/export/path_v2c_l1_s1 \
+  python -m prediccion.scripts.gen_path_parity_fixture --export data/ml/export/path_v3_l1_s1 \
       --out ../proyectoconsola/test/fixtures/path_parity.json [--seed 7] [--per-shape 4]
 """
 
@@ -108,6 +108,9 @@ def _scenarios(bundle, add, rnd):
             add(f"{tag}/ya_paso_con_historial", line, veh, behind, now, hist)
             # coche con historial hacia adelante: punto adelante
             add(f"{tag}/viene_con_historial", line, veh, ahead, now, hist)
+            # coche recien incorporado al recorrido: los 3 pings mas viejos a ~300 m del shape, la racha final sobre el shape
+            lejos = [{**q, **dict(zip(("lat", "lon"), _offset(q["lat"], q["lon"], 300.0)))} for q in _trail(sh, d_p, now - 10, 6, 200, 60)[:3]]
+            add(f"{tag}/historial_racha_final", line, veh, ahead, now, lejos + _trail(sh, d_p, now - 10, 3, 200, 60))
             # coche con historial al reves: va en sentido contrario al shape
             add(f"{tag}/historial_al_reves", line, veh, ahead, now, _trail(sh, d_p, now - 10, 6, 200, 60, backward=True))
             # parada que sirve solo este recorrido (por nombre), coche en el tronco o no

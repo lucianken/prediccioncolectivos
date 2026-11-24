@@ -23,8 +23,8 @@ Reglas
     desde el primer ping.
   Sentido por historial: cuando la geometría no alcanza (ida y vuelta por la misma calle, avenida de doble mano
     compartida, bucles), con los pings propios de los últimos HISTORY_WINDOW_S más el ping actual, proyectados sobre el
-    shape (ver `direction_from_history`). Un historial que contradice un shape (`sentido_incoherente`) lo descarta
-    aunque la geometría dé el sentido.
+    shape; se decide sobre la racha final de pings cercanos al shape (ver `direction_from_history`). Un historial que
+    contradice un shape (`sentido_incoherente`) lo descarta aunque la geometría dé el sentido.
 """
 
 from __future__ import annotations
@@ -35,10 +35,9 @@ import numpy as np
 TOL_M = 45.0                 # error perpendicular máximo de un ping respecto de un shape compatible
 MARGIN_M = 20.0              # ... y a lo sumo este margen por encima del mejor shape de la línea
 HISTORY_WINDOW_S = 900       # ventana de pings pasados para el sentido
-MIN_NEAR_PINGS = 2           # pings (historial + actual) a <= TOL_M del shape para opinar sobre el sentido
-MIN_NEAR_FRAC = 0.8          # fracción mínima de los pings de la ventana a <= TOL_M del shape
-MIN_FORWARD_FRAC = 0.6       # fracción mínima del avance neto (m) que va en el sentido del shape
-MIN_NET_FORWARD_M = 40.0     # avance neto mínimo (último menos primero de los pings cercanos) para dar el sentido
+MIN_NEAR_PINGS = 2           # pings de la racha final a <= TOL_M del shape para opinar sobre el sentido
+MIN_FORWARD_FRAC = 0.6       # fracción mínima del avance neto (m) de la racha que va en el sentido del shape
+MIN_NET_FORWARD_M = 40.0     # avance neto mínimo de la racha (último menos primero) para dar el sentido
 STEP_MOVING_M = 30.0         # pasos menores son ruido de proyección / coche detenido
 STEP_JUMP_M = 5_000.0        # pasos mayores son saltos (recorridos con bucles) y no cuentan
 HEADING_TOL_DEG = 45.0       # rumbos locales de shapes compatibles a <= este ángulo: misma orientación (sentido por geometría)
@@ -48,6 +47,8 @@ STOP_FALLBACK_PERP_M = 25.0  # parada sin recorridos asociados por nombre: se as
 # Pipeline
 MIN_COMPAT_FRAC = 0.5        # un shape es elegible como recorrido del viaje si >= esta fracción de sus pings es compatible
 
+DIRECTION_RULE = "trailing_run"   # identificador de la regla de sentido por historial (manifest.assignment.direction_rule)
+
 REASON_NO_DIRECTION = "sin_sentido"
 REASON_INCOHERENT = "sentido_incoherente"
 
@@ -56,7 +57,7 @@ def manifest_params() -> dict:
     """Parámetros que el cliente necesita para reproducir la asignación (se escriben en manifest.json)."""
     return {
         "tol_m": TOL_M, "margin_m": MARGIN_M, "history_window_s": HISTORY_WINDOW_S,
-        "min_near_pings": MIN_NEAR_PINGS, "min_near_frac": MIN_NEAR_FRAC, "min_forward_frac": MIN_FORWARD_FRAC,
+        "direction_rule": DIRECTION_RULE, "min_near_pings": MIN_NEAR_PINGS, "min_forward_frac": MIN_FORWARD_FRAC,
         "min_net_forward_m": MIN_NET_FORWARD_M, "step_moving_m": STEP_MOVING_M, "step_jump_m": STEP_JUMP_M,
         "stop_max_perp_m": STOP_MAX_PERP_M, "stop_fallback_perp_m": STOP_FALLBACK_PERP_M,
         "heading_tol_deg": HEADING_TOL_DEG,
@@ -191,27 +192,35 @@ def _as_tuple(p):
 
 def direction_from_history(pings, shape, tol_m: float = TOL_M) -> "tuple[bool, str | None]":
     """
-    Sentido del coche sobre `shape`. pings: pings del coche en orden cronológico, el ÚLTIMO es el actual; cada uno
-    `(ts, lat, lon)` o `{"ts", "lat", "lon"}`. Se usan los de los últimos HISTORY_WINDOW_S respecto del actual.
+    Sentido del coche sobre `shape` (regla `trailing_run`). pings: pings del coche en orden cronológico, el ÚLTIMO es el
+    actual; cada uno `(ts, lat, lon)` o `{"ts", "lat", "lon"}`. Se usan los de los últimos HISTORY_WINDOW_S respecto del
+    actual, proyectados sobre el shape.
+    La decisión se toma sobre la RACHA FINAL: los pings consecutivos, terminando en el actual, a <= tol_m del shape. Los
+    pings anteriores a la racha (más lejos del shape, p. ej. el coche aún no había entrado al recorrido) no cuentan.
+    Se usan todos los pings de la racha: MIN_NEAR_PINGS es el mínimo para opinar, no un tope.
     Devuelve (True, None) si el sentido es hacia adelante, o (False, motivo):
-      "sin_sentido"          menos de MIN_NEAR_PINGS a <= tol_m, o avance neto entre -MIN_NET_FORWARD_M y +MIN_NET_FORWARD_M
-                             (coche quieto o historial insuficiente: no se sabe hacia dónde va)
-      "sentido_incoherente"  se aleja del shape, retrocede o va al revés
+      "sin_sentido"          racha con menos de MIN_NEAR_PINGS, o avance neto de la racha (último menos primero) entre
+                             -MIN_NET_FORWARD_M y +MIN_NET_FORWARD_M (coche quieto o historial insuficiente)
+      "sentido_incoherente"  `forward_fraction` de la racha < MIN_FORWARD_FRAC, o avance neto <= -MIN_NET_FORWARD_M
+                             (retrocede o va al revés)
     """
     ps = [_as_tuple(p) for p in pings]
     if not ps:
         return False, REASON_NO_DIRECTION
     t_now = ps[-1][0]
     ps = [p for p in ps[:-1] if t_now - p[0] <= HISTORY_WINDOW_S and p[0] < t_now] + [ps[-1]]
-    pr = [shape.project(la, lo) for _, la, lo in ps]
-    near = [x for x in pr if x[1] <= tol_m]
-    if len(near) < MIN_NEAR_PINGS:
+    run = []
+    for _, la, lo in reversed(ps):
+        d, perp = shape.project(la, lo)
+        if perp > tol_m:
+            break
+        run.append((d, perp))
+    run.reverse()
+    if len(run) < MIN_NEAR_PINGS:
         return False, REASON_NO_DIRECTION
-    if len(near) / len(pr) < MIN_NEAR_FRAC:
+    if forward_fraction([x[0] for x in run], [x[1] for x in run], tol_m) < MIN_FORWARD_FRAC:
         return False, REASON_INCOHERENT
-    if forward_fraction([x[0] for x in pr], [x[1] for x in pr], tol_m) < MIN_FORWARD_FRAC:
-        return False, REASON_INCOHERENT
-    net = near[-1][0] - near[0][0]
+    net = run[-1][0] - run[0][0]
     if net <= -MIN_NET_FORWARD_M:
         return False, REASON_INCOHERENT
     if net < MIN_NET_FORWARD_M:

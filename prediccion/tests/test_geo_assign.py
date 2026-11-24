@@ -76,6 +76,48 @@ def test_sin_historial_o_coche_quieto_no_hay_sentido():
     assert G.direction_from_history(quieto, shapes["ida"]) == (False, "sin_sentido")
 
 
+def test_coche_recien_salido_de_cabecera_con_pings_viejos_fuera_del_shape_va_hacia_adelante():
+    shapes = _line()
+    fuera = [(1000 + 60 * i, *_pt(100, 300)) for i in range(4)]            # esperando en otra calle, a 300 m del shape
+    sobre = [(1240 + 60 * i, *_pt(150 + 150 * i, 2)) for i in range(3)]    # ya sobre el shape, avanzando al este
+    assert G.direction_from_history(fuera + sobre, shapes["ida"]) == (True, None)
+    ok, why = G.direction_from_history(fuera + sobre, shapes["vuelta"])
+    assert not ok and why == "sentido_incoherente"
+
+
+def test_coche_que_retrocede_es_incoherente():
+    shapes = _line()
+    atras = [(1000 + 60 * i, *_pt(1500 - 150 * i, 2)) for i in range(5)]
+    assert G.direction_from_history(atras, shapes["ida"]) == (False, "sentido_incoherente")
+    assert G.direction_from_history(atras, shapes["vuelta"]) == (True, None)
+
+
+def test_un_solo_ping_sobre_el_shape_no_alcanza_aunque_haya_pings_lejos():
+    shapes = _line()
+    pings = [(1000 + 60 * i, *_pt(500 + 150 * i, 300)) for i in range(4)] + [(1240, *_pt(1100, 2))]
+    assert G.direction_from_history(pings, shapes["ida"]) == (False, "sin_sentido")
+
+
+def test_ping_actual_fuera_del_shape_no_tiene_sentido_sobre_ese_shape():
+    shapes = _line()
+    pings = [(1000 + 60 * i, *_pt(500 + 150 * i, 2)) for i in range(4)] + [(1240, *_pt(1100, 300))]
+    assert G.direction_from_history(pings, shapes["ida"]) == (False, "sin_sentido")
+
+
+def test_mas_pings_consecutivos_validos_no_vuelven_incoherente_a_un_coche_que_va_hacia_adelante():
+    shapes = _line()
+    todos = [(1000 + 60 * i, *_pt(300 + 120 * i, 2 + (i % 3))) for i in range(12)]
+    for n in range(2, 13):
+        assert G.direction_from_history(todos[-n:], shapes["ida"]) == (True, None), n
+
+
+def test_retroceso_real_tras_avanzar_se_detecta_con_mas_historial():
+    shapes = _line()
+    ida = [(1000 + 60 * i, *_pt(300 + 150 * i, 2)) for i in range(4)]
+    vuelta = [(1240 + 60 * i, *_pt(750 - 150 * i, 2)) for i in range(1, 5)]
+    assert G.direction_from_history(ida + vuelta, shapes["ida"]) == (False, "sentido_incoherente")
+
+
 def test_el_historial_viejo_no_cuenta():
     shapes = _line()
     viejo = [(0, *_pt(100, 0)), (60, *_pt(250, 0)), (120, *_pt(400, 0))]

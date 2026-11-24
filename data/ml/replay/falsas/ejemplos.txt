@@ -1,0 +1,198 @@
+
+### R1 linea 39 2026-10-08 t=15:20:00 coche 77569 parada n11004527181 «Gorriti y Juan B Justo» (exclusivo)
+grupo puede_venir, ETA anunciada 221 s, forma elegida 382211 (Línea 39 - Ramal 3: Chacarita → Plaza Serrano → Barracas), forma ex post 382203 (Línea 39 - Ramal 1: Chacarita → x Córdoba → Barracas), recorridos que sirven la parada: [('382211', 'Línea 39 - Ramal 3: Chacarita → Plaza Serrano → Barracas', 3038)], trip_end_rel 3558.0, tp_any_rel nan
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+15:16:18 | 1385 | 1 | 1385 | 1 | 3.1
+15:17:40 | 1662 | 3 | 1662 | 3 | 6.9
+15:18:40 | 1860 | 4 | 1860 | 4 | 7.5
+15:19:46 | 2046 | 9 | 2046 | 9 | 0.0 <- ultimo ping <= t
+15:20:14 | 2113 | 3 | 2113 | 3 | 6.9
+15:21:48 | 2495 | 2 | 2495 | 2 | 1.7
+15:24:46 | 2516 | 828 | 3325 | 2 | 0.0
+15:25:44 | 3650 | 1001 | 3552 | 3 | 3.9
+15:26:44 | 3650 | 977 | 3607 | 1 | 0.3
+15:27:40 | 3650 | 939 | 3752 | 9 | 5.0
+15:28:40 | 3650 | 929 | 3777 | 5 | 0.0
+15:29:16 | 3650 | 907 | 3864 | 2 | 8.3
+15:32:40 | 3792 | 907 | 4430 | 14 | 0.0
+15:33:42 | 4080 | 909 | 4722 | 0 | 10.8
+15:34:48 | 5753 | 659 | 5027 | 1 | 0.0
+15:37:50 | 5794 | 243 | 5445 | 9 | 5.8
+15:38:44 | 5903 | 8 | 5779 | 8 | 0.6
+posicion de la parada sobre la forma elegida: 3038
+
+### X2a linea 124 2026-09-18 t=17:30:00 coche 98755 parada n11074325015 «Nazca y Álvarez Jonte» (unico)
+grupo seguro, ETA anunciada 476 s, forma elegida 3857549 (Línea 124: Caseros → Facultad de Derecho), forma ex post 3857549 (Línea 124: Caseros → Facultad de Derecho), recorridos que sirven la parada: [('3857549', 'Línea 124: Caseros → Facultad de Derecho', 8220)], trip_end_rel 4058.0, tp_any_rel nan
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+17:21:00 | 3255 | 2 | 3255 | 2 | 3.9
+17:24:32 | 4517 | 4 | 4517 | 4 | 8.3
+17:26:38 | 5581 | 1 | 5581 | 1 | 10.0
+17:28:36 | 5799 | 0 | 5799 | 0 | 10.6 <- ultimo ping <= t
+17:44:44 | 9945 | 5 | 9945 | 5 | 0.0
+17:45:36 | 10184 | 4 | 10184 | 4 | 0.0
+17:49:02 | 11001 | 1 | 11001 | 1 | 0.0
+17:52:34 | 12019 | 6 | 12019 | 6 | 6.1
+18:05:00 | 14946 | 1 | 14946 | 1 | 4.7
+18:16:04 | 17385 | 10 | 17385 | 10 | 0.6
+18:17:04 | 17646 | 0 | 17646 | 0 | 1.1
+18:25:38 | 19359 | 12 | 19359 | 12 | 0.0
+18:26:38 | 19695 | 1 | 19695 | 1 | 0.6
+18:29:34 | 20444 | 4 | 20444 | 4 | 0.6
+18:31:36 | 21451 | 8 | 21451 | 8 | 0.6
+18:32:36 | 21446 | 6 | 21446 | 6 | 1.1
+18:33:38 | 21646 | 12 | 21646 | 12 | 2.5
+posicion de la parada sobre la forma elegida: 8220
+
+### P linea 106 2026-10-04 t=10:20:00 coche 78014 parada n3822177716 «Scalabrini Ortiz y Córdoba» (exclusivo)
+grupo seguro, ETA anunciada 0 s, forma elegida 369521 (Línea 106 - Cartel verde: Liniers → Retiro), forma ex post 369521 (Línea 106 - Cartel verde: Liniers → Retiro), recorridos que sirven la parada: [('369521', 'Línea 106 - Cartel verde: Liniers → Retiro', 13646)], trip_end_rel 1910.0, tp_any_rel 9890.9004611969
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+10:13:50 | 12127 | 1 | 12127 | 1 | 0.0
+10:15:50 | 12539 | 1 | 12539 | 1 | 5.8
+10:17:50 | 13044 | 4 | 13044 | 4 | 2.5
+10:18:50 | 13437 | 2 | 13437 | 2 | 8.3 <- ultimo ping <= t
+10:20:50 | 13818 | 6 | 13818 | 6 | 12.5
+10:21:50 | 14243 | 5 | 14243 | 5 | 6.9
+10:22:50 | 14579 | 0 | 14579 | 0 | 8.1
+10:24:50 | 15213 | 12 | 15213 | 12 | 0.0
+10:25:20 | 15273 | 6 | 15273 | 6 | 7.5
+10:26:50 | 15869 | 2 | 15869 | 2 | 5.3
+10:27:50 | 15937 | 3 | 15937 | 3 | 0.0
+10:28:50 | 16030 | 0 | 16030 | 0 | 2.2
+10:29:20 | 16151 | 2 | 16151 | 2 | 3.6
+10:30:50 | 16512 | 1 | 16512 | 1 | 8.9
+10:31:50 | 16904 | 5 | 16904 | 5 | 4.7
+10:32:50 | 17171 | 1 | 17171 | 1 | 0.0
+10:33:50 | 17302 | 4 | 17302 | 4 | 0.0
+posicion de la parada sobre la forma elegida: 13646
+
+### S linea 92 2026-10-06 t=10:20:00 coche 26667 parada n4536476570 «Bulnes y Guardia Vieja» (unico)
+grupo seguro, ETA anunciada 174 s, forma elegida 6750274 (Línea 92: Retiro → 9 de Abril), forma ex post 6760581 (Línea 92: 9 de Abril → Retiro), recorridos que sirven la parada: [('6750274', 'Línea 92: Retiro → 9 de Abril', 7269)], trip_end_rel 1844.0, tp_any_rel nan
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+10:09:46 | 7286 | 289 | 25965 | 20 | 0.0
+10:13:14 | 6889 | 31 | 26581 | 86 | 0.0
+10:15:14 | 6806 | 167 | 26623 | 293 | 0.0
+10:19:46 | 6659 | 43 | 26791 | 191 | 0.0 <- ultimo ping <= t
+10:20:48 | 6308 | 175 | 26986 | 30 | 1.4
+10:22:42 | 6308 | 163 | 27000 | 26 | 0.0
+10:31:46 | 3919 | 3 | 28931 | 3 | 9.7
+10:32:44 | 3899 | 2 | 28952 | 2 | 0.0
+10:40:42 | 2414 | 2 | 31183 | 25 | 0.0
+10:41:44 | 2414 | 2 | 31183 | 25 | 0.0
+10:48:44 | 514 | 28 | 33394 | 13 | 0.0
+10:49:46 | 416 | 88 | 33553 | 11 | 7.5
+10:50:44 | 359 | 44 | 33651 | 6 | 5.0
+10:51:14 | 242 | 42 | 33739 | 12 | 0.0
+10:53:46 | 0 | 91 | 33892 | 129 | 0.0
+10:55:44 | 97 | 15 | 33884 | 15 | 0.6
+10:56:44 | 96 | 48 | 33886 | 18 | 1.4
+posicion de la parada sobre la forma elegida: 7269
+
+### T1 linea 108 2026-09-18 t=15:50:00 coche 94340 parada n11888017467 «Hospital Rivadavia» (unico)
+grupo seguro, ETA anunciada 187 s, forma elegida 4237146 (Línea 108: Liniers → Retiro), forma ex post 4237146 (Línea 108: Liniers → Retiro), recorridos que sirven la parada: [('4237146', 'Línea 108: Liniers → Retiro', 21125)], trip_end_rel -210.0, tp_any_rel 15667.113859176636
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+15:42:58 | 18756 | 0 | 18756 | 0 | 10.0
+15:43:58 | 19002 | 1 | 19002 | 1 | 0.0
+15:45:58 | 19711 | 15 | 19711 | 15 | 6.1
+15:46:30 | 19813 | 2 | 19813 | 2 | 0.0 <- ultimo ping <= t
+16:46:34 | 21335 | 0 | 21335 | 0 | 0.0
+16:47:34 | 21235 | 10 | 21235 | 10 | 0.0
+16:48:36 | 21019 | 9 | 21019 | 9 | 8.1
+16:49:36 | 20567 | 9 | 20567 | 9 | 12.5
+16:51:38 | 20024 | 2 | 20024 | 2 | 0.0
+16:53:58 | 19103 | 60 | 19103 | 60 | 1.4
+16:55:32 | 18853 | 9 | 18853 | 9 | 9.2
+17:00:32 | 18002 | 119 | 18002 | 119 | 3.9
+17:01:32 | 17900 | 135 | 17900 | 135 | 3.6
+17:04:32 | 16528 | 170 | 16528 | 170 | 7.5
+17:06:04 | 16366 | 176 | 16366 | 176 | 2.2
+17:07:34 | 16366 | 128 | 16366 | 128 | 1.1
+17:09:32 | 16205 | 19 | 16205 | 19 | 2.5
+posicion de la parada sobre la forma elegida: 21125
+
+### C linea 42 2026-10-04 t=11:00:00 coche 78996 parada n12159157754 «Alcorta y Ochoa» (exclusivo)
+grupo puede_venir, ETA anunciada 387 s, forma elegida 3464362 (Línea 42 - Ramal A: Ciudad Universitaria → x Alcorta → Nueva Pompeya), forma ex post  (), recorridos que sirven la parada: [('3464362', 'Línea 42 - Ramal A: Ciudad Universitaria → x Alcorta → Nueva Pompeya', 21782)], trip_end_rel nan, tp_any_rel nan
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+10:30:50 | 18310 | 8 | - | - | 0.0
+10:39:50 | 18312 | 9 | - | - | 0.0
+10:42:50 | 18312 | 8 | - | - | 0.0
+10:54:50 | 18313 | 9 | - | - | 0.0 <- ultimo ping <= t
+11:08:50 | 18313 | 9 | - | - | 0.0
+11:13:52 | 18314 | 9 | - | - | 0.0
+11:33:50 | 18314 | 9 | - | - | 0.0
+11:49:50 | 18312 | 14 | - | - | 0.0
+11:50:50 | 18312 | 14 | - | - | 0.0
+11:52:50 | 18312 | 12 | - | - | 0.0
+11:55:50 | 18312 | 12 | - | - | 0.0
+12:03:52 | 18310 | 13 | - | - | 0.0
+12:04:52 | 18310 | 13 | - | - | 0.0
+12:07:52 | 18310 | 13 | - | - | 0.0
+12:09:52 | 18312 | 14 | - | - | 0.0
+12:12:52 | 18310 | 13 | - | - | 0.0
+12:23:22 | 18312 | 14 | - | - | 0.0
+posicion de la parada sobre la forma elegida: 21782
+
+### X3 linea 106 2026-10-06 t=15:30:00 coche 77839 parada n3230342361 «Terminal 106 Liniers» (compartido)
+grupo seguro, ETA anunciada 393 s, forma elegida 369522 (Línea 106 - Cartel verde: Retiro → Liniers), forma ex post 369522 (Línea 106 - Cartel verde: Retiro → Liniers), recorridos que sirven la parada: [('3008238', 'Línea 106 - Cartel rojo ex 99: Puerto Madero → Liniers', 16127), ('3663267', 'Línea 106 - Cartel rojo ex 99: Liniers → Puerto Madero', 0), ('369521', 'Línea 106 - Cartel verde: Liniers → Retiro', 0), ('369522', 'Línea 106 - Cartel verde: Retiro → Liniers', 19468)], trip_end_rel 414.0, tp_any_rel 23214.424458026886
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+15:23:52 | 16058 | 2 | 16058 | 2 | 10.3
+15:24:50 | 16523 | 2 | 16523 | 2 | 0.0
+15:28:48 | 17439 | 6 | 17439 | 6 | 2.5
+15:29:48 | 17528 | 6 | 17528 | 6 | 6.1 <- ultimo ping <= t
+15:31:50 | 18111 | 3 | 18111 | 3 | 8.9
+15:32:50 | 18702 | 0 | 18702 | 0 | 5.3
+15:33:52 | 18947 | 4 | 18947 | 4 | 0.0
+15:35:24 | 19217 | 3 | 19217 | 3 | 8.3
+15:36:54 | 19468 | 37 | 19468 | 37 | 0.0
+15:44:48 | 19468 | 5 | 19468 | 5 | 0.0
+15:45:50 | 19468 | 13 | 19468 | 13 | 0.0
+15:46:52 | 19468 | 11 | 19468 | 11 | 0.0
+15:48:52 | 19468 | 11 | 19468 | 11 | 0.0
+15:49:50 | 19468 | 11 | 19468 | 11 | 0.0
+15:52:52 | 19468 | 13 | 19468 | 13 | 0.0
+15:53:54 | 19468 | 112 | 19468 | 112 | 1.1
+15:54:26 | 19443 | 122 | 19443 | 122 | 0.0
+posicion de la parada sobre la forma elegida: 19468
+
+### D linea 124 2026-09-16 t=09:40:00 coche 98760 parada n13378828975 «Terminal Transportes Automotores Callao S.A.» (unico)
+grupo seguro, ETA anunciada 160 s, forma elegida 3866095 (Línea 124: Facultad de Derecho → Caseros), forma ex post 3857549 (Línea 124: Caseros → Facultad de Derecho), recorridos que sirven la parada: [('3857549', 'Línea 124: Caseros → Facultad de Derecho', 1), ('3866095', 'Línea 124: Facultad de Derecho → Caseros', 20590)], trip_end_rel 5750.0, tp_any_rel 13961.113244771957
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+09:35:40 | 20589 | 1 | 16 | 1 | 1.1
+09:36:40 | 20231 | 1 | 374 | 1 | 5.3
+09:37:40 | 19295 | 180 | 1211 | 357 | 6.4
+09:39:34 | 19277 | 44 | 1229 | 134 | 9.4 <- ultimo ping <= t
+09:40:42 | 18987 | 6 | 1354 | 4 | 2.5
+09:41:42 | 18560 | 63 | 1796 | 1 | 0.6
+09:45:40 | 18265 | 2 | 2941 | 2 | 9.4
+09:46:34 | 18065 | 2 | 3141 | 2 | 0.0
+09:47:42 | 18013 | 84 | 3265 | 0 | 0.0
+09:48:40 | 17669 | 39 | 3625 | 2 | 0.0
+09:49:36 | 17210 | 170 | 3923 | 4 | 5.3
+09:50:36 | 16734 | 171 | 4389 | 4 | 10.6
+09:51:40 | 16564 | 146 | 4844 | 0 | 0.0
+09:52:38 | 16316 | 139 | 5091 | 1 | 2.5
+09:53:36 | 16018 | 136 | 5387 | 2 | 5.3
+09:54:38 | 15720 | 132 | 5683 | 1 | 0.0
+09:55:40 | 15464 | 129 | 5944 | 3 | 4.4
+posicion de la parada sobre la forma elegida: 20590
+
+### X2d linea 132 2026-09-15 t=13:00:00 coche 79943 parada n10580621506 «Perette y Walsh» (exclusivo)
+grupo puede_venir, ETA anunciada 287 s, forma elegida 10768850 (Línea 132: Cementerio de Flores → Plaza Flores → Ministerio de Educación), forma ex post 223817 (Línea 132: Cementerio de Flores → x Carabobo → Retiro), recorridos que sirven la parada: [('10768850', 'Línea 132: Cementerio de Flores → Plaza Flores → Ministerio de Educación', 15625)], trip_end_rel 394.0, tp_any_rel nan
+hora | d elegida (m) | perp elegida | d ex post | perp ex post | vel
+12:56:06 | 13190 | 7 | 12769 | 7 | 2.5
+12:57:34 | 13464 | 7 | 13043 | 7 | 0.0
+12:58:36 | 13692 | 10 | 13271 | 10 | 3.6
+12:59:34 | 13826 | 5 | 13406 | 5 | 5.0 <- ultimo ping <= t
+13:00:36 | 14085 | 5 | 13664 | 5 | 0.0
+13:01:34 | 14267 | 6 | 13846 | 6 | 11.4
+13:02:34 | 14752 | 4 | 14331 | 4 | 0.0
+13:03:36 | 14827 | 11 | 14406 | 11 | 5.3
+13:04:36 | 15060 | 0 | 14640 | 0 | 3.9
+13:05:36 | 15555 | 8 | 15134 | 8 | 1.1
+13:06:34 | 15413 | 55 | 15377 | 1 | 0.0
+13:07:36 | 14196 | 37 | 13776 | 37 | 0.0
+13:08:34 | 14151 | 39 | 13730 | 39 | 6.4
+13:09:36 | 13813 | 32 | 13392 | 32 | 0.0
+13:10:36 | 13697 | 16 | 13276 | 16 | 6.1
+13:11:34 | 13602 | 112 | 13181 | 112 | 4.7
+13:12:04 | 13234 | 136 | 12813 | 136 | 2.5
+posicion de la parada sobre la forma elegida: 15625

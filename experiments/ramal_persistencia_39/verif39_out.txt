@@ -1,0 +1,53 @@
+dias ['2026-09-24', '2026-09-25', '2026-09-26'] | viajes 39 con shape: 2096 | con ramal CuandoSubo resuelto a ramal unico: 1750
+
+### 1 Calidad etiqueta (ping exclusivo = a <=40 m del ramal y >=100 m de los otros; confirmado = >=3 pings exclusivos del ramal asignado)
+viajes confirmados: 1295 de 2096 0.618
+confirmados por ramal (media, n): {'A': {'mean': 0.0, 'size': 705}, 'B': {'mean': 0.888, 'size': 668}, 'C': {'mean': 0.971, 'size': 723}}
+fraccion de pings del viaje en tramo exclusivo propio: mediana 0.082 | viajes con >=3 pings exclusivos de OTRO ramal: 2
+
+TODOS (pipeline, 3 dias): pares 1850 | P(igual previo) 0.354 | base mas frecuente 0.343 | sentido opuesto 0.350 (n 1716) | mismo sentido 0.403 (n 134)
+r     A    B    C
+rp               
+A   218  188  204
+B   192  203  198
+C   222  192  233
+r       A      B      C
+rp                     
+A   0.357  0.308  0.334
+B   0.324  0.342  0.334
+C   0.343  0.297  0.360
+
+PARES CONFIRMADOS (viaje y previo inmediato ambos confirmados): pares 726 | P(igual previo) 0.530 | base mas frecuente 0.548 | sentido opuesto 0.528 (n 706) | mismo sentido 0.600 (n 20)
+r     B    C
+rp          
+B   158  171
+C   170  227
+r       B      C
+rp              
+B   0.480  0.520
+C   0.428  0.572
+consistencia todos: coche-dias >=2 viajes 234 | un solo ramal 0.004 | 3 ramales 0.816
+consistencia solo viajes confirmados: coche-dias >=2 viajes 224 | un solo ramal 0.076 | 3 ramales 0.000
+
+### 2 Contraste CuandoSubo (route_id -> ramal)
+viajes con ramal CS: 1750 de 2096 0.835 | acuerdo pipeline-CS: 0.907 | solo confirmados: 0.985 n 1131
+matriz pipeline (fila) vs CS (col):
+csr    A    B    C
+r                 
+A    402   87   55
+B      5  579    1
+C      6    9  606
+acuerdo por dia: {'2026-09-24': np.float64(0.916), '2026-09-25': np.float64(0.879), '2026-09-26': np.float64(0.942)}
+
+CUANDOSUBO como verdad (viajes con CS; previo = previo inmediato con CS): pares 1506 | P(igual previo) 0.368 | base mas frecuente 0.380 | sentido opuesto 0.373 (n 1367) | mismo sentido 0.317 (n 139)
+csr    A    B    C
+rp                
+A     78  147  128
+B    128  241  209
+C    156  184  235
+csr      A      B      C
+rp                      
+A    0.221  0.416  0.363
+B    0.221  0.417  0.362
+C    0.271  0.320  0.409
+consistencia CS: coche-dias >=2 viajes 233 | un solo ramal 0.004 | 3 ramales 0.712

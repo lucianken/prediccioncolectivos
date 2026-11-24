@@ -1,0 +1,22 @@
+{
+ "train": [
+  "26",
+  "39",
+  "42",
+  "92",
+  "124",
+  "151",
+  "168",
+  "50",
+  "106",
+  "107",
+  "108",
+  "132"
+ ],
+ "heldout": [
+  "12",
+  "15",
+  "128"
+ ],
+ "note": "subconjunto 12+3 de ARQUITECTURA 6.2.2 para data/ml/v2b (segmentador v2b)"
+}

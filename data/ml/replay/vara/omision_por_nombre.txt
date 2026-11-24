@@ -1,0 +1,1 @@
+Retirado el 2026-11-16: medía la omisión con la verdad que asociaba paradas a recorridos por geometría (incorrecta; ver VARA_CORREGIDA.md, registro de error). Vigente: omision_por_recorrido.txt.

@@ -22,7 +22,8 @@ import torch
 def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, max_groups: int | None,
           unk_line_p: float, workers: int, lines_file: Path, device: str = "cuda", seed: int = 0,
           resume: bool = False, stop_after_epoch: int | None = None, lr_trace: list | None = None,
-          shapes_dir=None, loss_kind: str = "pinball", stops_feature: bool = False) -> dict:
+          shapes_dir=None, loss_kind: str = "pinball", stops_feature: bool = False,
+          traffic_table: Path | None = None) -> dict:
     """resume: retoma desde out_dir/path_eta_last.pt (guardado atómico al final de cada época; ver models/resume.py).
     stop_after_epoch / lr_trace: ganchos de test (cortar el run; registrar el LR de cada paso)."""
     from prediccion.models.eta_dataset import collate_identity
@@ -54,9 +55,15 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         stop_key = build_stop_key(ids, by_shape)
         print(f"paradas: {len(stop_key)} en {sum(1 for i in ids if by_shape.get(i))}/{len(ids)} shapes", flush=True)
     model = PathETAModel(ids, lat, lon, off, train_lines, start_unknown=start_unknown, stops_feature=stops_feature,
-                         stop_key=stop_key)
+                         stop_key=stop_key, traffic_feature=traffic_table is not None)
     dev = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     model.to(dev)
+    if traffic_table is not None:     # tránsito actual por tramo (§11.1): tabla densa fuera del checkpoint, con su huella
+        from prediccion.v2.traffic.feature import TrafficTable
+        tab = TrafficTable.load(traffic_table)
+        model.attach_traffic(tab)
+        model.traffic_table_path = str(traffic_table)
+        print(f"tránsito: tabla {traffic_table} ({tab.n_windows} ventanas x {len(tab.cells)} celdas, sha1 {tab.sha1()[:12]})", flush=True)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"shapes={len(ids)} celdas={len(lat)} lineas_train={len(train_lines)} params={n_params:,} device={dev}", flush=True)
 
@@ -79,6 +86,8 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
         config["start_unknown"] = True       # solo si está: los last.pt de runs v2 siguen reanudando
     if stops_feature:
         config["stops_feature"] = True       # solo si está: los last.pt viejos siguen reanudando
+    if traffic_table is not None:
+        config["traffic_sha1"] = model.traffic_sha1
     if loss_kind != "pinball":
         config["loss"] = loss_kind           # solo si no es la default: los last.pt viejos siguen reanudando
     loss_cfg = None
@@ -166,11 +175,16 @@ def main(argv=None):
                     help="l1 = q 0,5 a toda distancia; pinball = q 0,5->0,8 bajo 1 km (default histórico); pinball_inv = q 0,5->0,2 bajo 1 km (castiga más que llegue antes de lo anunciado); pinball_band = q 0,3 en la banda de distancia donde cae la ETA 3-10 min (calibrada con el train), rampa a 0,5")
     ap.add_argument("--stops-feature", action="store_true",
                     help="entrada por tramo: paradas del recorrido en el tramo y metros a la próxima (ARQUITECTURA §6.2); default apagada")
+    ap.add_argument("--traffic-feature", action="store_true",
+                    help="entrada por tramo: tránsito actual de la celda (4 columnas, ventanas completas previas a ts_p; ver v2/traffic/feature.py); requiere --traffic-table")
+    ap.add_argument("--traffic-table", type=Path, default=None,
+                    help="tabla densa de tránsito (npz de `python -m prediccion.v2.traffic.feature`); default <ml-dir>/traffic_dense.npz")
     ap.add_argument("--resume", action="store_true", help="retomar desde <out-dir>/path_eta_last.pt")
     a = ap.parse_args(argv)
+    tt = (a.traffic_table or a.ml_dir / "traffic_dense.npz") if a.traffic_feature else None
     train(a.ml_dir, a.out_dir or a.ml_dir / "models_path", a.epochs, a.batch_size, a.lr, a.max_groups,
           a.unk_line_p, a.workers, a.lines_file, a.device, seed=a.seed, resume=a.resume,
-          loss_kind=a.loss, stops_feature=a.stops_feature)
+          loss_kind=a.loss, stops_feature=a.stops_feature, traffic_table=tt)
     return 0
 
 

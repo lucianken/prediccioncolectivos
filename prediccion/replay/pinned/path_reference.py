@@ -27,6 +27,7 @@ from prediccion.models.stops import stop_features_np
 from prediccion.replay.pinned import geo_assign as G
 
 STATE_FALLBACK_TLB_S = 3600.0
+PROJECT_TIE_M = 1e-6     # tolerancia de empate de la proyección (m)
 FALLBACK_M = 250.0       # radio del fallback de "coche de adelante" (ping más cercano a T)
 
 # ── carga ────────────────────────────────────────────────────────────────────
@@ -62,7 +63,9 @@ class Shape:
         dy = ap_y - t * self.ab_y
         dx = ap_x - t * self.ab_x
         perp = np.sqrt(dx * dx + dy * dy)
-        i = int(np.argmin(perp))
+        # empate: el primer segmento a <= PROJECT_TIE_M de la mínima (un recorrido que repite la misma calle da perp iguales salvo
+        # ruido de coma flotante, que no puede decidir el tramo; el JS aplica la misma regla)
+        i = int(np.argmax(perp <= float(perp.min()) + PROJECT_TIE_M))
         return float(self.cum[i] + t[i] * self.seg_len[i]), float(perp[i])
 
     def latlon_at(self, d: float) -> tuple[float, float]:
@@ -296,8 +299,13 @@ def last_bus(c: dict, shape: Shape, others: list[dict], d_t: float, ts_ping: flo
 def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float, float], now_ts: float,
                      history: list[dict] | None = None, others: list[dict] | None = None,
                      only_shapes: list[str] | None = None, user_kind: str = "punto",
-                     stop_recorridos: list[str] | None = None) -> dict:
+                     stop_recorridos: list[str] | None = None, snapshot_ts: float | None = None,
+                     ts_offset_s: float = 0.0) -> dict:
     """
+    [ADAPTACIÓN DEL REPLAY, aditiva; con los defaults es idéntico a inference/path_reference.py] snapshot_ts y ts_offset_s
+    portan lo que hace la app (public/prediccion/core.js, predictFromRaw): ts_age = min(max(0, snapshot_ts - ts), cap) (hora de
+    la foto, como en entrenamiento; None = now_ts) y eta_s = max(0, eta_modelo - (now_ts - ts) - ts_offset_s)
+    (CABA_TS_OFFSET_S). El resultado agrega eta0_s: el mismo ETA sin el descuento del corrimiento.
     line: línea ya resuelta por el sufijo del label. vehicle: {lat, lon, speed_mps, ts} (último ping del coche; ts = hora
     del ping, unix s). user: (lat, lon). now_ts: hora de la consulta (unix s). history: pings anteriores del mismo coche
     [{ts, lat, lon}] ascendentes (puede ser []). others: otros coches de la línea con historial (puede ser []).
@@ -322,6 +330,7 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
     if line not in bundle.lines:
         return empty
     age = max(0.0, now_ts - vehicle["ts"])
+    feat_age = age if snapshot_ts is None else max(0.0, snapshot_ts - vehicle["ts"])
     us = user_shapes(bundle, line, user, user_kind, stop_recorridos)
     cands, compat, discarded = [], [], []
     p_cands, p_compat = [], []   # evaluación provisional: shapes cercanos con sentido aún desconocido (sin_sentido)
@@ -395,14 +404,14 @@ def predict_from_raw(bundle: Bundle, line: str, vehicle: dict, user: tuple[float
     llegando = p_llegando if provisional else llegando
     out = []
     if cands:
-        etas = eta_on_shapes(bundle, line, cands, vehicle["ts"], vehicle.get("speed_mps", 0.0), min(age, c["ts_age_cap_s"]))
+        etas = eta_on_shapes(bundle, line, cands, vehicle["ts"], vehicle.get("speed_mps", 0.0), min(feat_age, c["ts_age_cap_s"]))
         out = [{"shape_id": k["shape"].id, "d_p": k["d0"], "rem_m": k["rem"], "eta_model_s": float(e),
-                "eta_s": max(0.0, float(e) - age), "last_bus_found": k["lbf"]} for k, e in zip(cands, etas)]
+                "eta_s": max(0.0, float(e) - age - ts_offset_s), "eta0_s": max(0.0, float(e) - age), "last_bus_found": k["lbf"]} for k, e in zip(cands, etas)]
     res["candidates"] = out
     if llegando:
-        res["status"], res["eta_s"] = ("provisional" if provisional else "llegando"), 0.0
+        res["status"], res["eta_s"], res["eta0_s"] = ("provisional" if provisional else "llegando"), 0.0, 0.0
         return res
     best = min(out, key=lambda r: r["eta_s"])
-    res.update(status="provisional" if provisional else "ok", eta_s=best["eta_s"], shape_id=best["shape_id"],
+    res.update(status="provisional" if provisional else "ok", eta_s=best["eta_s"], eta0_s=best["eta0_s"], shape_id=best["shape_id"],
                en_cabecera=(vehicle.get("speed_mps", 0.0) or 0.0) < c["stopped_mps"] and best["d_p"] < c["terminal_zone_m"])
     return res

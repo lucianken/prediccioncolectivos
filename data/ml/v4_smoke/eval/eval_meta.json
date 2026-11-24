@@ -1,0 +1,38 @@
+{
+ "seed": 20261110,
+ "n_per_bucket": 300,
+ "val_window": [
+  "2026-09-15",
+  "2026-10-14"
+ ],
+ "val_days": [
+  "2026-09-15",
+  "2026-09-16"
+ ],
+ "eta_edges_s": [
+  300.0,
+  600.0,
+  1200.0
+ ],
+ "train_lines": [
+  "39",
+  "26",
+  "154",
+  "60",
+  "1",
+  "12"
+ ],
+ "heldout_lines": [],
+ "created": "2026-11-21 16:18:56",
+ "counts": {
+  "seen/eta_bucket0": 300,
+  "seen/eta_bucket1": 300,
+  "seen/eta_bucket2": 300,
+  "seen/eta_bucket3": 300,
+  "seen/total": 1200,
+  "heldout/eta_bucket0": 0,
+  "heldout/eta_bucket1": 0,
+  "heldout/eta_bucket2": 0,
+  "heldout/eta_bucket3": 0
+ }
+}
