@@ -19,6 +19,8 @@ Movido desde `ARQUITECTURA.md` (la sección Resultados Resultados completa, regi
   - v4: todas las líneas AMBA < 200 (2026-11-21)
   - Descomposición del error del próximo coche, v4 (2026-11-22)
   - Primer arribo anunciado dentro de ±2 min y caso (d) (2026-11-27)
+  - Recorridos nuevos en las líneas que más cambiaron (2026-11-27)
+  - Piso del ETA por coche (gemelos) (2026-11-27)
   - Ruido de la verdad, error por tramo y feriados (2026-11-23)
   - Historial para "coche de adelante": 20 min contra 60 min o el día (2026-11-23): sin valor
   - Coche que ya pasó: bajarlo o sacarlo de la lista (2026-11-23)
@@ -632,6 +634,66 @@ Variantes (ventana 5 min, avance 50 m; diferencia pareada contra base, 10 días)
 - **(b2) Bajarlo a "sentido sin confirmar" al final de la lista** (ETA sin cambio): bondis fantasma −0,32 pp (de 14,7 %), MAE del próximo coche 3–7 min −2,4 s, bondi no anunciado −0,05 pp, sin aviso firme +0,16 pp, llega antes >60 s +0,08 pp. En la línea 42: MAE 196 → 170 s, bondis fantasma 30,7 → 28,3 %, causa C 10,2 → 6,9 pp. Las demás líneas casi sin cambio.
 
 Decisión: **descartada por el usuario (2026-11-16).** Ganancia chica en el agregado y regla demasiado específica (feature engineering ad hoc para un caso concentrado en la 42). No se implementa en pipeline ni app.
+
+### Recorridos nuevos en las líneas que más cambiaron (2026-11-27)
+
+Medición informativa tras poner en producción `path_v4_l1_s1_r20261126` (ARQUITECTURA §6.1; no frenó el deploy). Replay `base`, regla de sentido `trailing_run`, vara corregida, mismo diseño que `data/ml/replay/RECORRIDOS_NUEVOS_42.md` §4 (verdad con el bundle reexportado y los `line_shapes` del 2026-11-26; bundle viejo `path_v4_l1_s1` con las paradas nuevas resueltas como punto GPS/mapa a ≤ 45 m; instantes cada 10 min, 06–23 h; IC 95 % bootstrap por cluster parada × 30 min, 200 réplicas). Días 25, 26 y 27/11 (el 27 parcial); paradas: todas las nuevas (sin parada vieja a ≤ 25 m) más 40 de las demás. Instantes solo en horas con pings ≥ 25 % de la mediana horaria 08–20 h de la línea ese día (huecos de grabación). Script `experiments/recorridos_nuevos_lineas/` (`replay_lineas.py`, `metricas_lineas.py`; usa `core_head.py` de la prueba de la 42 porque `prediccion/replay/core.py` tenía cambios sin commitear de otro agente); salida `data/ml/replay/recorridos_nuevos_lineas/` (`metricas.txt`, `metricas.json`; `run/` no versionado).
+
+Todas las paradas medidas de cada línea (viejo → reexport):
+
+| línea | paradas (nuevas) | sin coche listado % | bondi no anunciado % | bondi fantasma % | MAE próximo coche 3–7 min (s) |
+|---|---|---|---|---|---|
+| 42 | 55 (15) | 18,6 → 2,0 | 32,1 → 7,3 | 22,2 → 13,3 | 219 [194–249] → 169 [149–193] |
+| 106 | 45 (5) | 10,0 → 1,0 | 33,4 → 21,5 | 12,7 → 10,9 | 146 [135–158] → 159 [146–172] |
+| 7 | 51 (11) | 15,7 → 3,9 | 22,7 → 14,2 | 24,8 → 33,4 | 118 [107–128] → 120 [109–129] |
+| 102 | 53 (13, todas a ≤ 45 m) | 4,0 → 3,3 | 20,3 → 15,4 | 31,1 → 21,5 | 114 [110–119] → 92 [88–95] |
+| 34 | 41 (1) | 2,4 → 2,4 | 23,9 → 22,8 | 25,0 → 24,2 | 96 [91–101] → 95 [90–100] |
+| 84 | 40 (0) | 2,0 → 1,9 | 4,4 → 5,8 | 7,0 → 7,1 | 67 [64–70] → 70 [67–74] |
+| 47 | 40 (0) | 3,4 → 3,4 | 6,6 → 7,9 | 28,9 → 25,9 | 68 [64–73] → 207 [181–237] |
+| 132 | 40 (0) | 1,2 → 1,2 | 35,9 → 21,7 | 15,2 → 13,6 | 714 [668–770] → 96 [89–102] |
+
+Solo las paradas nuevas:
+
+| línea | n paradas | sin coche listado % | bondi no anunciado % | bondi fantasma % | MAE 3–7 min (s) |
+|---|---|---|---|---|---|
+| 42 | 15 | 60,8 → 0,8 | 76,5 → 2,1 | 51,8 → 10,1 | 178 → 91 |
+| 106 | 5 | 79,4 → 0,6 | 90,0 → 16,1 | 4,8 → 2,9 | 135 → 77 |
+| 7 | 11 (todas a > 45 m) | 100 → 10,8 | 100 → 15,3 | sin coches → 66,8 | sin anuncio → 79 |
+| 102 | 13 | 7,8 → 9,7 | 28,1 → 12,5 | 67,3 → 59,6 | 151 → 94 |
+| 34 | 1 | 1,0 → 1,0 | 48,1 → 13,9 | 30,5 → 0,8 | 201 → 92 |
+
+Lectura:
+- **Mejora clara donde hay paradas nuevas lejos del recorrido viejo:** 42 (confirma la prueba anterior con más instantes), 106 y 7. En la 7 las 11 paradas nuevas pasan de 100 % sin coche listado a 10,8 %, pero el bondi fantasma de esas paradas es alto (66,8 %) y el de la línea sube de 24,8 a 33,4 %: con el recorrido nuevo se listan coches que no pasan por esas paradas; el MAE de la línea no cambia (118 → 120 s). 102 y 34 mejoran en MAE y en bondi no anunciado de las paradas nuevas.
+- **132:** MAE del próximo coche 714 → 96 s y bondi no anunciado 35,9 → 21,7 %. Salen del bundle los shapeIds 10768848 y 10768850 (ya no existen); el bundle viejo seguía ofreciéndolos como candidatos.
+- **47: empeora, sin explicar.** MAE 68 → 207 s con 0 paradas nuevas y geometría idéntica en los 4 shapes que quedan; solo salen 4 shapeIds (19912253, 19912254, 3075311, 4119935). Hipótesis, no verificada: esos shapes eran la mejor opción para parte de los coches y la verdad ex post (segmentador con los shapes actuales) asigna esos viajes a otro shape. Revisar antes de atribuirlo al modelo.
+- **84 y el resto de las demás líneas:** sin cambio o dentro del IC en las paradas que no cambiaron; el MAE del resto de la 106 sube (146 → 166 s) mientras sus 5 paradas nuevas mejoran (135 → 77 s).
+
+Salvedades: 3 días (2 parciales), como máximo 56 instantes por parada y día, IC por cluster sin variación entre semanas; la verdad usa el recorrido nuevo (favorece al bundle reexportado en las paradas nuevas, igual que en la prueba de la 42); sacar shapes puede mover el ramal ex post de los viajes; no se verificó contra la conducta real de la app; el sello de CABA es por lote. No hay control con días previos al 25/11 (el reexport no es retrocompatible con los recorridos viejos, `RECORRIDOS_NUEVOS_42.md` §4.3).
+
+### Piso del ETA por coche (gemelos) (2026-11-27)
+
+Medición sin entrenar ni tocar pipeline ni app; informe completo y tablas en `experiments/piso_gemelos/INFORME.md` y `raw/tablas.md` (commit 376f35a).
+
+**Método.** Gemelos: B recorre un tramo de un shape y A (otro coche, mismo sentido, entrada a ≤ Δ = 60 s de B; sensibilidad 120 y 300 s) recorre el mismo tramo; se predice la duración de B con la de A. El MAE de t_A − t_B es la cota de un predictor con oráculo de tránsito (incluye la variabilidad propia de cada coche y el ruido de interpolación de 4 cruces). Líneas 39, 42, 92, 107, 132 y 168 (26 shapes del export de `path_v4_l1_s1`), tramos de 1000 m (principal) y 1500 m, nodos cada 250 m, 12 días de la validación 15/09–14/10, banda 3–7 min por la duración real de B (9,95 M de casos correlacionados, 4793 coches-día). A puede ser de cualquier línea con tramo geométricamente equivalente; tipo según el recorrido ex post de A. Modelo: `path_v4_l1_s1` con `predict_from_raw` en una muestra de 114.038 casos B, mismos casos y banda.
+
+**Piso por tipo de gemelo, Δ ≤ 60 s:**
+
+| tramo | tipo de gemelo | n B | MAE (s) | P90 (s) | % llega antes > 60 s |
+|---|---|---|---|---|---|
+| 1000 m | cualquiera | 1.083.753 | 49,9 | 109,7 | 13,8 |
+| 1000 m | misma línea y recorrido | 389.925 | 46,3 | 101,5 | 12,9 |
+| 1000 m | misma línea, otro ramal | 463.055 | 47,8 | 104,8 | 13,3 |
+| 1000 m | otra línea, tronco compartido | 604.630 | 54,9 | 117,8 | 15,9 |
+| 1500 m | cualquiera | 770.930 | 55,4 | 121,0 | 22,3 |
+| 1500 m | misma línea y recorrido | 296.036 | 51,2 | 112,7 | 20,6 |
+| 1500 m | misma línea, otro ramal | 337.716 | 53,3 | 116,1 | 21,8 |
+| 1500 m | otra línea, tronco compartido | 361.699 | 62,8 | 133,1 | 26,2 |
+
+Modelo contra gemelo en los mismos casos (cualquiera, Δ ≤ 60 s): 1000 m, 49,6 contra 47,5 s (P90 105 y 104 s); 1500 m, 59,4 contra 52,5 s. Con la mediana de varios gemelos el piso baja a 45–46 s (1000 m). Sensibilidad a Δ (1000 m): 49,9 / 50,8 / 52,3 s para 60 / 120 / 300 s. Piso neto de ruido de interpolación: 43–50 s. Por línea (1000 m): 107 45,5; 92 46,2; 168 47,9; 42 49,6; 39 51,3; 132 53,6 s.
+
+**Lectura.** El modelo está en el piso con oráculo de tránsito: margen ~2 s a 1000 m y ~7 s a 1500 m (hasta ~4–5 s más con varios gemelos). Casi todo el error es propio de cada coche (paradas, semáforos, pasajeros), no de tránsito compartido: acortar Δ o promediar gemelos recorta pocos segundos. Margen relativo solo en «llega antes > 60 s» (modelo 19,5 % contra gemelo 13,0 % a 1000 m; 33,9 % contra 20,7 % a 1500 m), en parte por sesgo del modelo y en parte por la selección por ETA real. Consecuencia: el ítem 5 de §11 (ritmo propio del coche) baja a prioridad baja y la prioridad va a la asignación.
+
+**Salvedades.** El gemelo no es una cota estricta (un solo coche con ruido propio; modelos que combinen ritmo propio con tránsito podrían quedar por debajo, y el modelo ya supera al gemelo con tronco compartido de otra línea). Banda definida por el ETA real de B (sesgo que afecta igual a ambos). El gemelo predice desde la entrada y el modelo desde el último ping previo (hasta 90 s antes). Casos solapados y correlacionados. El sello por lote de CABA (~1/min, no hora GPS) no está en el piso neto. Se usaron los shapes del export de v4, no los `line_shapes` del 2026-11-26.
 
 ## Registros de error
 

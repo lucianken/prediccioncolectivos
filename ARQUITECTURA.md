@@ -128,8 +128,9 @@ Resultado de referencia (10 días, 12 líneas, `path_v3_l1_s1`, regla `trailing_
 
 ## 6. Estado y plan de modelado
 
-### 6.1 Estado de producción (2026-11-22)
-- **Modelo:** `path_v4_l1_s1`, en producción desde 2026-11-22 (commit 576aeb5 de proyectoconsola). Modelo por tramos con `--loss l1 --stops-feature` sobre `data/ml/v4_sub` (129 líneas AMBA < 200, LR 2e-3, 12 épocas, val MAE 80,5 s), semilla 1. Export `data/ml/export/path_v4_l1_s1/` (ONNX 2,65 MB; con `lines/`, 17 MB); checkpoint `data/ml/v4_sub/runs/path_lr2e-3_s1/path_eta_best.pt`; script `prediccion/scripts/export_path_onnx.py`. Resultados en RESULTADOS.md «v4».
+### 6.1 Estado de producción (2026-11-27)
+- **Modelo en producción: `path_v4_l1_s1_r20261126`, desde 2026-11-27 (commit d6d507e de proyectoconsola, decisión del usuario).** Es el mismo checkpoint que `path_v4_l1_s1` (pesos y `path_eta.onnx` idénticos, sin reentrenar) con las tablas de shapes reconstruidas desde los `line_shapes` del 2026-11-26 (recorridos de CABA rehechos desde OSM, proyectoconsola c2bb8ec): 129 líneas, 646 shapes, 33 051 paradas (v4: 652 y 33 362). Los 6 shapeIds que ya no existen en la calle salen del export: 3075311, 4119935, 19912253 y 19912254 (línea 47), 10768848 y 10768850 (línea 132). Ninguna línea quedó sin shapes ni sin paradas. Exportado con `export_path_onnx --reshape` (§10.5); el manifest declara `reshaped_from` (checkpoint, fecha, commit de proyectoconsola de los shapes). Motivo y prueba: `data/ml/replay/RECORRIDOS_NUEVOS_42.md`; medición en las líneas que más cambiaron: RESULTADOS.md «Recorridos nuevos en las líneas que más cambiaron». Export `data/ml/export/path_v4_l1_s1_r20261126/`. **Volver atrás:** `activeModel` = `path_v4_l1_s1` en `proyectoconsola/public/config/prediccion.json` (la carpeta sigue en `public/models/`; fixture de paridad a regenerar con ese export).
+- **Modelo base `path_v4_l1_s1`, en producción 2026-11-22 → 2026-11-27 (commit 576aeb5 de proyectoconsola).** Modelo por tramos con `--loss l1 --stops-feature` sobre `data/ml/v4_sub` (129 líneas AMBA < 200, LR 2e-3, 12 épocas, val MAE 80,5 s), semilla 1. Export `data/ml/export/path_v4_l1_s1/` (ONNX 2,65 MB; con `lines/`, 17 MB); checkpoint `data/ml/v4_sub/runs/path_lr2e-3_s1/path_eta_best.pt`; script `prediccion/scripts/export_path_onnx.py`. Resultados en RESULTADOS.md «v4».
 - **Contrato 2.3** (`prediccion/INFERENCIA_PATH.md`):
   - 2.1: modelo por tramos + asignación geo3 (§4.5).
   - 2.2: + paradas por tramo. `manifest.stops_feature`, `manifest.stops.next_cap_m` = 1000 m, `stops_m` por shape en `lines/<línea>.json` (paradas del ramal proyectadas sobre el shape, metros desde el inicio), entradas ONNX `seg_stop_n` y `seg_stop_next`, armadas por tramo con `lo`/`hi` recortados a P→T (`stop_features_np`, INFERENCIA_PATH §3.3).
@@ -153,8 +154,8 @@ Resultado de referencia (10 días, 12 líneas, `path_v3_l1_s1`, regla `trailing_
 - **Texto de destino en la app (`csDestino`):** `<shortName de CuandoSubo>: <destino>`; la ruta 99A se muestra "106 rojo (ex 99)".
 - **Factor de anuncio** (ETA mostrada = ETA predicha × (1 − a), solo corre el anuncio, no mejora la predicción): a = 0. Sin valor según el usuario (2026-11-16): ajuste fino irrelevante, no se usa (RESULTADOS.md).
 - **Corrección de hora:** `CABA_TS_OFFSET_S` = 60 s en la app; provisorio, sin verdad de campo.
-- **Paridad pipeline/app:** la referencia numpy del export verifica contra el modelo entrenado; fixture JS contra Python regenerado con `path_v4_l1_s1` (`proyectoconsola/test/fixtures/path_parity.json`, 35 MB), dentro de `npm test`.
-- **Volver atrás:** `path_v3_l1_s1` (48 líneas, contrato 2.3) y `path_v2c_l1_s1` (12 líneas, contrato 2.1) quedan en `data/ml/export/` y en `proyectoconsola/public/models/`; volver a `path_v3_l1_s1` exige también reducir `enabledLines` a las 46.
+- **Paridad pipeline/app:** la referencia numpy del export verifica contra el modelo entrenado; fixture JS contra Python regenerado con `path_v4_l1_s1_r20261126` (`proyectoconsola/test/fixtures/path_parity.json`, 35 MB), dentro de `npm test`.
+- **Volver atrás (modelos anteriores):** `path_v4_l1_s1` (shapes del entrenamiento), `path_v3_l1_s1` (48 líneas, contrato 2.3) y `path_v2c_l1_s1` (12 líneas, contrato 2.1) quedan en `data/ml/export/` y en `proyectoconsola/public/models/`; volver a `path_v3_l1_s1` exige también reducir `enabledLines` a las 46.
 
 ### 6.2 Estado de los experimentos
 Resultados y números en RESULTADOS.md; comandos en §10.
@@ -245,6 +246,7 @@ Receta vigente: modelo por tramos, L1, `--stops-feature`, LR 2e-3, 12 épocas, O
 3. Instalar en la app: `node scripts/instalar_modelo.js <versión> --activar` (desde `proyectoconsola/`; origen por defecto `../prediccion colectivos/data/ml/export/<versión>/`; `--activar` cambia `activeModel` sin tocar las líneas habilitadas).
 4. Tests de la app: `npm test` (incluye la paridad JS contra Python) y `npm run test:e2e`.
 5. Deploy: push a `main` de proyectoconsola (Vercel); verificar que `https://consola-transporte.vercel.app/models/<versión>/manifest.json` sirva el contrato nuevo.
+6. **Reexportar sin reentrenar con los `line_shapes` actuales** (cuando cambian los recorridos o paradas de proyectoconsola): en el paso 1 agregar `--reshape` y un nombre con la fecha de los shapes, p. ej. `--ckpt data/ml/v4_sub/runs/path_lr2e-3_s1/path_eta_best.pt --out data/ml/export/path_v4_l1_s1_r20261126 --reshape`. Sin `--reshape` el script aborta si la geometría o las paradas de `line_shapes` difieren de las del checkpoint (salvaguarda contra desfase entre entrenamiento y servicio). Con la opción reconstruye `seg_lat`, `seg_lon`, `shape_off` y `stop_key` desde `line_shapes` (los shapeIds que ya no están se conservan en la tabla y no se exportan; los nuevos se agregan), mantiene la verificación ONNX contra PyTorch, avisa de las líneas sin `line_shapes` y anota `reshaped_from` en el manifest (checkpoint, fecha, commit de proyectoconsola). El modelo no tiene parámetros por shape: pesos y ONNX no cambian, el contrato tampoco (INFERENCIA_PATH.md). Test: `prediccion/tests/test_export_reshape.py`. Un modelo reexportado no es retrocompatible con coches que todavía van por el recorrido viejo: activarlo cuando el nuevo es el vigente en la calle.
 
 ### Corridas históricas
 E0–E2 (A0, A1, A3 con y sin grilla, línea 39 y 48 líneas), el subconjunto `v2_sub`, v2b, v2c, pérdidas y tránsito: comandos en sus lanzadores (`prediccion/scripts/run_confirmacion.py`, `run_v2b.py`, `run_v2b_l1.py`, `run_v2b_pinv.py`, `run_v2b_band.py`, `run_v2c.py`, `run_stops.py`, `run_traffic.py`, `run_v3full.py`) y en el tag git `pre-arquitectura-2026-11` (`git show pre-arquitectura-2026-11:<ruta>`); resultados en RESULTADOS.md. El trainer A3 (`prediccion.train --phase 3`) y A1 (`--phase 1`) siguen en el código.
@@ -257,11 +259,13 @@ Motivo del orden: el modelo está estancado en ~54–56 s de MAE. Pasar de 48 a 
 
 | # | Pendiente | Tipo | Estado |
 |---|---|---|---|
-| 1 | Piso del ETA por coche (experimento «gemelos») | medición | en curso desde 2026-11-27 |
+| 0 | **Arreglar las líneas débiles (prioridad máxima, decisión del usuario 2026-11-27)** | producto | sin empezar |
+| 0b | **Reentrenamiento con recorridos que cambiaron** | datos | problema para ver, sin resolver |
+| 1 | Piso del ETA por coche (experimento «gemelos») | medición | cerrado 2026-11-27: el modelo está en el piso |
 | 2 | Prior de ramal por cabecera | medición | en curso desde 2026-11-27 |
 | 3 | Asignación probabilística unificada: P(el coche pasa por la parada en el horizonte) | asignación | diseño después de 1 y 2 |
 | 4 | Coche que ya pasó y sigue listado | asignación | medido 2026-11-23, sin portar; decisión del usuario pendiente |
-| 5 | Ritmo propio del coche | modelo | depende del resultado de 1 |
+| 5 | Ritmo propio del coche | modelo | prioridad baja (margen ≤ ~2–7 s de MAE, resultado de 1) |
 | 6 | Corrección de hora con registros «Pasó» | producto | WIP del usuario; se revisa con ~100 pasos |
 | 7 | Drift fuera del período de validación | medición | bloqueada hasta ~mediados de diciembre 2026 |
 | 8 | Errores en las colas y lluvia | medición | para después |
@@ -275,11 +279,25 @@ Los pendientes cerrados están al final de la sección.
 
 ### Pendientes abiertos
 
-1. **Piso del ETA por coche (experimento «gemelos»).** Medición, en curso desde 2026-11-27.
+0. **Arreglar las líneas débiles.** Producto, prioridad máxima (decisión del usuario, 2026-11-27); los ítems 1–13 quedan por debajo y valen en la medida en que sirvan a este.
+   - Alcance: las 22 líneas con aviso de calidad baja (§6.1: 8, 21, 28, 29, 45, 55, 80, 95, 96, 98, 100, 118, 136, 145, 159, 160, 166, 180, 182, 188, 194, 197) y las no habilitadas 164, 61 y 88.
+   - Su error es de asignación, no de ETA por coche: el error por coche es igual a la vara del modelo y la diferencia está en qué coche se anuncia primero (RESULTADOS.md «Descomposición del error del próximo coche, v4»). Caso dominante: bondi fantasma en 8, 21, 29, 55, 80, 96, 136, 145, 159, 160, 166, 180, 182, 188, 194 y 197; otro coche llega primero en 28, 45, 95, 98, 100 y 118. La 164 tiene 74 % de `start_unknown`, la 88 79 %.
+   - Primer paso: diagnóstico por línea de la causa del bondi fantasma y del «otro coche llega primero» (otro ramal, sentido, viaje que termina antes, recorrido faltante en OSM, parada fuera de la lista), con la clasificación de `FALSAS_ALARMAS.md` extendida a estas líneas. La 8 tiene 6 ramales en `line_shapes` y el usuario indica 10–12 reales.
+   - Los recorridos de CABA se rehicieron desde OSM el 2026-11-26 (proyectoconsola c2bb8ec); el modelo en producción usa los del export de v4. Medir estas líneas también con los recorridos nuevos (prueba de la 42: `data/ml/replay/RECORRIDOS_NUEVOS_42.md`).
+   - Criterio de salida: una línea pierde el aviso cuando queda bajo los umbrales de la vara de producto de v4 (RESULTADOS.md «v4», umbral de avisos).
+
+0b. **Reentrenamiento con recorridos que cambiaron.** Problema para ver (2026-11-27); sin resolver.
+   - Los días del dataset (`data/ml/v4/daily/`) se armaron con los shapes viejos. El build reprocesa un día solo si cambian sus parámetros (`meta.json`, p. ej. `assign`), no si cambian los shapes.
+   - Un reentreno mezclaría días con shapes viejos y días con shapes nuevos; y en las líneas que cambiaron, los pings anteriores al cambio en la calle (p. ej. la 42 antes del 2026-11-25) no encajan con el recorrido nuevo.
+   - Opciones a evaluar: huella de shapes en `meta.json` (el build reprocesa el día si cambia), shapes con vigencia por fecha (cada día usa los recorridos vigentes ese día), excluir de cada línea los días previos a su cambio.
+   - Hoy el modelo en producción no depende de esto: usa el checkpoint de v4 con las tablas nuevas (§6.1).
+
+1. **Piso del ETA por coche (experimento «gemelos»).** Medición, **cerrada 2026-11-27** (`experiments/piso_gemelos/INFORME.md`, commit 376f35a; RESULTADOS.md «Piso del ETA por coche (gemelos)»).
+   - Resultado: el modelo está en el piso con oráculo de tránsito. Tramo de 1000 m, banda 3–7 min: el gemelo da 49,9 s de MAE y el modelo 49,6 s en los mismos casos; a 1500 m, 55,4 contra 59,4 s. El piso neto de ruido de interpolación es de 43–50 s. La prioridad pasa a la asignación (ítems 2–4).
    - Dos coches que recorren el mismo tramo (mismo sentido, entrada al tramo con ≤ 60 s de diferencia) equivalen a un predictor con oráculo de tránsito: el tiempo de uno predice el del otro. Su error es una cota del error alcanzable en 3–7 min.
    - Líneas: 39, 42, 92, 107, 132, 168.
    - Salida: `experiments/piso_gemelos/INFORME.md`.
-   - Si el modelo (~54–56 s) ya está cerca del piso, el resto de las mejoras de ETA por coche rinde poco y la prioridad pasa a la asignación (ítems 2–4); si hay un hueco grande, el ítem 5 (ritmo propio del coche) es el siguiente paso de modelo.
+   - Planteo original: si el modelo (~54–56 s) ya está cerca del piso, el resto de las mejoras de ETA por coche rinde poco y la prioridad pasa a la asignación (ítems 2–4).
 2. **Prior de ramal por cabecera.** Medición, en curso desde 2026-11-27.
    - Mezcla de ramales por línea × hora × día de la semana, y secuencia de despachos por cabecera (cualquier coche, no el mismo).
    - Distinto de la persistencia por coche, que ya se midió y no sirve (ítem 12).
@@ -294,7 +312,7 @@ Los pendientes cerrados están al final de la sección.
    - El 7 % de los instantes anuncia como próximo a un coche que ya cruzó la parada entre su último ping y la consulta; aporta 19 de los 97 s del MAE del próximo coche (RESULTADOS.md «Error de ETA por coche»).
    - Medido 2026-11-23 (RESULTADOS.md «Coche que ya pasó»): la variante P > 0,5 «baja» da −3,3 s en el MAE del próximo coche 3–7 min, mejora 117 de 126 líneas y no cambia los bondis no anunciados. Sin portar.
    - Queda absorbido por el ítem 3 si este avanza; si no, portarlo solo (pipeline → app). Decisión del usuario pendiente.
-5. **Ritmo propio del coche.** Modelo; depende del resultado del ítem 1.
+5. **Ritmo propio del coche.** Modelo; **prioridad baja** (resultado del ítem 1, 2026-11-27): margen ≤ ~2–7 s de MAE (hasta ~4–5 s más si la señal valiera tanto como promediar varios gemelos). Margen relativo solo en «llega antes > 60 s» (modelo 19,5 % contra gemelo 13,0 % a 1000 m), en parte por sesgo del modelo y en parte por la selección por ETA real.
    - Entrada causal nueva: tiempo real de los últimos 1–2 km del coche contra el tiempo típico del modelo en esos tramos.
    - Va como entrada del modelo, por tramo; hoy el estado del coche entra únicamente en el ajuste global `adj` (`prediccion/models/path_eta.py`, forward).
    - La define el pipeline y la app la calcula con su historial de 20 min (como `--stops-feature`); máscara si hay menos de 2 pings.

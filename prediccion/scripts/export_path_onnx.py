@@ -9,6 +9,10 @@ Salida en <out>/:
   path_eta.onnx        red (tramos de entrada, B y N dinámicos)
   manifest.json        versiones, constantes, normalizaciones, tabla de líneas, E/S del ONNX, tamaños y sha256
   lines/<línea>.json   por línea del modelo: shapes con puntos del recorrido y puntos medios de las celdas de 250 m
+Con --reshape se exporta el checkpoint con los line_shapes ACTUALES aunque difieran de los del entrenamiento (ver
+`reshape_checkpoint`): el modelo no tiene parámetros por shape, el shape solo indexa buffers estáticos (seg_lat, seg_lon,
+shape_off, stop_key), que se reconstruyen. Los pesos y path_eta.onnx no cambian. Sin la opción, una diferencia de geometría
+o paradas aborta (salvaguarda contra desfase entre entrenamiento y servicio). El manifest declara `reshaped_from`.
 Solo se exportan las líneas con embedding (`line_ids` del checkpoint). Las líneas que el checkpoint solo usa como
 geometría (control) no se exportan: en producción no se predice para ellas.
 """
@@ -16,6 +20,7 @@ geometría (control) no se exportan: en producción no se predice para ellas.
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import sys
@@ -36,7 +41,71 @@ def _round_flat(arr, nd=6) -> list:
     return [round(float(x), nd) for x in np.asarray(arr).reshape(-1)]
 
 
-def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True, model_version: str | None = None) -> dict:
+def reshape_checkpoint(ckpt: dict, shapes_dir: Path) -> tuple[dict, dict]:
+    """
+    Copia del checkpoint con los buffers de shapes (seg_lat, seg_lon, shape_off, stop_key) reconstruidos desde `shapes_dir`.
+    Los shapeIds del checkpoint que ya no están en shapes_dir conservan su tabla vieja (no se exportan); los nuevos se
+    agregan. Los pesos no se tocan. Devuelve (checkpoint nuevo, resumen).
+    """
+    import torch
+    from prediccion.models.path_eta import (STOP_KEY_SPAN, PathETAModel, build_stop_key, load_shape_points,
+                                            shape_cell_midpoints)
+    from prediccion.models.stops import load_shape_stops
+    old = PathETAModel.from_checkpoint(ckpt)
+    all_lines = sorted(p.stem for p in Path(shapes_dir).glob("*.json") if p.stem != "index")
+    npts = load_shape_points(all_lines, shapes_dir)
+    nstops = load_shape_stops(all_lines, shapes_dir)
+    off = old.shape_off.numpy()
+    sk = old.stop_key.numpy() if old.stops_feature else None
+    ids = sorted(set(old.shape_ids) | set(npts))
+    old_idx = {s: i for i, s in enumerate(old.shape_ids)}
+    lats, lons, offs, stops = [], [], [0], {}
+    for sid in ids:
+        if sid in npts:
+            la, lo = shape_cell_midpoints(npts[sid])
+            stops[sid] = nstops.get(sid, [])
+        else:
+            i = old_idx[sid]
+            la, lo = old.seg_lat[off[i]:off[i + 1]].numpy(), old.seg_lon[off[i]:off[i + 1]].numpy()
+            stops[sid] = ((sk[(sk >= i * STOP_KEY_SPAN) & (sk < (i + 1) * STOP_KEY_SPAN)] - i * STOP_KEY_SPAN).tolist()
+                          if sk is not None else [])
+        lats.append(la)
+        lons.append(lo)
+        offs.append(offs[-1] + len(la))
+    sd = dict(ckpt["model_state_dict"])
+    sd["seg_lat"] = torch.tensor(np.concatenate(lats), dtype=torch.float32)
+    sd["seg_lon"] = torch.tensor(np.concatenate(lons), dtype=torch.float32)
+    sd["shape_off"] = torch.tensor(offs, dtype=torch.long)
+    if old.stops_feature:
+        sd["stop_key"] = torch.tensor(build_stop_key(ids, stops), dtype=torch.float64)
+    new = dict(ckpt)
+    new["model_state_dict"] = sd
+    new["shape_ids"] = ids
+    new["n_seg_total"] = int(sd["seg_lat"].numel())
+    summary = {"shapes_in_checkpoint": len(old.shape_ids), "shapes_in_table": len(ids),
+               "shapes_not_in_shapes_dir": sorted(set(old.shape_ids) - set(npts)),
+               "shapes_added": sorted(set(npts) - set(old.shape_ids))}
+    return new, summary
+
+
+def _rel(p: Path, base: Path) -> str:
+    try:
+        return Path(p).resolve().relative_to(base).as_posix()
+    except ValueError:
+        return Path(p).as_posix()
+
+
+def _git_head(repo: Path) -> str | None:
+    import subprocess
+    try:
+        return subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True,
+                              check=True).stdout.strip()
+    except Exception:
+        return None
+
+
+def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True, model_version: str | None = None,
+           reshape: bool = False) -> dict:
     import torch
     from prediccion.inference.path_onnx import OUTPUT_NAMES, export_onnx, input_names
     from prediccion.models.geo import ShapeGeo
@@ -47,10 +116,17 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
     from prediccion.v2.shapes import DEFAULT_LINE_SHAPES_DIR
 
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
-    model = PathETAModel.from_checkpoint(ckpt).eval()
     out_dir = Path(out_dir)
     (out_dir / "lines").mkdir(parents=True, exist_ok=True)
     shapes_dir = Path(shapes_dir or DEFAULT_LINE_SHAPES_DIR)
+    reshaped_from, skipped_lines = None, []
+    if reshape:
+        ckpt, rs = reshape_checkpoint(ckpt, shapes_dir)
+        pc_repo = shapes_dir.resolve().parents[1]          # .../proyectoconsola/data/line_shapes -> proyectoconsola
+        reshaped_from = {"checkpoint": str(ckpt_path).replace("\\", "/"), "shapes_dir": _rel(shapes_dir, pc_repo.parent),
+                         "date": datetime.date.today().isoformat(), "shapes_repo_commit": _git_head(pc_repo),
+                         "weights": "sin reentrenar", **rs}
+    model = PathETAModel.from_checkpoint(ckpt).eval()
     ck_ids = {s: i for i, s in enumerate(model.shape_ids)}
     off = model.shape_off.numpy()
 
@@ -58,7 +134,12 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
     stop_key = model.stop_key.numpy() if model.stops_feature else None
     n_cells_total, exported, n_stops = 0, set(), 0
     for ln in model.line_ids:
-        data = json.loads((shapes_dir / f"{ln}.json").read_text(encoding="utf-8"))
+        fp = shapes_dir / f"{ln}.json"
+        if reshape and not fp.exists():
+            skipped_lines.append(ln)
+            print(f"AVISO línea {ln}: no existe {fp.name} en {shapes_dir}; no se exporta")
+            continue
+        data = json.loads(fp.read_text(encoding="utf-8"))
         shapes = []
         for r in data.get("ramales", []):
             sid, pts = r.get("shapeId"), r.get("points", [])
@@ -91,6 +172,10 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
             shapes.append(entry)
             n_cells_total += len(lat)
             exported.add(sid)
+        if not shapes and reshape:
+            skipped_lines.append(ln)
+            print(f"AVISO línea {ln}: sin shapes en {shapes_dir}; no se exporta (queda en la tabla de líneas)")
+            continue
         if not shapes:
             raise SystemExit(f"línea {ln}: ningún shape del checkpoint en {shapes_dir}")
         (out_dir / "lines" / f"{ln}.json").write_text(json.dumps({"line": ln, "shapes": shapes}, separators=(",", ":")),
@@ -124,6 +209,7 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
         **({"stops": {"decimals": STOP_DECIMALS, "next_cap_m": STOP_NEXT_CAP_M, "n_stops": n_stops,
                       "rule": "seg_stop_n = paradas con lo <= parada < hi; seg_stop_next = min(primera parada >= lo, lo + cap) - lo"}}
            if model.stops_feature else {}),
+        **({"reshaped_from": {**reshaped_from, "lines_without_shapes": skipped_lines}} if reshape else {}),
         "n_shapes": len(exported), "n_cells": n_cells_total,
         "files": {k: {"bytes": p.stat().st_size, "sha256": _sha(p)} for k, p in files.items()},
     }
@@ -171,9 +257,13 @@ def main(argv=None):
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--shapes-dir", type=Path, default=None, help="default: proyectoconsola/data/line_shapes")
     ap.add_argument("--model-version", default=None, help="default: nombre del directorio de salida")
+    ap.add_argument("--reshape", action="store_true",
+                    help="exportar con los line_shapes actuales aunque difieran de los del entrenamiento (reconstruye "
+                         "seg_lat/seg_lon/shape_off/stop_key; pesos sin cambios; el manifest declara reshaped_from)")
     ap.add_argument("--no-verify", action="store_true")
     a = ap.parse_args(argv)
-    m = export(a.ckpt, a.out, a.shapes_dir, verify=not a.no_verify, model_version=a.model_version)
+    m = export(a.ckpt, a.out, a.shapes_dir, verify=not a.no_verify, model_version=a.model_version,
+               reshape=a.reshape)
     for k, v in m["files"].items():
         print(f"{k:24s} {v['bytes']:>10,d} B")
     print(f"total {sum(v['bytes'] for v in m['files'].values()):,d} B; {m['n_shapes']} shapes, {m['n_cells']} celdas -> {a.out}")
