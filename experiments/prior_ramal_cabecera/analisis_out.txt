@@ -1,0 +1,180 @@
+## Tabla por linea (test 2026-09-15 a 10-14; acc / logloss)
+linea | n | unif | freq | a | b | c | cq
+39 | 16317 | 0.289 / 1.099 | 0.372 / 1.093 | 0.389 / 1.055 | 0.668 / 0.776 | 0.685 / 0.723 | 0.699 / 0.712
+42 | 5540 | 0.503 / 0.997 | 0.503 / 0.935 | 0.540 / 0.833 | 0.569 / 0.888 | 0.593 / 0.822 | 0.587 / 0.831
+50 | 9433 | 0.717 / 0.693 | 0.717 / 0.596 | 0.716 / 0.582 | 0.717 / 0.540 | 0.721 / 0.531 | 0.743 / 0.517
+106 | 10370 | 0.603 / 0.693 | 0.603 / 0.672 | 0.603 / 0.666 | 0.651 / 0.635 | 0.642 / 0.630 | 0.659 / 0.616
+107 | 3157 | 0.688 / 0.693 | 0.688 / 0.621 | 0.687 / 0.625 | 0.688 / 0.583 | 0.688 / 0.584 | 0.692 / 0.581
+132 | 17403 | 0.569 / 0.693 | 0.569 / 0.683 | 0.571 / 0.677 | 0.666 / 0.614 | 0.682 / 0.608 | 0.689 / 0.598
+151 | 5360 | 0.127 / 0.693 | 0.873 / 0.398 | 0.873 / 0.401 | 0.873 / 0.396 | 0.873 / 0.398 | 0.873 / 0.396
+168 | 4680 | 0.461 / 0.693 | 0.539 / 0.690 | 0.608 / 0.644 | 0.675 / 0.604 | 0.733 / 0.570 | 0.723 / 0.564
+
+## Calibracion
+
+### Calibracion cq: todas las lineas (deciles de P predicha por par viaje-ramal; ECE 0.009)
+P media | frecuencia real | n
+0.037 | 0.048 | 16504
+0.118 | 0.126 | 16496
+0.201 | 0.190 | 16507
+0.287 | 0.291 | 16500
+0.380 | 0.365 | 16493
+0.470 | 0.469 | 16497
+0.573 | 0.576 | 16501
+0.671 | 0.664 | 16515
+0.764 | 0.782 | 16567
+0.880 | 0.871 | 16405
+
+### Calibracion cq: linea 39 (deciles de P predicha por par viaje-ramal; ECE 0.019)
+P media | frecuencia real | n
+0.020 | 0.032 | 4899
+0.042 | 0.052 | 4900
+0.073 | 0.074 | 4889
+0.112 | 0.116 | 4898
+0.164 | 0.148 | 4897
+0.249 | 0.306 | 4888
+0.416 | 0.425 | 4905
+0.623 | 0.567 | 4885
+0.756 | 0.753 | 4896
+0.878 | 0.861 | 4894
+
+### Calibracion cq: linea 168 (deciles de P predicha por par viaje-ramal; ECE 0.050)
+P media | frecuencia real | n
+0.085 | 0.156 | 941
+0.197 | 0.220 | 932
+0.295 | 0.221 | 940
+0.376 | 0.311 | 933
+0.461 | 0.478 | 934
+0.539 | 0.523 | 937
+0.624 | 0.690 | 936
+0.705 | 0.779 | 936
+0.804 | 0.779 | 945
+0.916 | 0.846 | 926
+ECE base freq (todas): 0.010
+
+## Traduccion a producto: P(pasa por parada exclusiva de R) = P(ramal=R) del prior (modelo cq) contra tasa real, habiles de test
+cabecera | ramal | franja | P media prior | P freq (base) | tasa real | n
+106|Liniers | 106A | pico 7-9 | 0.58 | 0.59 | 0.56 | 1564
+106|Liniers | 106A | valle 11-15 | 0.56 | 0.59 | 0.57 | 2333
+106|Liniers | 106A | noche 21-23 | 0.60 | 0.59 | 0.62 | 723
+106|Liniers | 106B | pico 7-9 | 0.42 | 0.41 | 0.44 | 1564
+106|Liniers | 106B | valle 11-15 | 0.44 | 0.41 | 0.43 | 2333
+106|Liniers | 106B | noche 21-23 | 0.40 | 0.41 | 0.38 | 723
+107|Ciudad Universitaria | 107A | pico 7-9 | 0.72 | 0.70 | 0.70 | 442
+107|Ciudad Universitaria | 107A | valle 11-15 | 0.72 | 0.70 | 0.69 | 775
+107|Ciudad Universitaria | 107A | noche 21-23 | 0.68 | 0.70 | 0.58 | 374
+107|Ciudad Universitaria | 107B | pico 7-9 | 0.28 | 0.30 | 0.30 | 442
+107|Ciudad Universitaria | 107B | valle 11-15 | 0.28 | 0.30 | 0.31 | 775
+107|Ciudad Universitaria | 107B | noche 21-23 | 0.32 | 0.30 | 0.42 | 374
+132|Cementerio de Flores | 132A | pico 7-9 | 0.60 | 0.56 | 0.58 | 1213
+132|Cementerio de Flores | 132A | valle 11-15 | 0.56 | 0.56 | 0.55 | 1996
+132|Cementerio de Flores | 132A | noche 21-23 | 0.59 | 0.56 | 0.53 | 450
+132|Cementerio de Flores | 132B | pico 7-9 | 0.40 | 0.44 | 0.42 | 1213
+132|Cementerio de Flores | 132B | valle 11-15 | 0.44 | 0.44 | 0.45 | 1996
+132|Cementerio de Flores | 132B | noche 21-23 | 0.41 | 0.44 | 0.47 | 450
+132|Retiro | 132A | pico 7-9 | 0.65 | 0.58 | 0.67 | 1140
+132|Retiro | 132A | valle 11-15 | 0.55 | 0.58 | 0.56 | 2074
+132|Retiro | 132A | noche 21-23 | 0.61 | 0.58 | 0.58 | 744
+132|Retiro | 132B | pico 7-9 | 0.35 | 0.42 | 0.33 | 1140
+132|Retiro | 132B | valle 11-15 | 0.45 | 0.42 | 0.44 | 2074
+132|Retiro | 132B | noche 21-23 | 0.39 | 0.42 | 0.42 | 744
+151|Puente Saavedra | 151A | pico 7-9 | 0.20 | 0.20 | 0.12 | 1013
+151|Puente Saavedra | 151A | valle 11-15 | 0.21 | 0.20 | 0.13 | 1187
+151|Puente Saavedra | 151A | noche 21-23 | 0.08 | 0.20 | 0.06 | 309
+151|Puente Saavedra | 151B | pico 7-9 | 0.80 | 0.80 | 0.88 | 1013
+151|Puente Saavedra | 151B | valle 11-15 | 0.79 | 0.80 | 0.87 | 1187
+151|Puente Saavedra | 151B | noche 21-23 | 0.92 | 0.80 | 0.94 | 309
+168|La Boca | 168 | pico 7-9 | 0.41 | 0.45 | 0.39 | 656
+168|La Boca | 168 | valle 11-15 | 0.42 | 0.45 | 0.45 | 998
+168|La Boca | 168 | noche 21-23 | 0.75 | 0.45 | 0.61 | 155
+168|La Boca | 168C | pico 7-9 | 0.59 | 0.55 | 0.61 | 656
+168|La Boca | 168C | valle 11-15 | 0.58 | 0.55 | 0.55 | 998
+168|La Boca | 168C | noche 21-23 | 0.25 | 0.55 | 0.39 | 155
+39|Barracas | 39A | pico 7-9 | 0.32 | 0.29 | 0.33 | 715
+39|Barracas | 39A | valle 11-15 | 0.32 | 0.29 | 0.36 | 1173
+39|Barracas | 39A | noche 21-23 | 0.40 | 0.29 | 0.31 | 670
+39|Barracas | 39B | pico 7-9 | 0.31 | 0.34 | 0.34 | 715
+39|Barracas | 39B | valle 11-15 | 0.32 | 0.34 | 0.32 | 1173
+39|Barracas | 39B | noche 21-23 | 0.28 | 0.34 | 0.33 | 670
+39|Barracas | 39C | pico 7-9 | 0.38 | 0.37 | 0.33 | 715
+39|Barracas | 39C | valle 11-15 | 0.36 | 0.37 | 0.32 | 1173
+39|Barracas | 39C | noche 21-23 | 0.32 | 0.37 | 0.36 | 670
+39|Chacarita | 39A | pico 7-9 | 0.33 | 0.30 | 0.35 | 1315
+39|Chacarita | 39A | valle 11-15 | 0.34 | 0.30 | 0.35 | 1643
+39|Chacarita | 39A | noche 21-23 | 0.38 | 0.30 | 0.36 | 793
+39|Chacarita | 39B | pico 7-9 | 0.33 | 0.34 | 0.32 | 1315
+39|Chacarita | 39B | valle 11-15 | 0.32 | 0.34 | 0.33 | 1643
+39|Chacarita | 39B | noche 21-23 | 0.30 | 0.34 | 0.32 | 793
+39|Chacarita | 39C | pico 7-9 | 0.34 | 0.36 | 0.33 | 1315
+39|Chacarita | 39C | valle 11-15 | 0.34 | 0.36 | 0.33 | 1643
+39|Chacarita | 39C | noche 21-23 | 0.32 | 0.36 | 0.32 | 793
+42|Ciudad Universitaria | 42A | pico 7-9 | 0.60 | 0.63 | 0.61 | 247
+42|Ciudad Universitaria | 42A | valle 11-15 | 0.60 | 0.63 | 0.60 | 282
+42|Ciudad Universitaria | 42A | noche 21-23 | 0.75 | 0.63 | 0.74 | 99
+42|Ciudad Universitaria | 42B | pico 7-9 | 0.40 | 0.37 | 0.39 | 247
+42|Ciudad Universitaria | 42B | valle 11-15 | 0.40 | 0.37 | 0.40 | 282
+42|Ciudad Universitaria | 42B | noche 21-23 | 0.25 | 0.37 | 0.26 | 99
+42|Nueva Pompeya | 42A | pico 7-9 | 0.41 | 0.48 | 0.35 | 499
+42|Nueva Pompeya | 42A | valle 11-15 | 0.43 | 0.48 | 0.42 | 757
+42|Nueva Pompeya | 42A | noche 21-23 | 0.93 | 0.48 | 0.92 | 263
+42|Nueva Pompeya | 42B | pico 7-9 | 0.30 | 0.32 | 0.42 | 499
+42|Nueva Pompeya | 42B | valle 11-15 | 0.30 | 0.32 | 0.43 | 757
+42|Nueva Pompeya | 42B | noche 21-23 | 0.07 | 0.32 | 0.08 | 263
+42|Nueva Pompeya | 42C | pico 7-9 | 0.29 | 0.21 | 0.23 | 499
+42|Nueva Pompeya | 42C | valle 11-15 | 0.27 | 0.21 | 0.15 | 757
+42|Nueva Pompeya | 42C | noche 21-23 | 0.00 | 0.21 | 0.00 | 263
+50|Eva Perón y General Paz | 50A | pico 7-9 | 0.68 | 0.71 | 0.68 | 834
+50|Eva Perón y General Paz | 50A | valle 11-15 | 0.70 | 0.71 | 0.70 | 1312
+50|Eva Perón y General Paz | 50A | noche 21-23 | 0.68 | 0.71 | 0.66 | 165
+50|Eva Perón y General Paz | 50C | pico 7-9 | 0.32 | 0.29 | 0.32 | 834
+50|Eva Perón y General Paz | 50C | valle 11-15 | 0.30 | 0.29 | 0.30 | 1312
+50|Eva Perón y General Paz | 50C | noche 21-23 | 0.32 | 0.29 | 0.34 | 165
+50|Plaza del Correo | 50A | pico 7-9 | 0.68 | 0.71 | 0.70 | 746
+50|Plaza del Correo | 50A | valle 11-15 | 0.72 | 0.71 | 0.74 | 1279
+50|Plaza del Correo | 50A | noche 21-23 | 0.76 | 0.71 | 0.73 | 222
+50|Plaza del Correo | 50C | pico 7-9 | 0.32 | 0.29 | 0.30 | 746
+50|Plaza del Correo | 50C | valle 11-15 | 0.28 | 0.29 | 0.26 | 1279
+50|Plaza del Correo | 50C | noche 21-23 | 0.24 | 0.29 | 0.27 | 222
+
+Fraccion de viajes de test donde el prior da P(ramal mas probable) >= umbral, y su tasa real de acierto
+linea | >=0.6: % viajes / acierto | >=0.8: % viajes / acierto
+39 | 79% / 0.753 | 35% / 0.853
+42 | 45% / 0.700 | 18% / 0.893
+50 | 78% / 0.789 | 41% / 0.891
+106 | 65% / 0.716 | 4% / 0.927
+107 | 77% / 0.723 | 29% / 0.893
+132 | 70% / 0.745 | 15% / 0.827
+151 | 100% / 0.873 | 58% / 0.889
+168 | 75% / 0.782 | 31% / 0.829
+
+### 39 Barracas: P(ramal | ramal del despacho anterior, mismo origen, cualquier coche), n=21626
+ramal    39A    39B    39C
+prev                      
+39A    0.103  0.581  0.316
+39B    0.176  0.048  0.776
+39C    0.517  0.422  0.061
+gap mediano entre despachos (min): 4.0
+
+### 39 Chacarita: P(ramal | ramal del despacho anterior, mismo origen, cualquier coche), n=26011
+ramal    39A    39B    39C
+prev                      
+39A    0.097  0.568  0.335
+39B    0.240  0.064  0.696
+39C    0.521  0.406  0.073
+gap mediano entre despachos (min): 3.0
+
+## Validacion contra CuandoSubo (route_id grabado en el viaje -> ramal; dias 2026-09-23 a 10-03 con datos)
+linea | cabecera | n con CS | acuerdo etiqueta ex post-CS | modelo: acc ex post / acc CS | logloss ex post / CS | base freq acc CS
+106|Liniers | 87 | 0.816 | cq acc 0.621 / 0.621 | 0.646 / 0.650 | freq acc 0.989 ll 0.530
+107|Ciudad Universitaria | 343 | 0.965 | cq acc 0.703 / 0.691 | 0.581 / 0.592 | freq acc 0.685 ll 0.623
+132|Cementerio de Flores | 1322 | 0.939 | cq acc 0.707 / 0.684 | 0.577 / 0.606 | freq acc 0.542 ll 0.690
+132|Retiro | 1028 | 0.914 | cq acc 0.634 / 0.623 | 0.654 / 0.664 | freq acc 0.557 ll 0.688
+168|La Boca | 976 | 0.921 | cq acc 0.752 / 0.731 | 0.541 / 0.559 | freq acc 0.551 ll 0.688
+39|Barracas | 1262 | 0.937 | cq acc 0.681 / 0.645 | 0.732 / 0.821 | freq acc 0.387 ll 1.086
+39|Chacarita | 1182 | 0.940 | cq acc 0.692 / 0.687 | 0.748 / 0.760 | freq acc 0.411 ll 1.080
+42|Ciudad Universitaria | 38 | 0.711 | cq acc 0.737 / 0.816 | 0.450 / 0.386 | freq acc 1.000 ll 0.467
+50|Eva Perón y General Paz | 667 | 0.987 | cq acc 0.885 / 0.886 | 0.301 / 0.297 | freq acc 1.000 ll 0.348
+50|Plaza del Correo | 892 | 0.798 | cq acc 0.790 / 0.885 | 0.474 / 0.362 | freq acc 1.000 ll 0.344
+
+Detalle 39 y 168 por modelo contra CS (acc / logloss; viajes con CS, todas las cabeceras)
+39 n 2444 unif 0.226 / 1.099 | freq 0.399 / 1.083 | a 0.347 / 1.079 | b 0.655 / 0.812 | c 0.658 / 0.786 | cq 0.665 / 0.791
+168 n 976 unif 0.449 / 0.693 | freq 0.551 / 0.688 | a 0.629 / 0.650 | b 0.681 / 0.621 | c 0.741 / 0.578 | cq 0.731 / 0.559
