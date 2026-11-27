@@ -22,7 +22,7 @@ import re
 import sys
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 CONSOLA_DIR = PROJECT_DIR.parent / "proyectoconsola"
 MAP_PATHS = [CONSOLA_DIR / "LABEL_LINE_MAP.json", PROJECT_DIR / "LABEL_LINE_MAP.json"]
 PENDING_JSON = CONSOLA_DIR / "pending_label_work.json"

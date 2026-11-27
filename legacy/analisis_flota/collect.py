@@ -22,7 +22,7 @@ from pathlib import Path
 GRABACIONES_DIR = Path(r"Z:\grabaciones")
 SCRIPT_DIR = Path(__file__).parent
 FLEET_DB_PATH = SCRIPT_DIR / "fleet_db.json"
-LABEL_LINE_MAP_PATH = SCRIPT_DIR.parent / "LABEL_LINE_MAP.json"
+LABEL_LINE_MAP_PATH = SCRIPT_DIR.parent.parent / "LABEL_LINE_MAP.json"
 
 DEFAULT_DATES = [f"2026-05-{d:02d}" for d in range(23, 31)]
 PEAK_HOURS_UTC = {13, 14, 15, 16, 18, 19, 21, 22, 23}
@@ -76,7 +76,7 @@ def estimate_year(raw_plate: str) -> int | None:
 
 def load_label_map() -> dict:
     """Carga LABEL_LINE_MAP.json v2 (keyed por línea, con vigencias)."""
-    sys.path.insert(0, str(SCRIPT_DIR.parent))
+    sys.path.insert(0, str(SCRIPT_DIR.parent.parent))
     from prediccion.pipeline.shapes_io import load_label_line_data
     return load_label_line_data(LABEL_LINE_MAP_PATH)
 

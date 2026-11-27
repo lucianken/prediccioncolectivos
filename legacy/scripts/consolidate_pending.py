@@ -18,7 +18,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 CONSOLA_DIR = PROJECT_DIR.parent / "proyectoconsola"
 
 REPORT = PROJECT_DIR / "experiments" / "scan_suffix_changes_report.json"

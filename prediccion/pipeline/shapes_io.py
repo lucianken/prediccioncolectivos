@@ -27,7 +27,7 @@ def load_label_line_data(path: str | Path) -> dict:
         data = json.load(f)
     if "lines" not in data:
         raise ValueError(
-            f"{path}: schema v1 detectado; migrar con scripts/migrate_label_line_map_v2.py"
+            f"{path}: schema v1 detectado; migrar con legacy/scripts/migrate_label_line_map_v2.py"
         )
     return data
 

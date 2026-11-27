@@ -11,7 +11,7 @@ unificado de trabajo pendiente (pending_label_work.json v2 en proyectoconsola).
    en proyectoconsola despues de este script.
 
 Uso:
-    python scripts/apply_scan_results.py
+    python prediccion/label_map/apply_scan_results.py
 """
 
 import json
@@ -19,7 +19,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 CONSOLA_DIR = PROJECT_DIR.parent / "proyectoconsola"
 
 REPORT = PROJECT_DIR / "experiments" / "scan_suffix_changes_report.json"
@@ -82,7 +82,7 @@ def main() -> None:
 
     # 2) merge en pending unificado
     pending_data = load_json(PENDING_JSON)
-    assert pending_data.get("version") == 2, "pending no es v2 — correr consolidate_pending.py"
+    assert pending_data.get("version") == 2, "pending no es v2 — correr legacy/scripts/consolidate_pending.py"
     pending = pending_data["pending"]
 
     n_new = n_updated = 0

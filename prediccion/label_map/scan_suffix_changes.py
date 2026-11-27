@@ -13,8 +13,13 @@ Salida: scan_suffix_changes_report.json con
   - disappeared_suffixes: estan en v1 y no vuelven a aparecer -> last_seen = `to`
   - cross_check contra desapariciones_api_mayo2026.json (por linea)
 
+NOTA: el scan tiene fechas fijas de julio 2026 (--start 2026-05-24, --end
+2026-07-01 y el corte de 5 dias por defecto): hay que ajustarlas antes de
+reusarlo para un cambio de flota nuevo. Herramienta vigente: se usa cuando
+cambia la flota (ver proyectoconsola/pending_label_work.json).
+
 Uso:
-    python scripts/scan_suffix_changes.py [--start 2026-05-24] [--end 2026-07-01]
+    python prediccion/label_map/scan_suffix_changes.py [--start 2026-05-24] [--end 2026-07-01]
 """
 
 import argparse
@@ -24,7 +29,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = SCRIPT_DIR.parent
+PROJECT_DIR = SCRIPT_DIR.parent.parent
 GRABACIONES = Path(r"Z:\grabaciones")
 CACHE_DIR = PROJECT_DIR / "experiments" / "suffix_scan_cache"
 V1_MAP = PROJECT_DIR / "LABEL_LINE_MAP.json"

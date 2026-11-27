@@ -21,7 +21,7 @@ import argparse
 import json
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 V1_PATH = PROJECT_DIR / "LABEL_LINE_MAP.json"
 V2_PATH = PROJECT_DIR / "LABEL_LINE_MAP.json"  # se pisa in-place
 CANDIDATES_PATH = PROJECT_DIR / "CANDIDATES.json"
