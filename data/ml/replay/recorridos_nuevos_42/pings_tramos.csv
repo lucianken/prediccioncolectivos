@@ -1,0 +1,110 @@
+day,cat,tramo,n
+2026-11-17,nuevo_solo,Neuquén y Hidalgo,1
+2026-11-17,viejo_solo,Olaya y Ángel Gallardo,186
+2026-11-17,viejo_solo,Muñecas y Gurruchaga,164
+2026-11-17,viejo_solo,Avenida Juan B. Justo,131
+2026-11-17,viejo_solo,Acoyte y Apolinario Figueroa,117
+2026-11-17,viejo_solo,Olaya y Luis Viale,117
+2026-11-17,viejo_solo,Plaza Nazar,107
+2026-11-17,viejo_solo,Olaya y Tres Arroyos,106
+2026-11-17,viejo_solo,Acoyte y Ghandi,97
+2026-11-17,viejo_solo,Warnes y Escalada de San Martín,83
+2026-11-17,viejo_solo,Warnes y Juan B. Justo,81
+2026-11-17,viejo_solo,Muñecas y Humboldt,79
+2026-11-17,viejo_solo,Muñecas y Dorrego,38
+2026-11-17,viejo_solo,Acoyte y Vallese,21
+2026-11-18,nuevo_solo,Avenida Dorrego,2
+2026-11-18,nuevo_solo,Neuquén y Hidalgo,1
+2026-11-18,nuevo_solo,Dorrego y Rosas,1
+2026-11-18,viejo_solo,Olaya y Ángel Gallardo,179
+2026-11-18,viejo_solo,Muñecas y Gurruchaga,168
+2026-11-18,viejo_solo,Acoyte y Apolinario Figueroa,132
+2026-11-18,viejo_solo,Avenida Juan B. Justo,118
+2026-11-18,viejo_solo,Olaya y Luis Viale,106
+2026-11-18,viejo_solo,Acoyte y Ghandi,102
+2026-11-18,viejo_solo,Plaza Nazar,102
+2026-11-18,viejo_solo,Warnes y Escalada de San Martín,99
+2026-11-18,viejo_solo,Olaya y Tres Arroyos,97
+2026-11-18,viejo_solo,Muñecas y Humboldt,93
+2026-11-18,viejo_solo,Warnes y Juan B. Justo,65
+2026-11-18,viejo_solo,Muñecas y Dorrego,44
+2026-11-18,viejo_solo,Acoyte y Vallese,30
+2026-11-19,nuevo_solo,Honorio Pueyrredón,1
+2026-11-19,viejo_solo,Olaya y Ángel Gallardo,203
+2026-11-19,viejo_solo,Muñecas y Gurruchaga,156
+2026-11-19,viejo_solo,Avenida Juan B. Justo,154
+2026-11-19,viejo_solo,Acoyte y Apolinario Figueroa,145
+2026-11-19,viejo_solo,Olaya y Luis Viale,122
+2026-11-19,viejo_solo,Olaya y Tres Arroyos,112
+2026-11-19,viejo_solo,Acoyte y Ghandi,99
+2026-11-19,viejo_solo,Warnes y Escalada de San Martín,94
+2026-11-19,viejo_solo,Plaza Nazar,93
+2026-11-19,viejo_solo,Muñecas y Humboldt,75
+2026-11-19,viejo_solo,Warnes y Juan B. Justo,64
+2026-11-19,viejo_solo,Muñecas y Dorrego,42
+2026-11-19,viejo_solo,Acoyte y Vallese,21
+2026-11-20,viejo_solo,Olaya y Ángel Gallardo,171
+2026-11-20,viejo_solo,Muñecas y Gurruchaga,147
+2026-11-20,viejo_solo,Acoyte y Apolinario Figueroa,141
+2026-11-20,viejo_solo,Avenida Juan B. Justo,124
+2026-11-20,viejo_solo,Olaya y Luis Viale,106
+2026-11-20,viejo_solo,Plaza Nazar,98
+2026-11-20,viejo_solo,Olaya y Tres Arroyos,94
+2026-11-20,viejo_solo,Warnes y Escalada de San Martín,92
+2026-11-20,viejo_solo,Acoyte y Ghandi,88
+2026-11-20,viejo_solo,Muñecas y Humboldt,80
+2026-11-20,viejo_solo,Warnes y Juan B. Justo,71
+2026-11-20,viejo_solo,Muñecas y Dorrego,44
+2026-11-20,viejo_solo,Acoyte y Vallese,23
+2026-11-24,nuevo_solo,Honorio Pueyrredón,2
+2026-11-24,nuevo_solo,Neuquén y Hidalgo,2
+2026-11-24,viejo_solo,Olaya y Ángel Gallardo,192
+2026-11-24,viejo_solo,Acoyte y Apolinario Figueroa,161
+2026-11-24,viejo_solo,Muñecas y Gurruchaga,157
+2026-11-24,viejo_solo,Avenida Juan B. Justo,134
+2026-11-24,viejo_solo,Olaya y Tres Arroyos,112
+2026-11-24,viejo_solo,Olaya y Luis Viale,107
+2026-11-24,viejo_solo,Warnes y Escalada de San Martín,93
+2026-11-24,viejo_solo,Acoyte y Ghandi,84
+2026-11-24,viejo_solo,Muñecas y Humboldt,84
+2026-11-24,viejo_solo,Plaza Nazar,80
+2026-11-24,viejo_solo,Warnes y Juan B. Justo,72
+2026-11-24,viejo_solo,Muñecas y Dorrego,49
+2026-11-24,viejo_solo,Acoyte y Vallese,22
+2026-11-25,nuevo_solo,Galicia,125
+2026-11-25,nuevo_solo,Honorio Pueyrredón,103
+2026-11-25,nuevo_solo,Ángel Gallardo y Virasoro,95
+2026-11-25,nuevo_solo,Aranguren,83
+2026-11-25,nuevo_solo,Ampère,67
+2026-11-25,nuevo_solo,Avenida Dorrego,64
+2026-11-25,nuevo_solo,Belaustegui,60
+2026-11-25,nuevo_solo,Neuquén y Hidalgo,58
+2026-11-25,nuevo_solo,Gallardo e Hidalgo,24
+2026-11-25,nuevo_solo,Dorrego y Rosas,16
+2026-11-25,viejo_solo,Acoyte y Apolinario Figueroa,1
+2026-11-25,viejo_solo,Avenida Juan B. Justo,1
+2026-11-25,viejo_solo,Muñecas y Dorrego,1
+2026-11-25,viejo_solo,Warnes y Juan B. Justo,1
+2026-11-25,viejo_solo,Olaya y Luis Viale,1
+2026-11-25,viejo_solo,Plaza Nazar,1
+2026-11-26,nuevo_solo,Galicia,324
+2026-11-26,nuevo_solo,Honorio Pueyrredón,266
+2026-11-26,nuevo_solo,Ángel Gallardo y Virasoro,256
+2026-11-26,nuevo_solo,Belaustegui,196
+2026-11-26,nuevo_solo,Aranguren,191
+2026-11-26,nuevo_solo,Ampère,170
+2026-11-26,nuevo_solo,Avenida Dorrego,162
+2026-11-26,nuevo_solo,Neuquén y Hidalgo,144
+2026-11-26,nuevo_solo,Gallardo e Hidalgo,73
+2026-11-26,nuevo_solo,Dorrego y Rosas,38
+2026-11-26,viejo_solo,Warnes y Juan B. Justo,1
+2026-11-27,nuevo_solo,Galicia,204
+2026-11-27,nuevo_solo,Honorio Pueyrredón,154
+2026-11-27,nuevo_solo,Ángel Gallardo y Virasoro,143
+2026-11-27,nuevo_solo,Belaustegui,109
+2026-11-27,nuevo_solo,Aranguren,107
+2026-11-27,nuevo_solo,Ampère,98
+2026-11-27,nuevo_solo,Avenida Dorrego,97
+2026-11-27,nuevo_solo,Neuquén y Hidalgo,71
+2026-11-27,nuevo_solo,Gallardo e Hidalgo,39
+2026-11-27,nuevo_solo,Dorrego y Rosas,26
