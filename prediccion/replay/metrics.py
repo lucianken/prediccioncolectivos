@@ -49,6 +49,29 @@ def next_bus(inst: pd.DataFrame, col: str, lo: float = 0.0, hi: float = GLOBAL_M
             "despues_pct": float(100 * (err > TOL_S).mean()) if has.any() else np.nan, "n_excl_unv": n_unv}
 
 
+def within_tol(inst: pd.DataFrame, col: str = "ann0_any_s", tols=(60.0, 120.0, 180.0), lo: float = 180.0, hi: float = 420.0,
+               corrected: bool = True) -> dict:
+    """Fracción de instantes en que el primer arribo anunciado (`col`) cae dentro de ±tol del primer paso real de cualquier coche
+    que sirve la parada (misma verdad e instantes que `next_bus`: real en [lo, hi], sin los de paso previo no verificable si
+    `corrected`). Devuelve por tol: pct_con_anuncio (sobre los instantes con anuncio, como el MAE) y pct_total (los sin anuncio
+    cuentan como falla); n = instantes de la banda, n_con = con anuncio."""
+    real = _real(inst, corrected)
+    if corrected:
+        unv = _unverifiable(inst, real)
+        inst, real = inst[~unv], real[~unv]
+    m = (real >= lo) & (real <= hi)
+    s, r = inst[m], real[m]
+    ann = s[col]
+    has = ann.notna()
+    err = (ann - r).abs()
+    out = {"n": int(len(s)), "n_con": int(has.sum())}
+    for t in tols:
+        ok = err <= t
+        out[f"dentro_{int(t)}_con_pct"] = float(100 * ok[has].mean()) if has.any() else np.nan
+        out[f"dentro_{int(t)}_total_pct"] = float(100 * ok.mean()) if len(s) else np.nan
+    return out
+
+
 def false_alarms(veh: pd.DataFrame, corrected: bool = False, eta_band: tuple | None = None) -> dict:
     """
     Anterior: coche listado sin cruce estricto en 40 min. Corregida: sobre los listados con ETA anunciado (eta0) dentro del

@@ -18,6 +18,7 @@ Movido desde `ARQUITECTURA.md` (la sección Resultados Resultados completa, regi
   - v3: escalado a 48 líneas (2026-11-15)
   - v4: todas las líneas AMBA < 200 (2026-11-21)
   - Descomposición del error del próximo coche, v4 (2026-11-22)
+  - Primer arribo anunciado dentro de ±2 min y caso (d) (2026-11-27)
   - Ruido de la verdad, error por tramo y feriados (2026-11-23)
   - Historial para "coche de adelante": 20 min contra 60 min o el día (2026-11-23): sin valor
   - Coche que ya pasó: bajarlo o sacarlo de la lista (2026-11-23)
@@ -332,6 +333,36 @@ Replay de v4 (RESULTADOS.md «v4»), 126 líneas habilitadas, banda 3–7 min. F
 - Peores (aportes c / d / e en s): 188 567 s (320 / 190 / 25), 8 464 s (337 / 45 / 26), 45 380 s (73 / 181 / 85), 80 376 s (154 / 48 / 133), 29 328 s, 182 323 s, 145 319 s. Con 2 ramales y MAE alto: 45, 95 (por d), 166 (por c), 80 (por e); causa no medida.
 - La 8 tiene 6 ramales (11 shapes) en `line_shapes`; el usuario indica 10–12 ramales reales: posibles recorridos faltantes en OSM, no verificado.
 - Causa del bondi fantasma solo aproximada en las 12 líneas viejas (clasificación de `FALSAS_ALARMAS.md`, hecha con v3 y la vara anterior): otro ramal 36 %, coche sin viaje o en cabecera 11 %, sentido contrario 11 %, viaje termina antes de la parada 9 %, shape sin la parada 7 %.
+
+### Primer arribo anunciado dentro de ±2 min y caso (d) (2026-11-27)
+
+Medido sobre el replay de v4 (`data/ml/replay/v4prod/v4/`, 126 líneas, 10 días, 40 paradas por línea, vara corregida; sin volver a predecir). Detalle y tabla por línea: `data/ml/replay/v4prod/DENTRO_2MIN.md`. Métrica nueva `metrics.within_tol`: % de instantes en que el primer arribo anunciado (`ann0_any_s`) cae dentro de ±tol del primer paso real de cualquier coche que sirve la parada (la verdad de `next_bus`, sin los instantes con paso previo no verificable), sobre los instantes con anuncio.
+
+| Banda de ETA real | Grupo (shapes del export v4) | ±60 s | ±120 s | ±180 s |
+|---|---|---|---|---|
+| 3–7 min | Todas (126 líneas) | 59,4 % | **81,5 %** | 87,1 % |
+| 3–7 min | 1–2 shapes (43 líneas) | 63,3 % | 85,8 % | 91,0 % |
+| 3–7 min | 3–4 (43) | 59,4 % | 81,4 % | 86,9 % |
+| 3–7 min | 5–6 (18) | 56,2 % | 78,0 % | 84,0 % |
+| 3–7 min | ≥ 7 (22) | 53,7 % | 75,1 % | 81,5 % |
+| 0–15 min | Todas | 62,3 % | 81,1 % | 87,1 % |
+| 0–15 min | 1–2 / 3–4 / 5–6 / ≥ 7 | 65,8 / 63,0 / 58,9 / 56,2 % | 85,7 / 81,5 / 77,3 / 73,9 % | 91,5 / 87,4 / 83,6 / 80,5 % |
+
+Si el instante sin anuncio cuenta como falla, ±120 s en 3–7 min baja a 79,1 %.
+
+Caso (d) de la descomposición (otro coche listado, 2.º–5.º, llega primero; 94.372 instantes, 7,9 % de los instantes con anuncio): |error| mediano 61 s, < 120 s en el 70,4 % (en (a), mediana 39 s y 93,6 %). Separación entre el paso real del 1.º anunciado y el del primero que llega:
+
+| Separación | % de (d) | % con error < 120 s |
+|---|---|---|
+| ≤ 60 s | 51,8 | 93,9 |
+| 60–120 s | 15,5 | 89,5 |
+| 120–300 s | 8,0 | 56,3 |
+| 300–600 s | 6,3 | 17,7 |
+| > 600 s | 18,3 | 12,2 |
+
+- El 62,6 % de (d) son coches amontonados con error chico (separación ≤ 120 s y error < 120 s); el 67,3 % tiene separación ≤ 120 s. Inversiones grandes (el 1.º anunciado pasa más de 2 min después del primero real): 32,7 % de (d): 24,6 % a más de 5 min y 18,3 % a más de 10 min.
+- La métrica ±2 min baja con la cantidad de shapes igual que el MAE del próximo coche: 85,8 % con 1–2 shapes contra 75,1 % con ≥ 7.
+- Salvedades: la agrupación «amontonado» es por separación entre pasos reales, no distingue coches físicamente juntos de un orden mal estimado por poco; las 40 paradas por línea son una muestra.
 
 ### Ruido de la verdad, error por tramo y feriados (2026-11-23)
 

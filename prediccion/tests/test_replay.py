@@ -331,3 +331,16 @@ def test_variante_cs_restringe_al_ramal_informado_y_marca_los_errores(bundle):
     assert r["cs"]["tp2_s"] == pytest.approx((5000 - 1500) / 8.0, abs=2.0)    # pasa de verdad: omisión causada por el dato
     r = run_cs("A", None, rid="7")                       # ramal informado pero ausente de la tabla: sin restricción
     assert r["cs"]["listed"] == r["base"]["listed"] and not r["cs"]["cs_applied"]
+
+
+def test_dentro_de_tolerancia_cuenta_instantes_con_primer_arribo_cerca_del_paso_real():
+    inst = pd.DataFrame({
+        "real_next2_s": [200.0, 300.0, 400.0, 250.0, 100.0],
+        "unv_first_s": [np.nan] * 5,
+        "ann0_any_s": [250.0, 450.0, np.nan, 240.0, 100.0]})   # el 5.º está fuera de la banda 3-7 min
+    r = MT.within_tol(inst, tols=(60.0, 120.0))
+    assert r["n"] == 4 and r["n_con"] == 3
+    assert r["dentro_60_con_pct"] == pytest.approx(100 * 2 / 3) and r["dentro_60_total_pct"] == pytest.approx(50.0)
+    assert r["dentro_120_con_pct"] == pytest.approx(100 * 2 / 3)
+    r2 = MT.within_tol(inst, tols=(200.0,))
+    assert r2["dentro_200_con_pct"] == pytest.approx(100.0)
