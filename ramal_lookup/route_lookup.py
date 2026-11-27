@@ -29,7 +29,7 @@ Algoritmo:
     e. Si coverage_winner es completo → resolución por vote_margin entre completos.
     f. Si el margen es insuficiente o hay pocos trips → status "pending".
 
-Ref: research_ramal_id_approaches.md §Enfoque C y §El problema de los fraccionados.
+Ref: docs_old/research_ramal_id_approaches.md §Enfoque C y §El problema de los fraccionados.
 """
 from __future__ import annotations
 

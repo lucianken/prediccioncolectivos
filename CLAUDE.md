@@ -1,38 +1,27 @@
 # prediccion-colectivos
 
-Pipeline ML para predicción de ETA de colectivos CABA/GBA.
-Grabador en NUC → NDJSON diarios → pipeline Python → modelos .onnx → proyectoconsola.
-
-## Stack
-
-- **NUC (192.168.0.18)**: grabador Docker, datos en `/mnt/buffer/grabaciones`
-- **Windows (esta PC)**: pipeline ML lee de `Z:\grabaciones` (SMB), entrena en RTX 3080
-- **proyectoconsola**: sirve los modelos `.onnx` en producción al frontend
-
-## Skills (cargar según tarea)
-
-En `c:\Users\LK\Documents\Dondeestaelbondi\.claude\skills\`:
-- `grabador_nuc.md` — formato NDJSON, deploy, monitoreo, guardrails, reconstrucción de estado
-- `ml_timeline.md` — arquitectura pipeline ML, decisiones de diseño, código, timeline de fases
-- `168_ramal_analysis.md` — análisis exhaustivo línea 168: ramal map completo, bug Darwin, 10 features testeadas, metodología generalizable a otras líneas
-- `enrichment_ramal.md` — pipeline de enriquecimiento, RamalEngine, bug Darwin (resumen)
+Predicción de ETA de colectivos AMBA: grabador en la NUC → NDJSON diarios → pipeline v2 (Python, RTX 3080) → modelo por tramos `.onnx` → proyectoconsola (producción: `path_v4_l1_s1`, 129 líneas).
 
 ## Documento rector
+`ARQUITECTURA.md` manda sobre cualquier otro doc: objetivo, reglas, datos, pipeline, asignación, varas de medida, estado de producción, cómo correr y pendientes priorizados (§11).
+Resultados y registros de error: `RESULTADOS.md`. Historia y diseños abandonados (A3, ramal por route_id, research de junio): `docs_old/`; versión del 2026-11-10 en el tag git `pre-arquitectura-2026-11`.
 
-**`ARQUITECTURA.md`** — plan vigente desde 2026-11-10 (pipeline v2 sin route_id, vara de medir, escalera de experimentos). Manda sobre cualquier otro doc. Copias de los docs anteriores: `docs_old/2026-11-10/` (tag git `pre-arquitectura-2026-11`).
+## Stack
+- NUC (192.168.0.18): grabador Docker, datos en `/mnt/buffer/grabaciones`.
+- Esta PC: lee `Z:\grabaciones` (SMB), entrena en la RTX 3080 (Python313 con CUDA; corridas largas con `prediccion/scripts/keep_awake.py`).
+- proyectoconsola: sirve el `.onnx` y es la fuente de shapes (`proyectoconsola/data/line_shapes/`).
 
-## Docs de referencia del proyecto
+## Mapa
+- `prediccion/v2/`: pipeline de dataset. `prediccion/train_path.py`, `eval.py`, `replay/`: entrenamiento, evaluación y vara de producto. `prediccion/scripts/run_v*.py`: lanzadores.
+- `prediccion/INFERENCIA_PATH.md`: contrato de inferencia (modelo → app). `prediccion/SHAPES_PIPELINE.md`: shapes.
+- `prediccion/label_map/`: `scan_suffix_changes.py` y `apply_scan_results.py`, herramienta para cuando cambia la flota (el scan tiene fechas fijas de julio 2026: ajustarlas antes de reusarlo).
+- `grabador/`, `grabador_cuandosubo/`: captura de la API CABA y de CuandoSubo.
+- `experiments/`: mediciones con informe (`INFORME.md` por carpeta).
+- `legacy/`: scripts de un solo uso y `analisis_flota/`; no se usan. (El resto del código del A3 sigue en `prediccion/` hasta la Fase 2.)
 
-- `prediccion_ml_plan.md` — **histórico**: diseño original (A3ETAModel, experimentos, porqué de las decisiones); su estado, fases y todo lo de ramal lookup quedaron sin efecto.
-- `prediccion/SHAPES_PIPELINE.md` — cómo se genera/regenera `line_shapes.json`
-- `README.md` — setup SMB, comandos de uso
-- `analisis_grabacion_mensual.md` — justificación de decisiones del grabador
+## Reglas
+- La línea de un coche sale solo del sufijo del label (`LABEL_LINE_MAP.json`); nunca route_id, trip_id ni start_time.
+- Tests de comportamiento observable, sin change detectors.
 
-## Estado (2026-07-11) — desactualizado, ver `ARQUITECTURA.md`
-
-- Grabador: corriendo, ~15 semanas de datos acumulados
-- **LABEL_LINE_MAP v3** (2026-07): schema por línea con vigencias `from`/`to` (cambio de flota AMBA mayo-junio 2026: ej. 151: 4045 hasta 29/05 → 4852 desde 11/06) y dos secciones: `lines` = SOLO AMBA / `other_lines` = homónimos del resto del país (la API reporta todo el país). Todo lo no resuelto en `proyectoconsola/pending_label_work.json` (único archivo de trabajo con `scope`; MD generado; resolver con `node scripts/resolve_pending.js` interactivo, que promueve y sincroniza el espejo del map acá). Loader date-aware y AMBA-only por defecto: `shapes_io.load_label_line_map(path, on_date=...)` (`resolve_label_line_index(..., include_other=True)` para incluir interior); el pipeline resuelve el map por fecha de cada NDJSON. Tras un scan nuevo: `apply_scan_results.py` mergea al pending.
-- Shapes: 7 líneas (26, 39, 42, 92, 124, 151, 168)
-- Ramal ID: **abandonado** (usaba route_id). El pipeline nuevo elige el recorrido por geometría (`ARQUITECTURA.md` §4.1).
-- A3ETAModel (ETA): no-fleet ep21/ep24 ~72 s val MAE solo línea 39 (no comparable con A1/naive, ver `ARQUITECTURA.md` §5). No hay modelo en producción. Fleet bloqueado por costo computacional (~12× más lento). Ver `prediccion_ml_plan.md` §pendiente.
-- Experimento "llegando": umbral recomendado `pred_eta < 150s OR dist_remaining < 300m` (F2=0.775, recall=89%).
+## Skills (en `../.claude/skills/`, cargar según tarea)
+`grabador_nuc.md`, `shapes_fuente.md`, `oba_identificacion.md`, `route_map_watcher.md`, `osm_fix_estado.md`, `proyectos_estado.md`, `enrichment_ramal.md` (gate por label; el ramal por route_id está muerto), `ml_timeline.md` (puntero a ARQUITECTURA §4 y §10).

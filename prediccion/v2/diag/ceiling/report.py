@@ -113,7 +113,7 @@ def main():
     out.append("\nLa diferencia viene de la discretizacion: A1 recorre bloques de 500 m desde la posicion de P (no alineados "
                "a la grilla de segmentos); el simulador usa pasos de ~100 m y toma el segmento de A1 del punto medio de cada paso.\n")
     out.append("**Control:** A1 no tiene tabla para las lineas de control (nunca entraron al train), asi que cae al fallback de "
-               "7 m/s en todo (ARQUITECTURA.md §7). En control, 'A1' es un naive de 7 m/s, no una tabla: la comparacion con el "
+               "7 m/s en todo (RESULTADOS.md). En control, 'A1' es un naive de 7 m/s, no una tabla: la comparacion con el "
                "transito ahi mide otra cosa (el transito reemplaza a un naive, no a una tabla).\n")
     out.append("**Fuga comun:** todos los metodos usan el shape ex post que ya trae el eval (elegido con el viaje completo). Es la misma para todos.\n")
 

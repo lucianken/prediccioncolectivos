@@ -1,5 +1,5 @@
 """
-Lanzador de la confirmación A3 con grilla vs modelo por tramos en el subconjunto 12 + 3 (ARQUITECTURA.md §7).
+Lanzador de la confirmación A3 con grilla vs modelo por tramos en el subconjunto 12 + 3 (RESULTADOS.md).
 
 6 corridas en secuencia, receta igualada (12 épocas, batch 1024, OneCycle, misma val; mejor checkpoint por MAE de val):
   1) LR 1e-3 y 2e-3 para cada modelo, semilla 0  (4 corridas)

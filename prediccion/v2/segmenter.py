@@ -50,7 +50,7 @@ WINDOW_PINGS = 16
 _M_PER_DEG = 111_320.0
 
 # ── Segmentador versión 2 (ARQUITECTURA.md §6.2 paso 5). Solo se activa con segmenter_version=2; la versión 1
-# (default) no cambia. Las cotas de unión de huecos salen de los datos (ver ARQUITECTURA §7, validación paso 5).
+# (default) no cambia. Las cotas de unión de huecos salen de los datos (ver RESULTADOS.md, validación paso 5).
 HEAD_ZONE_M = 300.0        # zona de cabecera: primeros metros del recorrido
 HEAD_SUSTAIN_N = 3         # pings seguidos fuera de la zona para dar la salida por "sostenida"
 HEAD_SUSTAIN_SLACK_M = 50.0

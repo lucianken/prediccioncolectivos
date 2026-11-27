@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 # NOTE: train_phase2 (RamalIdModel / fleet-level transformer) fue eliminado.
 # Ramal ID se resuelve por lookup geométrica offline en ramal_lookup/.
-# Ver prediccion_ml_plan.md §6 y §10.2.
+# Ver docs_old/prediccion_ml_plan.md §6 y §10.2.
 
 
 def _require_valid_parquet(path: Path, label: str) -> None:
@@ -329,7 +329,7 @@ def train_phase3(
             optimizer, mode="min", factor=0.5, patience=3
         )
     def criterion(pred, target, dist_m):
-        # Pinball loss con q variable por distancia (ver prediccion_ml_plan.md §7b):
+        # Pinball loss con q variable por distancia (ver docs_old/prediccion_ml_plan.md §7b):
         #   dist > 1km  → q = 0.5 (L1 simétrica, aprende la mediana)
         #   dist < 1km  → q sube hasta 0.8 (underestimar penaliza 4x más que overestimar)
         # Razón: cuando el bus está cerca, perder el colectivo por subestimar es peor

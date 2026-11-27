@@ -1,6 +1,6 @@
 """
 Lanzador reanudable de v2c: dataset con asignación geométrica `geo3` (prediccion/v2/geo_assign.py), subconjunto,
-eval y modelo por tramos con pérdida L1 (ARQUITECTURA.md §7).
+eval y modelo por tramos con pérdida L1 (RESULTADOS.md).
 
 Etapas, todas idempotentes (se saltean si ya están hechas; si algo se corta, volver a ejecutar el mismo comando):
   1. build de las 15 líneas en data/ml/v2c (segmentación geo2, asignación geo3, K=32, 2026-03-28:2026-10-14, 3 workers,

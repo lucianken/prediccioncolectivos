@@ -327,8 +327,8 @@ for v in j['data']['list']:
 - `ROUTE_AGENCY_MAP.json` — route_id → info (estático, construido con CuandoSubo; no resuelve línea por las ambigüedades de §3.3).
 - `ejemplos/example apis.txt` — URLs OBA de ejemplo.
 - `test/fixtures/vp_live.json` — formato API CABA a replicar.
-- `../prediccion colectivos/analisis_flota/` — `fleet_db.json` (flota por patente, abril–mayo) y `collect.py` (lee `Z:\grabaciones`).
-- Skills: `.claude/skills/enrichment_ramal.md`, `grabador_nuc.md`, `168_ramal_analysis.md`.
+- `../prediccion colectivos/legacy/analisis_flota/` — `fleet_db.json` (flota por patente, abril–mayo) y `collect.py` (lee `Z:\grabaciones`).
+- Skills: `.claude/skills/enrichment_ramal.md`, `grabador_nuc.md`, `prediccion colectivos/docs_old/skills/168_ramal_analysis.md` (historia).
 
 ---
 

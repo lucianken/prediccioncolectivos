@@ -1,5 +1,5 @@
 """
-Lanzador reanudable del experimento "T en paradas reales" (ARQUITECTURA.md §11 ítem 4b, resultado en §7).
+Lanzador reanudable del experimento "T en paradas reales" (ARQUITECTURA.md §11 ítem 4b, resultado en RESULTADOS.md).
 
 Pregunta: entrenar con puntos objetivo T en paradas reales (en vez de puntos cualquiera del camino), ¿mejora la predicción de
 llegada a paradas? Un solo cambio contra la base `v2c_l1_paradas` (data/ml/v2c_sub/runs_stops: 12 líneas, L1 + --stops-feature,
@@ -19,7 +19,7 @@ Etapas, todas idempotentes (si algo se corta, volver a ejecutar el mismo comando
   5. evaluación de nuevo y base (data/ml/v2c_sub/runs_stops) en las dos varas: (1) eval de paradas (data/ml/v2c_stops/eval) y
      (2) eval de siempre, T cualquiera (data/ml/v2c/eval); seen (12 líneas) y heldout (12, 15, 128)
   6. runs/comparacion.md (banda 3-7 min: MAE, P90, % llega antes / después > 60 s; media de semillas, por semilla, por línea;
-     veredicto contra la diferencia entre semillas) y sección en ARQUITECTURA.md §7
+     veredicto contra la diferencia entre semillas) y sección en RESULTADOS.md
 Línea final de runs/launcher.log: `listo: T en paradas entrenado y evaluado` o `ERROR ...`.
 
 Lanzar con el Python 3.13 del sistema y desacoplado:

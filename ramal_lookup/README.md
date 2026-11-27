@@ -120,7 +120,7 @@ Elimina el 11% de CPU de `dict.get + str.split` sobre la flota completa.
 
 ## Algoritmo (Enfoque C)
 
-Ver `research_ramal_id_approaches.md` para la comparación completa de enfoques.
+Ver `docs_old/research_ramal_id_approaches.md` para la comparación completa de enfoques.
 
 ### Discriminadores
 

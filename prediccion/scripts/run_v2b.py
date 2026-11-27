@@ -1,5 +1,5 @@
 """
-Lanzador del reentrenamiento sobre los datos v2b (segmentador nuevo; ARQUITECTURA.md §7, paso 6.2.5).
+Lanzador del reentrenamiento sobre los datos v2b (segmentador nuevo; RESULTADOS.md, paso 6.2.5).
 
 Misma receta que la confirmación (`run_confirmacion.py`): 12 épocas, batch 1024, OneCycle, pinball, mejor checkpoint por
 MAE de val. Corridas, en secuencia, salida en data/ml/v2b_sub/runs/:

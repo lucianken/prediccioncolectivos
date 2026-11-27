@@ -1,5 +1,5 @@
 """
-Puntos objetivo T en paradas reales (ARQUITECTURA.md §7, "Entrenar con T en paradas").
+Puntos objetivo T en paradas reales (RESULTADOS.md, "Entrenar con T en paradas").
 
 El build de siempre elige T = un ping cualquiera del viaje, adelante de P. Acá T es una PARADA del recorrido y la etiqueta es
 la hora de paso del coche por esa parada, interpolada entre los dos pings consecutivos que la encierran.
@@ -13,7 +13,7 @@ Paradas de un recorrido: SOLO las de su propia lista (`ramales[].stops` de la re
 Cruce firme de una parada (misma regla que la vara corregida, `replay/core.py::crossings_v2`): par de pings consecutivos
 válidos (compatibles con el recorrido) k, k+1 del mismo tramo continuo con d_k <= d_parada < d_(k+1), 0 < dt <= PASS_MAX_DT_S
 (10 min) y avance <= V_MAX_MPS * dt + JUMP_SLACK_M (sin saltos de GPS). La hora de paso es la interpolación lineal en la
-distancia entre los dos pings. Ruido esperado (medido con `interpolation_noise`, ver ARQUITECTURA §7): error de interpolar
+distancia entre los dos pings. Ruido esperado (medido con `interpolation_noise`, ver RESULTADOS.md): error de interpolar
 el ping central de tres pings seguidos, mediana ~ decenas de segundos, P90 ~ 1 min; el `ts` ya es el estampado por lote de CABA
 (~1/min), igual que la etiqueta de siempre.
 
