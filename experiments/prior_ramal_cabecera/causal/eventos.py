@@ -121,7 +121,7 @@ GEO = {}
 
 
 def day_events(day: str, lines, data_dir: str, trips_dir: Path):
-    from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+    from red.label_map import load_label_line_data, resolve_label_line_index
     from prediccion.v2.day import read_day
     li = resolve_label_line_index(load_label_line_data(str(ROOT / "LABEL_LINE_MAP.json")), on_date=day)
     lm = {s: v["line"] for s, v in li.items()}

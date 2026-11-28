@@ -65,7 +65,7 @@ def test_onnx_coincide_con_pytorch_en_eval(torch_model, which):
 @needs_data
 def test_referencia_desde_lat_lon_crudos_coincide_con_el_pipeline_de_eval(torch_model):
     """Reconstruye lat/lon de P y T sobre el shape, la hora desde ts_p y el estado desde las columnas; compara contra eval."""
-    from prediccion.inference.path_reference import eta_on_shapes, load_bundle
+    from red.path_reference import eta_on_shapes, load_bundle
     bundle = load_bundle(EXPORT)
     df = _sample("seen", 1500, seed=1)
     pred, v, _ = _torch_pred(torch_model, df)
@@ -95,7 +95,7 @@ def test_referencia_desde_lat_lon_crudos_coincide_con_el_pipeline_de_eval(torch_
 
 @needs_data
 def test_predict_from_raw_de_punta_a_punta_sin_historial_ni_coche_de_adelante(torch_model):
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     bundle = load_bundle(EXPORT)
     df = _sample("seen", 600, seed=2)
     pred, v, _ = _torch_pred(torch_model, df)
@@ -135,7 +135,7 @@ def _scenario(bundle, line="39"):
 
 @needs_data
 def test_linea_fuera_del_modelo_no_predice():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     out = predict_from_raw(b, "12", {"lat": -34.6, "lon": -58.4, "speed_mps": 5.0, "ts": 1.79e9}, (-34.61, -58.41), 1.79e9)
     assert out["status"] == "linea_fuera_del_modelo" and out["eta_s"] is None
@@ -143,7 +143,7 @@ def test_linea_fuera_del_modelo_no_predice():
 
 @needs_data
 def test_usuario_atras_del_coche_es_pasado_y_cerca_es_llegando():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -159,7 +159,7 @@ def test_usuario_atras_del_coche_es_pasado_y_cerca_es_llegando():
 
 @needs_data
 def test_historial_en_sentido_contrario_descarta_el_shape_y_en_sentido_correcto_lo_acepta():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -174,7 +174,7 @@ def test_historial_en_sentido_contrario_descarta_el_shape_y_en_sentido_correcto_
 
 @needs_data
 def test_con_varios_candidatos_el_eta_anunciado_es_el_minimo():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     ts = 1.79e9
     found = False
@@ -198,7 +198,7 @@ def test_con_varios_candidatos_el_eta_anunciado_es_el_minimo():
 
 @needs_data
 def test_coche_quieto_en_cabecera_se_marca():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -210,7 +210,7 @@ def test_coche_quieto_en_cabecera_se_marca():
 
 @needs_data
 def test_ping_viejo_se_descuenta_del_eta():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -224,7 +224,7 @@ def test_ping_viejo_se_descuenta_del_eta():
 
 @needs_data
 def test_coche_de_adelante_pasado_por_T_se_detecta_y_sin_pasar_no_se_encuentra():
-    from prediccion.inference.path_reference import last_bus, load_bundle
+    from red.path_reference import last_bus, load_bundle
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1_790_000_000.0
@@ -245,7 +245,7 @@ def _veh_at(sh, d, ts, speed=6.0):
 
 @needs_data
 def test_sin_historial_el_eta_es_provisional_y_el_minimo_entre_los_shapes_posibles():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -260,7 +260,7 @@ def test_sin_historial_el_eta_es_provisional_y_el_minimo_entre_los_shapes_posibl
 
 @needs_data
 def test_provisional_no_lista_al_coche_si_el_usuario_queda_atras_en_todos_los_shapes_posibles():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -270,7 +270,7 @@ def test_provisional_no_lista_al_coche_si_el_usuario_queda_atras_en_todos_los_sh
 
 @needs_data
 def test_con_historial_suficiente_la_clasificacion_provisional_pasa_a_normal():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -285,7 +285,7 @@ def test_con_historial_suficiente_la_clasificacion_provisional_pasa_a_normal():
 
 @needs_data
 def test_coche_que_ya_paso_con_historial_no_recibe_eta_y_el_opuesto_no_lo_acepta():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     sh, at = _scenario(b)
     ts = 1.79e9
@@ -295,7 +295,7 @@ def test_coche_que_ya_paso_con_historial_no_recibe_eta_y_el_opuesto_no_lo_acepta
 
 @needs_data
 def test_parada_que_sirve_un_solo_ramal_con_coche_en_el_tronco_es_puede_venir():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     shapes = list(b.lines["39"].values())
     a = shapes[0]   # Ramal 1 ida; comparte el tronco con el Ramal 2 ida hasta ~14 km
@@ -314,7 +314,7 @@ def test_parada_que_sirve_un_solo_ramal_con_coche_en_el_tronco_es_puede_venir():
 
 @needs_data
 def test_coche_en_ramal_unico_pasa_seguro():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     a = list(b.lines["39"].values())[4]   # Ramal 3 ida: entre ~11 y ~13,5 km ningún otro recorrido queda a < 150 m
     ts = 1.79e9
@@ -324,7 +324,7 @@ def test_coche_en_ramal_unico_pasa_seguro():
 
 @needs_data
 def test_punto_cerca_de_un_shape_paralelo_descarta_la_paralela():
-    from prediccion.inference.path_reference import load_bundle, user_shapes
+    from red.path_reference import load_bundle, user_shapes
     b = load_bundle(EXPORT)
     found = False
     for line, shapes in b.lines.items():
@@ -355,7 +355,7 @@ def test_punto_cerca_de_un_shape_paralelo_descarta_la_paralela():
 
 @needs_data
 def test_coche_sin_historial_en_tramo_de_un_solo_sentido_viene_desde_la_primera_consulta():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     shapes = b.lines["168"]
     stop = (-34.6033362, -58.4241505)   # Gascón y Corrientes: la sirven los dos recorridos que suben por Gascón
@@ -372,8 +372,8 @@ def test_coche_sin_historial_en_tramo_de_un_solo_sentido_viene_desde_la_primera_
 
 @needs_data
 def test_coche_sin_historial_donde_ida_y_vuelta_comparten_la_calle_sigue_provisional():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
-    from prediccion.v2 import geo_assign as G
+    from red.path_reference import load_bundle, predict_from_raw
+    from red import geo_assign as G
     b = load_bundle(EXPORT)
     a = next(iter(b.lines["39"].values()))
     ts = 1.79e9
@@ -388,7 +388,7 @@ def test_coche_sin_historial_donde_ida_y_vuelta_comparten_la_calle_sigue_provisi
 
 @needs_data
 def test_historial_que_contradice_la_geometria_descarta_el_shape():
-    from prediccion.inference.path_reference import load_bundle, predict_from_raw
+    from red.path_reference import load_bundle, predict_from_raw
     b = load_bundle(EXPORT)
     shapes = b.lines["168"]
     stop = (-34.6033362, -58.4241505)
@@ -411,7 +411,7 @@ CKPT_V3 = ROOT / "data" / "ml" / "v3_sub" / "runs" / "path_lr2e-3_s1" / "path_et
                     reason="falta el export o el checkpoint v3")
 def test_la_referencia_con_paradas_da_el_mismo_eta_que_el_modelo_entrenado():
     import torch
-    from prediccion.inference.path_reference import encode_time, eta_on_shape, load_bundle
+    from red.path_reference import encode_time, eta_on_shape, load_bundle
     from prediccion.models.path_eta import PathETAModel, state_features
     model = PathETAModel.from_checkpoint(torch.load(str(CKPT_V3), map_location="cpu", weights_only=False)).eval()
     b = load_bundle(EXPORT_V3)

@@ -10,3 +10,8 @@ scipy>=1.11.0
 orjson>=3.9.0
 isal>=1.5.0
 psutil>=5.9.0
+# Reglas de producción (asignación, sentido, recorridos, paradas, referencia de inferencia): paquete `red` de bondi,
+# fijado por tag. Para cambiar una regla: se cambia en bondi/red, nuevo tag red-vX.Y.Z, y se sube el tag acá.
+# Sin el extra `referencia` a propósito: onnxruntime ya está arriba (en esta PC lo da onnxruntime-gpu 1.26.0, que
+# comparte el módulo `onnxruntime`; con el extra, pip instala además el onnxruntime de CPU encima).
+red[proyeccion] @ git+https://github.com/lucianken/bondi@red-v0.1.0#subdirectory=red/python

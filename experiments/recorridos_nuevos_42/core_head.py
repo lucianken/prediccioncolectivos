@@ -24,8 +24,8 @@ from pathlib import Path
 
 import numpy as np
 
-from prediccion.replay.pinned import path_reference as PR
-from prediccion.replay.pinned import geo_assign as G
+from red import path_reference as PR
+from red import geo_assign as G
 
 # ── parámetros de producción (public/config/prediccion.json y app.js) ────────────────────────────────────────
 MAX_PING_AGE_S = 600       # maxPingAgeS: un coche con el último ping más viejo no se predice

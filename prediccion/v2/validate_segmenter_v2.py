@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+from red.label_map import load_label_line_data, resolve_label_line_index
 from prediccion.v2.build import set_low_priority
 from prediccion.v2.day import geometry_for_trip, process_day, read_day, segment_vehicles
 from prediccion.v2.segmenter import START_UNKNOWN_M

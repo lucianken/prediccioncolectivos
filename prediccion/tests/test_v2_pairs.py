@@ -5,7 +5,8 @@ import numpy as np
 from prediccion.pipeline.features import encode_time, make_training_rows_eta
 from prediccion.pipeline.segmenter import Trip, TripPoint
 from prediccion.v2.pairs import DIST_EDGES_M, sample_pairs, trip_seed
-from prediccion.v2.rows import encode_time_np, trip_rows
+from prediccion.v2.rows import trip_rows
+from red.tiempo import encode_time_np
 
 
 def _long_trip(n=120, step_m=150.0, dt=60):

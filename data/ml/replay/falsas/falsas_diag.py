@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 from prediccion.replay import core, run as R
-from prediccion.replay.pinned import path_reference as PR, geo_assign as G
+from red import path_reference as PR, geo_assign as G
 
 MODEL = str(ROOT / "data/ml/export/path_v3_l1_s1")
 LINES = "26,39,42,50,92,106,107,108,124,132,151,168".split(",")

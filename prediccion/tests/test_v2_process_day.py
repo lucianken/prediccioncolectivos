@@ -144,6 +144,21 @@ def test_assemble_heldout_nunca_en_train_y_dias_de_validacion_fuera_de_train(wor
     assert (world["out"] / "schedule_dev_medians.json").exists()
 
 
+def test_el_dataset_registra_la_version_de_red_por_dia_en_el_manifest_y_en_el_ensamblado(world):
+    import red
+    world["day"]("2026-09-14", BASE - 2 * 86400, ["900"])
+    world["day"]("2026-09-15", BASE - 86400, ["900"])
+    for d in ("2026-09-14", "2026-09-15"):
+        _run(world, d, ["900"])
+    assert read_meta(world["out"], "2026-09-14")["red_version"] == red.__version__
+    man = update_manifest(world["out"])
+    assert {v["red_version"] for v in man["days"].values()} == {red.__version__}
+    lines_file = world["tmp"] / "lines.json"
+    lines_file.write_text(json.dumps({"train": ["900"], "heldout": []}))
+    summary = assemble_dataset(world["out"], lines_file, shapes_dir=world["shapes_dir"])
+    assert summary["red_version"] == red.__version__ and summary["red_versions_dias"] == [red.__version__]
+
+
 def test_assemble_rechaza_lineas_en_train_y_heldout(world):
     lines_file = world["tmp"] / "lines.json"
     lines_file.write_text(json.dumps({"train": ["900"], "heldout": ["900"]}))

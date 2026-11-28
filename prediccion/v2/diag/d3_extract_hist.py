@@ -26,7 +26,7 @@ from prediccion.v2.shapes import DEFAULT_DATA_DIR, DEFAULT_LABEL_MAP, DEFAULT_LI
 
 def _day(args):
     day, rows = args          # rows: list of (row_idx, ts_p, shape_id, dist_along_m)
-    from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+    from red.label_map import load_label_line_data, resolve_label_line_index
     t0 = time.time()
     shapes = LineShapes(DEFAULT_LINE_SHAPES_DIR)
     label_data = load_label_line_data(DEFAULT_LABEL_MAP)

@@ -6,7 +6,7 @@ import numpy as np, pandas as pd
 import extrae as E
 from deriva import derive
 from prediccion.replay import core, run as R
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 
 day, ln, step = sys.argv[1], sys.argv[2], int(sys.argv[3])
 b = PR.load_bundle(E.MODEL)

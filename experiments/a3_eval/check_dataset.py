@@ -1,7 +1,7 @@
 import sys; sys.path.insert(0, '.')
 from prediccion.models.eta_dataset import ETADataset
 from prediccion.pipeline.shapes_io import load_shapes, DEFAULT_SHAPES_PATH
-from prediccion.pipeline.projector import polyline_length_m
+from red.geometria import polyline_length_m
 import numpy as np
 
 shapes = load_shapes(str(DEFAULT_SHAPES_PATH))

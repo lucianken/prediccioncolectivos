@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from prediccion.pipeline.projector import ShapeIndex, best_shape_for_trip
+from prediccion.pipeline.projector import best_shape_for_trip
+from red.geometria import ShapeIndex
 
 LON = -58.40
 DLAT = 0.0015

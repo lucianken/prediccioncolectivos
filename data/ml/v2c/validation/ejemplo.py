@@ -4,8 +4,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[4]; sys.path.insert(0, str(ROOT))
 from prediccion.v2.day import read_day, prev_day
 from prediccion.v2.shapes import LineShapes, DEFAULT_LABEL_MAP, DEFAULT_LINE_SHAPES_DIR
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
-from prediccion.v2 import geo_assign as G
+from red.label_map import load_label_line_data, resolve_label_line_index
+from red import geo_assign as G
 day, line, vid, t0 = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 ld = load_label_line_data(DEFAULT_LABEL_MAP); li = resolve_label_line_index(ld, on_date=day)
 lm = {s: v["line"] for s, v in li.items()}

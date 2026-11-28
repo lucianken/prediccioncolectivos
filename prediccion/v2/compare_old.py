@@ -18,7 +18,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from prediccion.pipeline.build_dataset import load_ramal_map
-from prediccion.pipeline.shapes_io import load_label_line_data
+from red.label_map import load_label_line_data
 from prediccion.v2.day import process_day
 from prediccion.v2.shapes import (DEFAULT_DATA_DIR, DEFAULT_LABEL_MAP, DEFAULT_V2_DIR, LineShapes)
 

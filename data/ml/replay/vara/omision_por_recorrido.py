@@ -10,7 +10,7 @@ import numpy as np, pandas as pd
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 from prediccion.replay import core, run as RUN  # noqa: E402
-from prediccion.replay.pinned import path_reference as PR  # noqa: E402
+from red import path_reference as PR  # noqa: E402
 
 MODEL = str(ROOT / "data/ml/export/path_v3_l1_s1")
 SHAPES = str(ROOT.parent / "proyectoconsola/data/line_shapes")

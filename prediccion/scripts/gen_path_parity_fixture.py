@@ -18,8 +18,8 @@ import math
 import random
 from pathlib import Path
 
-from prediccion.inference.path_reference import load_bundle, predict_from_raw, snap_to_route
-from prediccion.v2 import geo_assign as G
+from red.path_reference import load_bundle, predict_from_raw, snap_to_route
+from red import geo_assign as G
 
 M_PER_DEG = 111320.0
 BASE_TS = 1784214000  # 2026-07-16 ~15:00 UTC, dia habil

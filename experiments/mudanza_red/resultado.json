@@ -1,0 +1,218 @@
+{
+ "dia": "2026-09-15",
+ "lineas": "26,39,42,168",
+ "variantes": "base,sentido,ramal,prior_token_ii",
+ "parquets": {
+  "replay/2026-09-15_168.inst.parquet": {
+   "filas": 16480,
+   "columnas": 22,
+   "sha256_antes": "719ecb30fe980f6dc8f73e378778cc71b7715b9b0626c64df7003a9e0948a0d2",
+   "sha256_despues": "719ecb30fe980f6dc8f73e378778cc71b7715b9b0626c64df7003a9e0948a0d2",
+   "igual": true
+  },
+  "replay/2026-09-15_168.veh.parquet": {
+   "filas": 114331,
+   "columnas": 17,
+   "sha256_antes": "c7852dd411885c9fadd87409645314a0bda970c250ccffb6be56deca80b85729",
+   "sha256_despues": "c7852dd411885c9fadd87409645314a0bda970c250ccffb6be56deca80b85729",
+   "igual": true
+  },
+  "replay/2026-09-15_26.inst.parquet": {
+   "filas": 16480,
+   "columnas": 22,
+   "sha256_antes": "fdbe1a04c9203bb34a60faa9b18aafc99cbb756c7ee51fb5afa8fe626eefcc68",
+   "sha256_despues": "fdbe1a04c9203bb34a60faa9b18aafc99cbb756c7ee51fb5afa8fe626eefcc68",
+   "igual": true
+  },
+  "replay/2026-09-15_26.veh.parquet": {
+   "filas": 169702,
+   "columnas": 17,
+   "sha256_antes": "db69d1fac86d698ff3e8a1166cf5aca02a7cf3d1b161c9be85c8f3ecb5850a4d",
+   "sha256_despues": "db69d1fac86d698ff3e8a1166cf5aca02a7cf3d1b161c9be85c8f3ecb5850a4d",
+   "igual": true
+  },
+  "replay/2026-09-15_39.inst.parquet": {
+   "filas": 16480,
+   "columnas": 22,
+   "sha256_antes": "e3986c546460f5a4750b8c36188df083f92ca33191aa04ab54e03ef87193bec6",
+   "sha256_despues": "e3986c546460f5a4750b8c36188df083f92ca33191aa04ab54e03ef87193bec6",
+   "igual": true
+  },
+  "replay/2026-09-15_39.veh.parquet": {
+   "filas": 170716,
+   "columnas": 17,
+   "sha256_antes": "4f952f6312c19e1905ec1c898b595dd8d03716b1dc9d4134e5314d0b29c7016c",
+   "sha256_despues": "4f952f6312c19e1905ec1c898b595dd8d03716b1dc9d4134e5314d0b29c7016c",
+   "igual": true
+  },
+  "replay/2026-09-15_42.inst.parquet": {
+   "filas": 16480,
+   "columnas": 22,
+   "sha256_antes": "eee31100e9ee8292e8d50bd1c6e668edb1358b3b5cb6c5c990d17f4808ac2d4d",
+   "sha256_despues": "eee31100e9ee8292e8d50bd1c6e668edb1358b3b5cb6c5c990d17f4808ac2d4d",
+   "igual": true
+  },
+  "replay/2026-09-15_42.veh.parquet": {
+   "filas": 124267,
+   "columnas": 17,
+   "sha256_antes": "28e7c91d49c91a2753931cdb86be8963db205fa7500f6282ca75f98d1ea6b6cd",
+   "sha256_despues": "28e7c91d49c91a2753931cdb86be8963db205fa7500f6282ca75f98d1ea6b6cd",
+   "igual": true
+  },
+  "v2_geo3/daily/2026-09-15.parquet": {
+   "filas": 81146,
+   "columnas": 21,
+   "sha256_antes": "607518e6bbdf7ce97e03c2095458e793b42b126a8ef46e0cd80d3a88b518e3f1",
+   "sha256_despues": "607518e6bbdf7ce97e03c2095458e793b42b126a8ef46e0cd80d3a88b518e3f1",
+   "igual": true
+  },
+  "v2_geo3/daily/2026-09-15.trips.parquet": {
+   "filas": 2555,
+   "columnas": 15,
+   "sha256_antes": "82f66ed4630c773ab02ed1ff562650356398c69900dc3d3dff8bab09bf608621",
+   "sha256_despues": "82f66ed4630c773ab02ed1ff562650356398c69900dc3d3dff8bab09bf608621",
+   "igual": true
+  },
+  "v2_geo3/daily/2026-09-15.waiting.parquet": {
+   "filas": 836,
+   "columnas": 9,
+   "sha256_antes": "24de0b735bee262cf1f04e4acecb03126319dbc9a1af8ad0e8b803324986a008",
+   "sha256_despues": "24de0b735bee262cf1f04e4acecb03126319dbc9a1af8ad0e8b803324986a008",
+   "igual": true
+  },
+  "v2_geo3_stops/daily/2026-09-15.parquet": {
+   "filas": 80820,
+   "columnas": 21,
+   "sha256_antes": "7f00843e7bea50cb6b8d9025a3eb947ad753672ebe368bbaf41213a9643411f9",
+   "sha256_despues": "7f00843e7bea50cb6b8d9025a3eb947ad753672ebe368bbaf41213a9643411f9",
+   "igual": true
+  },
+  "v2_geo3_stops/daily/2026-09-15.trips.parquet": {
+   "filas": 2555,
+   "columnas": 15,
+   "sha256_antes": "cd3191df501c5b48e8405f5f592e02bb899c9dffd8d4caf90e8681a305da3f0c",
+   "sha256_despues": "cd3191df501c5b48e8405f5f592e02bb899c9dffd8d4caf90e8681a305da3f0c",
+   "igual": true
+  },
+  "v2_geo3_stops/daily/2026-09-15.waiting.parquet": {
+   "filas": 836,
+   "columnas": 9,
+   "sha256_antes": "24de0b735bee262cf1f04e4acecb03126319dbc9a1af8ad0e8b803324986a008",
+   "sha256_despues": "24de0b735bee262cf1f04e4acecb03126319dbc9a1af8ad0e8b803324986a008",
+   "igual": true
+  },
+  "v2_legacy/daily/2026-09-15.parquet": {
+   "filas": 81267,
+   "columnas": 21,
+   "sha256_antes": "e623c5df0e80a6e6200c32640e2e7d5c5f71e286b277e848009caa59ceb853b7",
+   "sha256_despues": "e623c5df0e80a6e6200c32640e2e7d5c5f71e286b277e848009caa59ceb853b7",
+   "igual": true
+  },
+  "v2_legacy/daily/2026-09-15.trips.parquet": {
+   "filas": 2555,
+   "columnas": 15,
+   "sha256_antes": "223758098a9ba48cd5f07dfcf8ddb232a6a2a5c4d9b426f6f613e9731768c747",
+   "sha256_despues": "223758098a9ba48cd5f07dfcf8ddb232a6a2a5c4d9b426f6f613e9731768c747",
+   "igual": true
+  },
+  "v2_legacy/daily/2026-09-15.waiting.parquet": {
+   "filas": 836,
+   "columnas": 9,
+   "sha256_antes": "e445077b110b35e235e093bf7dd564445f8fcbc933dcb2098c01e5b5a8f4bd4e",
+   "sha256_despues": "e445077b110b35e235e093bf7dd564445f8fcbc933dcb2098c01e5b5a8f4bd4e",
+   "igual": true
+  }
+ },
+ "json": {
+  "fixture.json": {
+   "casos": 19945,
+   "claves_superset_antes": 0,
+   "claves_superset_despues": 27958,
+   "igual": true
+  },
+  "v2_geo3/daily/2026-09-15.carry.json": {
+   "igual": true
+  },
+  "v2_geo3/daily/2026-09-15.meta.json": {
+   "assign_params": [
+    {
+     "tol_m": 45.0,
+     "margin_m": 20.0,
+     "history_window_s": 900,
+     "direction_rule": "trailing_run",
+     "min_near_pings": 2,
+     "min_forward_frac": 0.6,
+     "min_net_forward_m": 40.0,
+     "step_moving_m": 30.0,
+     "step_jump_m": 5000.0,
+     "stop_max_perp_m": 100.0,
+     "stop_fallback_perp_m": 25.0,
+     "heading_tol_deg": 45.0
+    }
+   ],
+   "igual": true
+  },
+  "v2_geo3/manifest.json": {
+   "assign_params": [],
+   "igual": true
+  },
+  "v2_geo3_stops/daily/2026-09-15.carry.json": {
+   "igual": true
+  },
+  "v2_geo3_stops/daily/2026-09-15.meta.json": {
+   "assign_params": [
+    {
+     "tol_m": 45.0,
+     "margin_m": 20.0,
+     "history_window_s": 900,
+     "direction_rule": "trailing_run",
+     "min_near_pings": 2,
+     "min_forward_frac": 0.6,
+     "min_net_forward_m": 40.0,
+     "step_moving_m": 30.0,
+     "step_jump_m": 5000.0,
+     "stop_max_perp_m": 100.0,
+     "stop_fallback_perp_m": 25.0,
+     "heading_tol_deg": 45.0
+    }
+   ],
+   "igual": true
+  },
+  "v2_geo3_stops/manifest.json": {
+   "assign_params": [],
+   "igual": true
+  },
+  "v2_legacy/daily/2026-09-15.carry.json": {
+   "igual": true
+  },
+  "v2_legacy/daily/2026-09-15.meta.json": {
+   "assign_params": [
+    null
+   ],
+   "igual": true
+  },
+  "v2_legacy/manifest.json": {
+   "assign_params": [],
+   "igual": true
+  }
+ },
+ "diferencias": [],
+ "tiempos_antes_s": {
+  "v2_geo3": 16.8,
+  "v2_legacy": 16.1,
+  "v2_geo3_stops": 20.5,
+  "replay": 268.1,
+  "fixture": 240.4
+ },
+ "tiempos_despues_s": {
+  "v2_geo3": 20.1,
+  "v2_legacy": 19.3,
+  "v2_geo3_stops": 23.4,
+  "replay": 321.0,
+  "fixture": 222.8
+ },
+ "n_parquets": 17,
+ "n_filas": 898342,
+ "n_parquets_byte_identicos": 17,
+ "veredicto": "IGUAL"
+}

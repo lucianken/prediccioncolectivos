@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+from red.label_map import load_label_line_data, resolve_label_line_index
 from prediccion.v2.day import geometry_for_trip, read_day, segment_vehicles
 from prediccion.v2.shapes import DEFAULT_DATA_DIR, DEFAULT_LABEL_MAP, LineShapes
 

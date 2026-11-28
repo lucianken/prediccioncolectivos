@@ -18,6 +18,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+import red
+
 
 def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, max_groups: int | None,
           unk_line_p: float, workers: int, lines_file: Path, device: str = "cuda", seed: int = 0,
@@ -50,8 +52,9 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     stop_key = None
     if stops_feature:      # paradas por tramo (§6.2): de line_shapes/{N}.json, las mismas que van en el export
         from prediccion.models.path_eta import build_stop_key
-        from prediccion.models.stops import load_shape_stops
-        by_shape = load_shape_stops(geo_lines, shapes_dir)
+        from prediccion.v2.shapes import DEFAULT_LINE_SHAPES_DIR
+        from red.stops import load_shape_stops
+        by_shape = load_shape_stops(geo_lines, shapes_dir or DEFAULT_LINE_SHAPES_DIR)
         stop_key = build_stop_key(ids, by_shape)
         print(f"paradas: {len(stop_key)} en {sum(1 for i in ids if by_shape.get(i))}/{len(ids)} shapes", flush=True)
     model = PathETAModel(ids, lat, lon, off, train_lines, start_unknown=start_unknown, stops_feature=stops_feature,
@@ -152,7 +155,8 @@ def train(ml_dir: Path, out_dir: Path, epochs: int, batch_size: int, lr: float, 
     total = time.time() - t0
     res = {"model": "PathETAModel", "epochs": epochs, "batch_size": batch_size, "lr": lr, "loss": loss_kind, "loss_cfg": loss_cfg, "best_epoch": best_ep,
            "best_val_mae_s": best, "last_val_mae_s": hist[-1]["val_mae_s"], "training_time_s": total,
-           "n_params": n_params, "n_train_rows_approx": tr.approx_len, "history": hist}
+           "n_params": n_params, "n_train_rows_approx": tr.approx_len, "history": hist,
+           "red_version": red.__version__}   # versión del paquete de reglas (bondi/red) del entrenamiento
     (out_dir / "path_eta_metrics.json").write_text(json.dumps(res, indent=1), encoding="utf-8")
     print(f"listo en {total / 60:.1f} min; mejor ep {best_ep} val_mae {best:.1f}s", flush=True)
     return res

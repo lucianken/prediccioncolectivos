@@ -10,7 +10,7 @@ import numpy as np
 import pyarrow.parquet as pq
 import pytest
 
-from prediccion.pipeline.projector import ShapeIndex
+from red.geometria import ShapeIndex
 from prediccion.tests.v2_synth import label_data, line_pts, write_day, write_line_shapes
 from prediccion.v2.day import process_day
 from prediccion.v2.pairs import sample_pairs

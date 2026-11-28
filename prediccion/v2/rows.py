@@ -2,26 +2,13 @@
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
 from prediccion.pipeline.features import _CAP_S, _find_prev_trip, _interp_passage, SEGMENT_SIZE_M, N_FLEET
 from prediccion.v2.pairs import sample_pairs
+from red.tiempo import encode_time_np
 
 TRAJ_K = 10
-_BA_OFFSET_S = 3 * 3600  # Buenos Aires = UTC-3 fijo, sin DST
-
-
-def encode_time_np(ts: np.ndarray):
-    """Equivalente vectorizado de features.encode_time (hora local BA, dow 0=lunes)."""
-    local = ts.astype(np.int64) - _BA_OFFSET_S
-    sec_of_day = local % 86400
-    hour = sec_of_day / 3600.0
-    angle = 2.0 * math.pi * hour / 24.0
-    dow = ((local // 86400) + 3) % 7  # 1970-01-01 fue jueves (3)
-    return np.sin(angle), np.cos(angle), dow.astype(np.int8)
-
 
 COLUMNS = [
     "line", "shape_id", "ramal_id", "seg_idx", "dist_along_m", "dist_remaining_m",

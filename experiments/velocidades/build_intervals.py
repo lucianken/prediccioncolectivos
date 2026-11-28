@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from prediccion.pipeline.projector import ShapeIndex
+from red.geometria import ShapeIndex
 
 SHAPES_PATH = Path("prediccion/data/line_shapes.json")
 

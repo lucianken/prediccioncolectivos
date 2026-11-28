@@ -77,7 +77,7 @@ def estimate_year(raw_plate: str) -> int | None:
 def load_label_map() -> dict:
     """Carga LABEL_LINE_MAP.json v2 (keyed por línea, con vigencias)."""
     sys.path.insert(0, str(SCRIPT_DIR.parent.parent))
-    from prediccion.pipeline.shapes_io import load_label_line_data
+    from red.label_map import load_label_line_data
     return load_label_line_data(LABEL_LINE_MAP_PATH)
 
 

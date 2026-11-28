@@ -21,7 +21,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 from prediccion.pipeline.shapes_io import load_shapes, DEFAULT_SHAPES_PATH
-from prediccion.pipeline.projector import polyline_length_m
+from red.geometria import polyline_length_m
 
 CKPT_PATH   = ROOT / "data/ml/models/eta_a3_best.pt"
 VAL_PARQUET = ROOT / "data/ml/training/eta_val.parquet"

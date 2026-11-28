@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from prediccion.replay import core, run as RUN
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL = str(ROOT / "data/ml/export/path_v3_l1_s1")

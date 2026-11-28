@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]; sys.path.insert(0, str(ROOT))
 from prediccion.replay.run import build_cs_rid
 from prediccion.v2.day import geometry_for_trip, read_day, segment_vehicles
 from prediccion.v2.shapes import LineShapes
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+from red.label_map import load_label_line_data, resolve_label_line_index
 DAYS = {'2026-09-24': 'H', '2026-09-25': 'H', '2026-09-26': 'S'}
 RAM = {'382202': 'A', '382203': 'A', '382208': 'B', '382209': 'B', '382210': 'C', '382211': 'C'}
 SEN = {'382202': 'ida', '382203': 'vuelta', '382208': 'ida', '382209': 'vuelta', '382210': 'ida', '382211': 'vuelta'}

@@ -43,7 +43,7 @@ import numpy as np
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from prediccion.pipeline.projector import ShapeIndex
+from red.geometria import ShapeIndex
 
 # ── Parámetros por defecto ────────────────────────────────────────────────────
 

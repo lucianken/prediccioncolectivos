@@ -1,18 +1,8 @@
 import math
 import pytest
-from prediccion.pipeline.projector import haversine_m, project_to_shape, project_trip
+from prediccion.pipeline.projector import project_to_shape, project_trip
+from red.geometria import haversine_m
 from prediccion.pipeline.segmenter import Trip, TripPoint
-
-
-def test_haversine_bsas_montevideo():
-    # Buenos Aires (-34.61, -58.37) → Montevideo (-34.90, -56.19)
-    dist = haversine_m(-34.61, -58.37, -34.90, -56.19)
-    assert 195_000 < dist < 205_000
-
-
-def test_haversine_same_point():
-    dist = haversine_m(-34.60, -58.38, -34.60, -58.38)
-    assert dist == pytest.approx(0.0, abs=0.01)
 
 
 def test_project_to_shape_first_point(ramal_39_0_points):
@@ -106,24 +96,3 @@ def test_project_trip_preserves_valid_points(sample_trips_projected):
             assert pt.perp_error_m <= 150.0
             assert pt.dist_along_shape_m >= 0
 
-
-def test_project_many_fast_equivale_al_exacto_cerca_del_recorrido():
-    import numpy as np
-    from prediccion.pipeline.projector import ShapeIndex
-    rng = np.random.default_rng(0)
-    th = np.linspace(0, 6, 300)
-    shape = [(-34.60 + 0.02 * np.sin(t) + 0.004 * t, -58.40 + 0.01 * np.cos(2 * t) + 0.004 * t) for t in th]
-    exact, fast = ShapeIndex(shape), ShapeIndex(shape, fast=True)
-    k = rng.integers(0, len(shape), 400)
-    lat = np.array([shape[i][0] for i in k]) + rng.normal(0, 60, 400) / 111320
-    lon = np.array([shape[i][1] for i in k]) + rng.normal(0, 60, 400) / 91000
-    de, pe = exact.project_many(lat, lon)
-    df, pf = fast.project_many(lat, lon)
-    near = pe < 300
-    assert near.sum() > 300
-    assert np.abs(pe - pf)[near].max() < 1.0
-    # el along coincide salvo en cruces del propio recorrido (mismo perp, otro tramo)
-    assert np.mean(np.abs(de - df)[near] < 2.0) > 0.97
-    # lejos: el perp sigue siendo "grande" (nunca cae bajo el umbral de 150 m)
-    far_lat, far_lon = lat + 0.05, lon
-    assert (fast.project_many(far_lat, far_lon)[1] > 150).all()

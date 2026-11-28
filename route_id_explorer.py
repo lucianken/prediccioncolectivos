@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from prediccion.pipeline.reader import iter_daily_files, reconstruct_snapshots
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_map
+from red.label_map import load_label_line_data, resolve_label_line_map
 
 INTERVAL_S = 300          # muestra cada 5 min — suficiente para trackear route_ids
 ROTATION_MIN_NEW = 3      # mínimo de route_ids nuevos en un día para llamarlo rotación

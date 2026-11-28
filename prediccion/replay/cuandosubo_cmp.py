@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 from prediccion.replay import core
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 
 ROOT = Path(__file__).resolve().parents[2]
 CS_DIR = "//192.168.0.18/buffer/grabaciones_cuandosubo"

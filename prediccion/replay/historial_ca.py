@@ -22,8 +22,8 @@ import numpy as np
 import pandas as pd
 
 from prediccion.replay import core, run
-from prediccion.replay.pinned import geo_assign as G
-from prediccion.replay.pinned import path_reference as PR
+from red import geo_assign as G
+from red import path_reference as PR
 
 ROOT = Path(__file__).resolve().parents[2]
 

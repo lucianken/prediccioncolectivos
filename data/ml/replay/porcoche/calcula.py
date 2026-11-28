@@ -58,7 +58,7 @@ def ping_meta(args):
     except Exception:
         pass
     sys.path.insert(0, str(ROOT))
-    from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+    from red.label_map import load_label_line_data, resolve_label_line_index
     from prediccion.v2.day import read_day
     label_index = resolve_label_line_index(load_label_line_data(LMAP), on_date=day)
     lm = {s: v["line"] for s, v in label_index.items()}

@@ -5,7 +5,7 @@ sys.path.insert(0, str(ROOT))
 import numpy as np, pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 from prediccion.replay import run as R
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 S = Path(r"C:\Users\LK\AppData\Local\Temp\claude\586fec94495e776d\a0d2e010-c63d-45d0-842b-630e83e620e9\scratchpad")
 LINES = "26,39,42,50,92,106,107,108,124,132,151,168".split(",")
 

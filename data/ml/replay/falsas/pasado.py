@@ -10,7 +10,7 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 import falsas_diag as F
 from prediccion.replay import core, run as R
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 
 OUT = HERE / "run_pasado"
 

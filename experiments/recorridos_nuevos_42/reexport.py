@@ -7,7 +7,7 @@ import json, sys
 from pathlib import Path
 import numpy as np, torch
 from prediccion.models.path_eta import (PathETAModel, build_shape_table, build_stop_key, load_shape_points, STOP_KEY_SPAN)
-from prediccion.models.stops import load_shape_stops
+from red.stops import load_shape_stops
 from prediccion.scripts.export_path_onnx import export
 ROOT = Path(__file__).resolve().parents[2]
 CKPT = ROOT / "data/ml/v4_sub/runs/path_lr2e-3_s1/path_eta_best.pt"

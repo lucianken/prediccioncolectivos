@@ -23,7 +23,7 @@ import pandas as pd
 
 from prediccion.replay import core, run
 from prediccion.replay.historial_ca import Ctx, fast_last_bus
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 
 ROOT = Path(__file__).resolve().parents[2]
 WINDOWS = {"w1": 1200.0, "w20": 1200.0, "w15": 900.0}

@@ -4,7 +4,7 @@ Coordenadas geográficas de P (coche) y T (punto objetivo) para el CityGridEncod
 El parquet v2 no guarda lat/lon, pero sí `shape_id`, `dist_along_m` y `dist_remaining_m`. Con el recorrido
 (proyectoconsola/data/line_shapes/{N}.json) se interpola lat/lon en dist_along_m (P, el coche proyectado sobre el
 shape) y en dist_along_m + dist_remaining_m (T, el punto objetivo). La distancia acumulada usa la misma fórmula
-(ángulo pequeño) que `ShapeIndex`, así que es consistente con la que generó dist_along_m.
+(ángulo pequeño) que `red.geometria.ShapeIndex`, así que es consistente con la que generó dist_along_m.
 """
 
 from __future__ import annotations
@@ -14,29 +14,8 @@ from pathlib import Path
 
 import numpy as np
 
-_M_PER_DEG_LAT = 111_320.0
-
-
-class ShapeGeo:
-    """Un recorrido: puntos (lat, lon) y distancia acumulada en metros."""
-
-    def __init__(self, points):
-        pts = np.asarray(points, dtype=np.float64)
-        lat_mid = (pts[:-1, 0] + pts[1:, 0]) / 2.0
-        dy = (pts[1:, 0] - pts[:-1, 0]) * _M_PER_DEG_LAT
-        dx = (pts[1:, 1] - pts[:-1, 1]) * _M_PER_DEG_LAT * np.cos(np.radians(lat_mid))
-        self.lat = pts[:, 0]
-        self.lon = pts[:, 1]
-        self.cum = np.concatenate([[0.0], np.cumsum(np.sqrt(dx * dx + dy * dy))])
-
-    @property
-    def length_m(self) -> float:
-        return float(self.cum[-1])
-
-    def latlon_at(self, dist_m) -> tuple[np.ndarray, np.ndarray]:
-        """Lat/lon en `dist_m` metros sobre el recorrido (se satura en los extremos)."""
-        d = np.asarray(dist_m, dtype=np.float64)
-        return np.interp(d, self.cum, self.lat), np.interp(d, self.cum, self.lon)
+# ShapeGeo vive en el paquete `red` (bondi/red, F1.5).
+from red.geometria import ShapeGeo
 
 
 class ShapeGeoStore:

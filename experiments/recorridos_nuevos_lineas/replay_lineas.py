@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parents[1] / "recorridos_nuevos_42"))
 import core_head as core
 from prediccion.replay import run as RUN
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 from diff_shapes import densify, xy
 OLD = ROOT / "data/ml/export/path_v4_l1_s1"
 NEW = ROOT / "data/ml/export/path_v4_l1_s1_r20261126"

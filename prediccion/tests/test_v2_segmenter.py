@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from prediccion.pipeline.projector import ShapeIndex
+from red.geometria import ShapeIndex
 from prediccion.v2.segmenter import segment_geometric
 
 LON = -58.40

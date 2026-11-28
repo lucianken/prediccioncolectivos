@@ -22,7 +22,7 @@ from experiments.velocidades.extract_tracks import extract_day, DEFAULT_DATA_DIR
 from experiments.velocidades.lineas_caba import LINEAS_CABA
 from experiments.velocidades.run_month import month_days
 from prediccion.pipeline.build_dataset import EXCLUDED_DAYS
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_map
+from red.label_map import load_label_line_data, resolve_label_line_map
 
 
 def count_day(args) -> pd.DataFrame:

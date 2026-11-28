@@ -26,8 +26,10 @@ sys.path.insert(0, ".")
 
 from prediccion.pipeline.reader import reconstruct_lines_snapshots, iter_daily_files
 from prediccion.pipeline.segmenter import segment_vehicle_history
-from prediccion.pipeline.projector import project_trip, ShapeIndex, polyline_length_m
-from prediccion.pipeline.shapes_io import load_shapes, load_label_line_map, DEFAULT_SHAPES_PATH
+from prediccion.pipeline.projector import project_trip
+from red.geometria import ShapeIndex, polyline_length_m
+from prediccion.pipeline.shapes_io import load_shapes, DEFAULT_SHAPES_PATH
+from red.label_map import load_label_line_map
 
 DATA_DIR = Path("Z:/grabaciones")
 LINE = "39"

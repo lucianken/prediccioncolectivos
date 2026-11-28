@@ -35,7 +35,8 @@ from prediccion.pipeline.reader import (
     reconstruct_snapshots,
 )
 from prediccion.pipeline.segmenter import segment_vehicle_history
-from prediccion.pipeline.shapes_io import load_label_line_map, load_shapes
+from prediccion.pipeline.shapes_io import load_shapes
+from red.label_map import load_label_line_map
 
 from ramal_lookup.route_lookup import (
     RouteEvidence,

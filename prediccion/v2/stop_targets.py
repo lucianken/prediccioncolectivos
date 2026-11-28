@@ -45,7 +45,7 @@ def associate_stops(shapes: dict[str, list], own_stops: dict[str, list[dict]], d
     {shape_id: metros desde el inicio de sus paradas, ordenados}. Solo pertenencia a la lista del propio recorrido.
     shapes: {shape_id: [(lat, lon), ...]}; own_stops: {shape_id: [{id, lat, lng}, ...]}.
     """
-    from prediccion.models.stops import project_stops
+    from red.stops import project_stops
     out: dict[str, np.ndarray] = {}
     for sid, pts in shapes.items():
         keep: list[float] = []

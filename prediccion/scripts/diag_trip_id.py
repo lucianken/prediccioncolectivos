@@ -52,7 +52,7 @@ def process_day(day: str) -> dict:
         pass
     import pyarrow.parquet as pq
     from prediccion.pipeline.reader import iter_frames
-    from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+    from red.label_map import load_label_line_data, resolve_label_line_index
     from prediccion.v2.shapes import DEFAULT_LABEL_MAP, DEFAULT_LINE_SHAPES_DIR, LineShapes
 
     lines = json.load(open(V2B / "lines.json", encoding="utf-8"))

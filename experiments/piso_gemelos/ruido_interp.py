@@ -12,7 +12,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1]))
 sys.path.insert(0, str(HERE))
 import gemelos as GM  # noqa: E402
-from prediccion.v2 import geo_assign as G  # noqa: E402
+from red import geo_assign as G  # noqa: E402
 from prediccion.v2.shapes import LineShapes  # noqa: E402
 
 day = sys.argv[1]

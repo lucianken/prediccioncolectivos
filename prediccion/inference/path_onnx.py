@@ -27,7 +27,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from prediccion.models.path_eta import SEG_BASE_M, PathETAModel, build_path_segments, stop_features
-from prediccion.models.stops import STOP_NEXT_CAP_M
+from red.stops import STOP_NEXT_CAP_M
 
 INPUT_NAMES = ["seg_lat", "seg_lon", "seg_mid_m", "seg_len", "seg_mask", "line_idx", "dow", "h_sin", "h_cos", "state"]
 STOP_INPUT_NAMES = ["seg_stop_n", "seg_stop_next"]    # solo con stops_feature: conteo y metros a la próxima parada (tope 1000)

@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 import pandas as pd
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+from red.label_map import load_label_line_data, resolve_label_line_index
 from prediccion.v2.day import read_day
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "data/ml/replay/recorridos_nuevos_42/cache"; OUT.mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,7 @@ import pytest
 
 from prediccion.replay import core
 from prediccion.replay import metrics as MT
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 
 MAN = Path(__file__).resolve().parents[2] / "data" / "ml" / "export" / "path_v2c_l1_s1" / "manifest.json"
 pytestmark = pytest.mark.skipif(not MAN.exists(), reason="falta el export del modelo (constantes)")
@@ -344,3 +344,32 @@ def test_dentro_de_tolerancia_cuenta_instantes_con_primer_arribo_cerca_del_paso_
     assert r["dentro_120_con_pct"] == pytest.approx(100 * 2 / 3)
     r2 = MT.within_tol(inst, tols=(200.0,))
     assert r2["dentro_200_con_pct"] == pytest.approx(100.0)
+
+
+# ── meta.json de la corrida: versión de red ───────────────────────────────────
+
+def test_la_corrida_registra_la_version_de_red_y_acumula_invocaciones(tmp_path):
+    import red
+    from prediccion.replay.run import write_run_meta
+    write_run_meta(tmp_path, {"days": ["2026-09-15"]})
+    meta = write_run_meta(tmp_path, {"days": ["2026-09-16"]})
+    leido = json.loads((tmp_path / "meta.json").read_text(encoding="utf-8"))
+    assert leido == meta
+    assert leido["red_version"] == red.__version__
+    assert [i["days"] for i in leido["invocaciones"]] == [["2026-09-15"], ["2026-09-16"]]
+
+
+def test_una_carpeta_no_mezcla_versiones_de_red(tmp_path, monkeypatch):
+    import red
+    from prediccion.replay.run import write_run_meta
+    write_run_meta(tmp_path, {})
+    monkeypatch.setattr(red, "__version__", "9.9.9")
+    with pytest.raises(ValueError, match="otro --out"):
+        write_run_meta(tmp_path, {})
+
+
+def test_salidas_viejas_sin_meta_no_se_reanudan_con_red(tmp_path):
+    from prediccion.replay.run import write_run_meta
+    (tmp_path / "2026-09-15_39.inst.parquet").write_bytes(b"")
+    with pytest.raises(ValueError, match="sin meta.json"):
+        write_run_meta(tmp_path, {})

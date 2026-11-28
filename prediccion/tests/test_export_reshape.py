@@ -12,7 +12,7 @@ pytest.importorskip("onnxruntime")
 import numpy as np  # noqa: E402
 
 from prediccion.models.path_eta import PathETAModel, build_shape_table, build_stop_key  # noqa: E402
-from prediccion.models.stops import project_stops  # noqa: E402
+from red.stops import project_stops  # noqa: E402
 from prediccion.scripts.export_path_onnx import export  # noqa: E402
 
 

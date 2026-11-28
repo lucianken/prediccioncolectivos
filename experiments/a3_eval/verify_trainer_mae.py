@@ -5,7 +5,7 @@ from pathlib import Path
 from prediccion.models.a3_eta import A3ETAModel
 from prediccion.models.eta_dataset import ETADataset
 from prediccion.pipeline.shapes_io import load_shapes, DEFAULT_SHAPES_PATH
-from prediccion.pipeline.projector import polyline_length_m
+from red.geometria import polyline_length_m
 
 shapes = load_shapes(str(DEFAULT_SHAPES_PATH))
 shape_lengths = {}

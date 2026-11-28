@@ -23,12 +23,14 @@ from pathlib import Path
 
 import numpy as np
 
-from prediccion.pipeline.projector import ShapeIndex, best_shape_for_trip, MAX_PERP_ERROR_M
+from prediccion.pipeline.projector import best_shape_for_trip, MAX_PERP_ERROR_M
+from red.geometria import ShapeIndex
 from prediccion.pipeline.reader import reconstruct_lines_snapshots
 from prediccion.pipeline.segmenter import segment_vehicle_history
-from prediccion.pipeline.shapes_io import resolve_label_line_index
+from red.label_map import resolve_label_line_index
 from prediccion.pipeline.features import N_FLEET
-from prediccion.v2 import geo_assign
+import red
+from red import geo_assign
 from prediccion.v2.pairs import trip_seed
 from prediccion.v2.rows import trip_rows, add_trip_to_passage_cache
 from prediccion.v2.segmenter import GAP_S, START_UNKNOWN_M, segment_geometric
@@ -494,7 +496,9 @@ def process_day(
     meta = {
         "version": META_VERSION, "date": day, "lines": lines, "k_pairs": k_pairs,
         "include_fleet": include_fleet, "segmentation": segmentation, "assign": assign, "targets": targets, "stop_frac": stop_frac,
-        "assign_params": geo_assign.manifest_params() if assign == "geo3" else None, "n_rows": int(n_rows), "n_trips": len(trip_recs),
+        "assign_params": geo_assign.manifest_params() if assign == "geo3" else None,
+        "red_version": red.__version__,   # versión del paquete de reglas (bondi/red) con que se armó el día
+        "n_rows": int(n_rows), "n_trips": len(trip_recs),
         "pings_in_shaped_trips": int(sum(r["n_points"] for r in trip_recs if r["shape_id"])),
         "pings_valid": int(sum(r["n_valid"] for r in trip_recs if r["shape_id"])),
         "per_line": per_line, "carry_in": carry is not None,
@@ -530,7 +534,7 @@ def update_manifest(out_dir: Path) -> dict:
         if m:
             days[day] = {"lines": m["lines"], "k_pairs": m["k_pairs"], "include_fleet": m["include_fleet"],
                          "n_rows": m["n_rows"], "n_trips": m["n_trips"], "carry_in": m["carry_in"],
-                         "elapsed_s": m["elapsed_s"], "done": True}
+                         "elapsed_s": m["elapsed_s"], "red_version": m.get("red_version"), "done": True}
     manifest = {"version": META_VERSION, "days": days}
     _atomic_json(manifest, out_dir / "manifest.json")
     return manifest

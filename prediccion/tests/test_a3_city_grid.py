@@ -7,7 +7,8 @@ import pytest
 import torch
 
 from prediccion.models.a3_eta import (A3ETAModel, CityGridEncoder, GRID_LAT_MIN, GRID_LON_MIN)
-from prediccion.models.geo import ShapeGeo, ShapeGeoStore, geo_coords
+from prediccion.models.geo import ShapeGeoStore, geo_coords
+from red.geometria import ShapeGeo
 
 FIX = Path(__file__).parent / "fixtures"
 

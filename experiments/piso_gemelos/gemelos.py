@@ -18,7 +18,7 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(HERE))
 import equiv as EQ  # noqa: E402
-from prediccion.v2 import geo_assign as G  # noqa: E402
+from red import geo_assign as G  # noqa: E402
 
 SHAPES_DIR = ROOT.parent / "proyectoconsola" / "data" / "backup_line_shapes_2026-11-26"   # los shapes del export path_v4_l1_s1 (los actuales de line_shapes cambiaron el 2026-11-26)
 LABEL_MAP = ROOT / "LABEL_LINE_MAP.json"
@@ -227,7 +227,7 @@ def match_twins(P, line_of_target, s, day0):
 
 def model_predictions(cases, per_line, bundle, vid_by_code, n_model, seed):
     """Predicción de path_v4_l1_s1 desde el último ping de B <= entrada (causal), hacia el nodo de salida. Columnas eta_model."""
-    from prediccion.replay.pinned import path_reference as PR
+    from red import path_reference as PR
     rng = np.random.default_rng(seed)
     cases = cases.copy()
     cases["eta_model"] = np.nan
@@ -338,7 +338,7 @@ def run_day(day, lines=EQ.TARGET_LINES, model_n=300, model_ms=(4, 6), seed=0, eq
     cases["day"] = day
     cases.attrs["vid_by_code"] = code_vid
     if model_n:
-        from prediccion.replay.pinned import path_reference as PR
+        from red import path_reference as PR
         bundle = PR.load_bundle(MODEL_DIR)
         cases["eta_model"] = np.nan; cases["model_status"] = ""; cases["origin_t"] = np.nan
         for mm_ in model_ms:

@@ -218,7 +218,7 @@ def train_phase3(
 
     # Calcular shape_lengths desde line_shapes.json (para normalizar dist_remaining)
     from prediccion.pipeline.shapes_io import DEFAULT_SHAPES_PATH, load_shapes
-    from prediccion.pipeline.projector import polyline_length_m
+    from red.geometria import polyline_length_m
     shape_lengths: dict[str, float] = {}
     try:
         shapes = load_shapes(str(DEFAULT_SHAPES_PATH))

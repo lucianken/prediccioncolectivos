@@ -6,7 +6,7 @@ import torch
 
 from prediccion.models.path_eta import (N_STATE, PathETAModel, build_path_segments, build_shape_table, build_stop_key,
                                         stop_features)
-from prediccion.models.stops import project_stops, stop_features_np
+from red.stops import stop_features_np
 
 PTS = [(-34.60 + 0.0001 * i, -58.40) for i in range(0, 2000, 10)]      # ~2,2 km hacia el norte
 STOPS_M = [300.0, 420.0, 1010.0, 1500.0]
@@ -19,27 +19,6 @@ def _feats(stops, lo, hi, n_shapes=1, s=0):
     return c.tolist(), n.tolist()
 
 
-def test_tramo_con_dos_paradas_cuenta_dos_y_sin_paradas_cuenta_cero():
-    c, _ = _feats(STOPS_M, [250.0, 500.0, 0.0], [500.0, 750.0, 250.0])
-    assert c == [2, 0, 0]
-
-
-def test_parada_justo_en_el_limite_pertenece_al_tramo_que_empieza_ahi():
-    c, _ = _feats([250.0], [0.0, 250.0], [250.0, 500.0])
-    assert c == [0, 1]
-
-
-def test_shape_sin_paradas_o_con_otro_shape_vecino_no_contamina():
-    key = build_stop_key(["a", "b"], {"b": [100.0, 200.0]})
-    c, n = stop_features(torch.as_tensor(key), torch.tensor([0, 1]), torch.tensor([0.0, 0.0]), torch.tensor([300.0, 300.0]))
-    assert c.tolist() == [0, 2] and n.tolist() == [1000.0, 100.0]
-
-
-def test_metros_a_la_proxima_parada_con_tope():
-    _, n = _feats(STOPS_M, [0.0, 301.0, 1600.0], [250.0, 500.0, 1800.0])
-    assert n == pytest.approx([300.0, 119.0, 1000.0])
-
-
 def test_la_referencia_numpy_coincide_con_la_version_torch():
     rng = np.random.default_rng(0)
     stops = sorted(rng.uniform(0, 5000, 20).round(2).tolist())
@@ -49,14 +28,6 @@ def test_la_referencia_numpy_coincide_con_la_version_torch():
     c2, n2 = stop_features_np(stops, lo, hi)
     np.testing.assert_allclose(c, c2)
     np.testing.assert_allclose(n, n2, atol=1e-6)
-
-
-def test_project_stops_da_metros_sobre_el_shape_ordenados():
-    shape = [[-34.60, -58.40], [-34.59, -58.40]]                       # ~1112 m al norte
-    stops = [{"lat": -34.595, "lng": -58.4001}, {"lat": -34.598, "lng": -58.40}]
-    d = project_stops(shape, stops)
-    assert d == sorted(d) and d[0] == pytest.approx(222.6, abs=1.0) and d[1] == pytest.approx(556.6, abs=1.0)
-    assert project_stops(shape, []) == []
 
 
 def _model(stops_feature, hidden=16):
@@ -130,7 +101,7 @@ def test_onnx_coincide_con_pytorch(tmp_path, stops_feature):
 
 
 def test_la_referencia_del_cliente_arma_las_mismas_entradas_de_paradas_que_el_entrenamiento():
-    from prediccion.inference.path_reference import Shape, build_segments
+    from red.path_reference import Shape, build_segments
     m = _model(True)
     d0, rem = 130.0, 1400.0
     from prediccion.inference.path_onnx import segment_inputs_from_rows

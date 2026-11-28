@@ -1,7 +1,8 @@
 """
 Lanzador del replay: python -m prediccion.replay.run --model data/ml/export/path_v2c_l1_s1 --days 2026-09-15,... \
     --lines 26,39,... --variants base,sentido,ramal,cs --cs-days d1,d2 --out data/ml/replay/run1 [--workers 3]
-Escribe por (día, línea): {out}/{day}_{line}.veh.parquet y .inst.parquet (se salta lo ya hecho).
+Escribe por (día, línea): {out}/{day}_{line}.veh.parquet y .inst.parquet (se salta lo ya hecho), y {out}/meta.json con la
+versión de `red` (reglas y referencia de la app, bondi/red) y los parámetros de cada invocación.
 """
 from __future__ import annotations
 
@@ -16,8 +17,9 @@ from pathlib import Path
 
 import pandas as pd
 
+import red
 from prediccion.replay import core, prior_ramal
-from prediccion.replay.pinned import path_reference as PR
+from red import path_reference as PR
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LINES = "26,39,42,50,92,106,107,108,124,132,151,168"
@@ -28,7 +30,7 @@ def load_day(day, lines, data_dir, label_map, shapes_dir, with_trips=True):
     """Pings por coche y recorrido ex post de sus viajes (segmentador geo2 + geo3: variante oráculo y verdad por recorrido).
     `with_trips` se conserva por compatibilidad y se ignora: desde 2026-11-16 los viajes se calculan siempre, porque la verdad
     (core._passes) cuenta un cruce solo si el recorrido ex post del coche tiene la parada en su lista."""
-    from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+    from red.label_map import load_label_line_data, resolve_label_line_index
     from prediccion.v2.day import geometry_for_trip, read_day, segment_vehicles
     from prediccion.v2.shapes import LineShapes
     label_index = resolve_label_line_index(load_label_line_data(label_map), on_date=day)
@@ -116,6 +118,27 @@ def run_day(a):
     return day, time.time() - t0
 
 
+def write_run_meta(out, info: dict) -> dict:
+    """{out}/meta.json de la corrida: `red_version` (versión de `red` con que corre la lógica de la app) y los parámetros de
+    cada invocación (se agregan al reanudar). Una carpeta no mezcla versiones de `red`: si ya tiene salidas de otra versión,
+    o salidas sin meta.json (corridas anteriores a importar `red`), falla y hay que usar otro --out."""
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    p = out / "meta.json"
+    if p.exists():
+        meta = json.loads(p.read_text(encoding="utf-8"))
+        if meta.get("red_version") != red.__version__:
+            raise ValueError(f"{out} tiene corridas con red {meta.get('red_version')} y está instalado red {red.__version__}: "
+                             "usar otro --out")
+    elif any(out.glob("*.inst.parquet")):
+        raise ValueError(f"{out} tiene salidas sin meta.json (corrida anterior a registrar la versión de red): usar otro --out")
+    else:
+        meta = {"red_version": red.__version__, "invocaciones": []}
+    meta["invocaciones"].append(info)
+    p.write_text(json.dumps(meta, indent=1, ensure_ascii=False), encoding="utf-8")
+    return meta
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default=str(ROOT / "data/ml/export/path_v2c_l1_s1"))
@@ -142,6 +165,12 @@ def main():
               cs_map=a.cs_map, cs_table=a.cs_table, cs_days=set(filter(None, a.cs_days.split(","))))
     days = a.days.split(",")
     lines = a.lines.split(",")
+    man = Path(a.model) / "manifest.json"
+    write_run_meta(a.out, {"fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "model": a.model,
+                           "model_version": json.loads(man.read_text(encoding="utf-8")).get("model_version") if man.exists() else None,
+                           "days": days, "lines": lines, "variants": list(kw["variants"]), "stops": a.stops,
+                           "step_min": a.step_min, "ts_offset_s": a.ts_offset, "shapes_dir": a.shapes_dir,
+                           "prior_dir": a.prior_dir, "cs_days": sorted(kw["cs_days"])})
     with ProcessPoolExecutor(a.workers) as ex:
         for day, el in ex.map(run_day, [(d, lines, kw) for d in days]):
             print("hecho", day, f"{el:.0f}s", flush=True)

@@ -30,7 +30,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from prediccion.pipeline.projector import ShapeIndex, _forward_fraction
+from prediccion.pipeline.projector import _forward_fraction
+from red.geometria import ShapeIndex
 from prediccion.pipeline.segmenter import Trip, TripPoint
 
 GAP_S = 300

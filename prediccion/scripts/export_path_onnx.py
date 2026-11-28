@@ -50,7 +50,7 @@ def reshape_checkpoint(ckpt: dict, shapes_dir: Path) -> tuple[dict, dict]:
     import torch
     from prediccion.models.path_eta import (STOP_KEY_SPAN, PathETAModel, build_stop_key, load_shape_points,
                                             shape_cell_midpoints)
-    from prediccion.models.stops import load_shape_stops
+    from red.stops import load_shape_stops
     old = PathETAModel.from_checkpoint(ckpt)
     all_lines = sorted(p.stem for p in Path(shapes_dir).glob("*.json") if p.stem != "index")
     npts = load_shape_points(all_lines, shapes_dir)
@@ -108,11 +108,11 @@ def export(ckpt_path: Path, out_dir: Path, shapes_dir=None, verify: bool = True,
            reshape: bool = False) -> dict:
     import torch
     from prediccion.inference.path_onnx import OUTPUT_NAMES, export_onnx, input_names
-    from prediccion.models.geo import ShapeGeo
+    from red.geometria import ShapeGeo
     from prediccion.models.path_eta import (MAX_SEG, SEG_BASE_M, STOPPED_MPS, STOP_KEY_SPAN, PathETAModel,
                                             load_shape_points)
-    from prediccion.models.stops import STOP_DECIMALS, STOP_NEXT_CAP_M, project_stops
-    from prediccion.v2 import geo_assign
+    from red.stops import STOP_DECIMALS, STOP_NEXT_CAP_M, project_stops
+    from red import geo_assign
     from prediccion.v2.shapes import DEFAULT_LINE_SHAPES_DIR
 
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)

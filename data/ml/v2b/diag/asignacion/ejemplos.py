@@ -3,7 +3,7 @@ import sys, json
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[5]; sys.path.insert(0, str(ROOT))
 from prediccion.v2.day import read_day
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
+from red.label_map import load_label_line_data, resolve_label_line_index
 from datetime import datetime, timezone, timedelta
 EX = [  # (tipo, dia, linea, vid, ts)
  ("A", "2026-08-06", "151", "97385", 1786033832), ("A", "2026-10-05", "39", "77665", 1791246458),

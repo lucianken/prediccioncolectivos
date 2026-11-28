@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from prediccion.pipeline.projector import haversine_m, polyline_length_m, project_to_shape
+from prediccion.pipeline.projector import project_to_shape
+from red.geometria import haversine_m, polyline_length_m
 
 if TYPE_CHECKING:
     from prediccion.inference.fleet_cache import LiveVehicle

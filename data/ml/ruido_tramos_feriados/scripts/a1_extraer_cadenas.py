@@ -8,7 +8,8 @@ import numpy as np, pyarrow.parquet as pq, pandas as pd
 import psutil
 p = psutil.Process(); p.nice(psutil.IDLE_PRIORITY_CLASS); p.cpu_affinity(list(range(8)))
 sys.path.insert(0, ".")
-from prediccion.models.stops import load_shape_stops
+from prediccion.v2.shapes import DEFAULT_LINE_SHAPES_DIR
+from red.stops import load_shape_stops
 V4 = Path("data/ml/v4/daily"); OUT = Path("data/ml/ruido_tramos_feriados")
 DAYS = ["2026-08-04", "2026-08-05", "2026-08-12", "2026-08-19", "2026-09-02", "2026-09-16", "2026-09-23", "2026-10-06", "2026-10-13",
         "2026-08-08", "2026-09-12", "2026-09-26", "2026-10-03", "2026-08-09", "2026-09-20", "2026-10-11"]
@@ -82,7 +83,7 @@ R = R[np.isfinite(R.e)]
 # paradas
 sh = R["shape"].astype(str).unique()
 lines_u = R["line"].astype(str).unique()
-st = load_shape_stops(lines_u)
+st = load_shape_stops(lines_u, DEFAULT_LINE_SHAPES_DIR)
 gap = np.full(len(R), np.nan, np.float32); nsp = np.full(len(R), np.nan, np.float32); nxt = np.full(len(R), np.nan, np.float32)
 Rs = R["shape"].astype(str).to_numpy(); ds = R["dstar"].to_numpy(); d0 = R["d0"].to_numpy(); d2 = R["d2"].to_numpy()
 order = np.argsort(Rs, kind="stable"); Rs_sorted = Rs[order]

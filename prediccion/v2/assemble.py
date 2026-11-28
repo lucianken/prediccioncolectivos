@@ -19,6 +19,8 @@ import json
 import os
 from pathlib import Path
 
+import red
+
 VAL_START = "2026-09-15"
 VAL_END = "2026-10-14"
 
@@ -144,6 +146,9 @@ def assemble_dataset(
         "rows_train": sum(c_train.values()), "rows_val": sum(c_val.values()),
         "rows_train_by_line": c_train, "rows_val_by_line": c_val,
         "train_lines": sorted(train_lines, key=int), "heldout_lines": sorted(heldout, key=int),
+        # versión de `red` (bondi/red) de este ensamblado y de los días usados (None = día armado antes de importar red)
+        "red_version": red.__version__,
+        "red_versions_dias": sorted({str((read_meta(v2_dir, d) or {}).get("red_version")) for d in train_days + val_days}),
     }
     with open(dest / "assembled.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=1)

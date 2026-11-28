@@ -4,8 +4,8 @@ import numpy as np, pandas as pd
 ROOT = Path(__file__).resolve().parents[4]; sys.path.insert(0, str(ROOT))
 from prediccion.v2.day import read_day
 from prediccion.v2.shapes import LineShapes, DEFAULT_LABEL_MAP, DEFAULT_LINE_SHAPES_DIR
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_index
-from prediccion.v2 import geo_assign as G
+from red.label_map import load_label_line_data, resolve_label_line_index
+from red import geo_assign as G
 day = sys.argv[1]
 b = pd.read_parquet(ROOT/f"data/ml/v2b/daily/{day}.trips.parquet"); c = pd.read_parquet(ROOT/f"data/ml/v2c/validation/daily/{day}.trips.parquet")
 j = b.merge(c, on=["vehicle_id","start_ts"], suffixes=("_b","_c"))

@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from prediccion.pipeline.projector import ShapeIndex
+from red.geometria import ShapeIndex
 
 REPO_ROOT = Path(__file__).resolve().parents[2]          # .../prediccion colectivos
 DEFAULT_LINE_SHAPES_DIR = REPO_ROOT.parent / "proyectoconsola" / "data" / "line_shapes"

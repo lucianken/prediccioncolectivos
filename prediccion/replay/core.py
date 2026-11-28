@@ -24,8 +24,8 @@ from pathlib import Path
 
 import numpy as np
 
-from prediccion.replay.pinned import path_reference as PR
-from prediccion.replay.pinned import geo_assign as G
+from red import path_reference as PR
+from red import geo_assign as G
 from prediccion.replay import prior_ramal as PRIOR
 
 # ── parámetros de producción (public/config/prediccion.json y app.js) ────────────────────────────────────────

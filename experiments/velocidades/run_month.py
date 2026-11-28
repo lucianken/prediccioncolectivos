@@ -26,7 +26,7 @@ from experiments.velocidades.build_intervals import build_from_frame
 from experiments.velocidades.extract_tracks import extract_day, DEFAULT_DATA_DIR, DEFAULT_MAP
 from experiments.velocidades.lineas_caba import LINEAS_CABA
 from prediccion.pipeline.build_dataset import EXCLUDED_DAYS
-from prediccion.pipeline.shapes_io import load_label_line_data, resolve_label_line_map
+from red.label_map import load_label_line_data, resolve_label_line_map
 
 
 def process_day(args: tuple[str, tuple[str, ...], Path, Path, Path]) -> tuple[str, int, float]:

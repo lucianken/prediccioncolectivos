@@ -119,7 +119,7 @@ def transitions(df, opp):
 
 def process_one(day, shapes, label_data, opp_maps, do_sim, val_days):
     from prediccion.v2.day import read_day, segment_vehicles, prev_day
-    from prediccion.pipeline.shapes_io import resolve_label_line_index
+    from red.label_map import resolve_label_line_index
     import prediccion.v2.segmenter as sg
     import pyarrow.parquet as pq
 
@@ -273,7 +273,7 @@ def chunk(args):
         except Exception:
             pass
     from prediccion.v2.shapes import LineShapes
-    from prediccion.pipeline.shapes_io import load_label_line_data
+    from red.label_map import load_label_line_data
     shapes = LineShapes()
     label_data = load_label_line_data(ROOT / "LABEL_LINE_MAP.json")
     opp_maps = {ln: opposite_map(shapes, ln) for ln in LINES}

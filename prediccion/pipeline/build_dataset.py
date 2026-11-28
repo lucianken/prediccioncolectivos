@@ -29,12 +29,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from prediccion.pipeline.shapes_io import (
-    load_shapes as _load_shapes,
-    get_shape_points as _get_shape_points,
-    load_label_line_data as _load_label_line_data,
-    resolve_label_line_map as _resolve_label_line_map,
-)
+from prediccion.pipeline.shapes_io import load_shapes as _load_shapes, get_shape_points as _get_shape_points
+from red.label_map import load_label_line_data as _load_label_line_data, resolve_label_line_map as _resolve_label_line_map
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +170,7 @@ def _merge_eta_splits(
 
 
 def _compute_shape_lengths(shapes: dict) -> dict[str, float]:
-    from prediccion.pipeline.projector import polyline_length_m
+    from red.geometria import polyline_length_m
     lengths: dict[str, float] = {}
     for line_num, line_data in shapes.items():
         for ramal in line_data.get("ramales", []):
@@ -229,7 +225,8 @@ def _process_daily_file(
       nuevo_carry:   {vehicle_id: [obs, ...]}
     """
     from prediccion.pipeline.segmenter import segment_vehicle_history
-    from prediccion.pipeline.projector import project_trip, ShapeIndex
+    from prediccion.pipeline.projector import project_trip
+    from red.geometria import ShapeIndex
     from prediccion.pipeline.features import make_training_rows_eta
 
     # Precomputar ShapeIndex por shape_id (fuente de verdad) y fallback por (linea, direction)

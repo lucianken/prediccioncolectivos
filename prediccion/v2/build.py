@@ -25,7 +25,7 @@ from datetime import date as _date, timedelta
 from pathlib import Path
 
 from prediccion.pipeline.build_dataset import EXCLUDED_DAYS
-from prediccion.pipeline.shapes_io import load_label_line_data
+from red.label_map import load_label_line_data
 from prediccion.v2.assemble import VAL_END, VAL_START, assemble_dataset, load_lines_file
 from prediccion.v2.day import process_day, update_manifest
 from prediccion.v2.shapes import (DEFAULT_DATA_DIR, DEFAULT_LABEL_MAP, DEFAULT_LINE_SHAPES_DIR,

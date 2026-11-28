@@ -74,7 +74,7 @@ def build_path_segments(d0: torch.Tensor, rem: torch.Tensor, max_seg: int = MAX_
 
 def shape_cell_midpoints(points, base: float = SEG_BASE_M):
     """(lat, lon) de los puntos medios de las celdas de `base` metros de un shape (la última puede ser parcial)."""
-    from prediccion.models.geo import ShapeGeo
+    from red.geometria import ShapeGeo
     sg = ShapeGeo(points)
     n = max(1, math.ceil(sg.length_m / base))
     mid = np.minimum((np.arange(n) + 0.5) * base, sg.length_m)
@@ -132,7 +132,7 @@ def stop_features(stop_key: torch.Tensor, s_idx: torch.Tensor, lo: torch.Tensor,
     (conteo, próxima) por tramo [lo, hi) de shape `s_idx` (todo (n,)). conteo = paradas con lo <= parada < hi;
     próxima = metros desde lo hasta la primera parada >= lo, topeados en STOP_NEXT_CAP_M (sin parada: el tope).
     """
-    from prediccion.models.stops import STOP_NEXT_CAP_M
+    from red.stops import STOP_NEXT_CAP_M
     base = s_idx.double() * STOP_KEY_SPAN
     lo, hi = lo.double(), hi.double()
     i0 = torch.searchsorted(stop_key, (base + lo).contiguous(), right=False)
@@ -148,7 +148,7 @@ def stop_features(stop_key: torch.Tensor, s_idx: torch.Tensor, lo: torch.Tensor,
 
 def stop_input(count: torch.Tensor, nxt: torch.Tensor) -> torch.Tensor:
     """Las 2 columnas que entran al MLP del tramo: conteo y próxima parada normalizada (/ tope)."""
-    from prediccion.models.stops import STOP_NEXT_CAP_M
+    from red.stops import STOP_NEXT_CAP_M
     return torch.stack([count.float(), (nxt / STOP_NEXT_CAP_M).float()], dim=-1)
 
 
