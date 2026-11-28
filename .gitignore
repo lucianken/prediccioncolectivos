@@ -75,3 +75,12 @@ data/ml/**/*.ndjson
 data/ml/**/*.pkl
 flota-historial-sim-datos/
 analisis_latencia_fuentes/datos/*.ndjson
+
+# Corridas del replay que se regeneran (los informes y tablas de cada estudio sí se versionan)
+data/ml/replay/**/run/
+data/ml/replay/prior/test1/
+# Export intermedio: es el mismo modelo que path_v4_l1_s1_r20261126 (versionado), ver RECORRIDOS_NUEVOS_42.md
+data/ml/export/path_v4_l1_s1_shapes20261126/
+# Logs de corridas de experimentos
+experiments/**/*.out
+experiments/**/*.err
