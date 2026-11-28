@@ -181,3 +181,61 @@ No se puede en esta ronda. `proyectoconsola/public/config/ramal_cuandosubo.json`
 
 ### Conclusión de la segunda ronda
 El patrón de la 39, la 168 y la 132 es general: en 28 de las 29 líneas con cabecera multi-ramal la secuencia de despachos mejora el logloss de freq (en 19, más de 0.10) y el acierto sube 5 pp o más en 18; falta ganancia solo donde un ramal ya domina la cabecera. El problema pesa: 57 % de los despachos de estas 48 líneas salen de una cabecera multi-ramal. Calibración muy buena (ECE 0.006). Siguen pendientes la validación independiente y el encadenado en tiempo real.
+
+
+
+---
+
+## Prior causal (2026-11-27)
+
+Pregunta: el prior de arriba usa el ramal ex post de los despachos previos. ¿Cuánto queda si el contexto es solo lo que se sabe con pings ≤ t? Medición; no se entrenó nada del pipeline ni se tocó la app. Código en `causal/` (`eventos.py`, `modelo.py`, `evalua.py`), salidas crudas `causal/evalua_out.txt` y `causal/evalua_lineas.csv`. Se usan los shapes del export `path_v4_l1_s1` (= `backup_line_shapes_2026-11-26`), no los `line_shapes` actuales (la 132 y la 47 cambiaron el 2026-11-26).
+
+### Definiciones causales
+- **Líneas:** las 14 del replay de v4 con cabecera multi-ramal: 39, 168, 132, 106, 42, 33, 110, 181, 9, 20, 85, 180, 98, 188. Cabecera = origen del shape del export con ≥ 2 ramales (`short_name`) distintos; centro = media de los primeros puntos de sus shapes. Se omiten las cabeceras con < 150 salidas de train o < 100 de test (180 Puerto Madero, 20 Retiro, 42 Ciudad Universitaria, 85 Balneario Quilmes, 98 Quilmes). Quedan 28 cabeceras.
+- **Salida de la cabecera (detectada con pings ≤ t):** un coche «sale» en el ping i cuando su distancia al centro de la cabecera pasa de ≤ 250 m (ping anterior) a > 250 m, con ≤ 10 min entre ambos pings y ≤ 2,5 km del centro, habiendo tenido un ping a ≤ 150 m en los 30 min previos y desde su salida anterior. La salida se conoce desde `det_ts` = hora de ese ping i. No usa el viaje ex post. De los despachos ex post con etiqueta y `start_unknown = 0` de las 28 cabeceras el detector encuentra el 92 % (85: 60 %, el resto 80–102 %; en la 180 sobran porque el origen del shape no siempre es la cabecera física).
+- **Etiqueta ex post** de cada salida (solo para medir y entrenar): ramal del viaje ex post del mismo coche cuyo inicio cae entre 15 min antes y 1 min después de `det_ts` y cuyo shape sale de esa cabecera.
+- **Ramal revelado:** primer ping desde la salida (hasta 100 min o la siguiente salida del coche) cuyos shapes compatibles (`geo_assign.compatible_shapes`: perp ≤ 45 m y ≤ mínimo de la línea + 20 m) y que salen de esa cabecera pertenecen a un solo ramal. Un previo con `reveal_ts` ≤ t entra al contexto con ese ramal; si no, es «desconocido». Compatibilidad calculada con el shape densificado a 2 m (error ≤ 1 m). El ramal revelado coincide con la etiqueta ex post en 92–99 % de las salidas reveladas (180: 80 %; sus ramales casi idénticos).
+- **Contexto:** los 3 despachos previos de la cabecera a ≤ 90 min (secuencia, experto b) y los 6 previos (cuotas, experto q); hora × tipo de día (experto a). Tablas, hiperparámetros por validación cruzada por bloques de días y pesos del producto de expertos como en `prior.py` (modelo cq), train 2026-07-20 → 09-14, test 09-15 → 10-14 (128 433 salidas con etiqueta).
+- **Consulta:** en t = `det_ts` del despacho + D, con D = 0, 120, 300, 600, 1200 y 2400 s; el contexto es lo que los previos revelaron hasta ese instante.
+- **Modos para el previo no revelado** (se probaron los dos): `token` (ficha «desconocido»; tablas entrenadas con el mismo contexto causal para cada D) y `cadena` (tablas del techo; el previo no revelado entra con su propia P predicha, marginalizada, y las cuotas con conteos esperados).
+- **Techo** = mismo detector de salidas con el ramal ex post de los previos (equivalente al informe: 39 acc 0,702 / logloss 0,716 contra 0,699 / 0,712).
+
+### Resultados en test (acc / logloss; todas las cabeceras multi-ramal de la línea juntas; D = 300 s)
+
+| Línea | n | freq | techo (ex post) | causal token | causal cadena |
+|---|---|---|---|---|---|
+| 39 | 14 425 | 0.370 / 1.093 | 0.702 / 0.716 | 0.540 / 0.905 | 0.536 / 0.914 |
+| 168 | 3 760 | 0.545 / 0.689 | 0.668 / 0.608 | 0.608 / 0.639 | 0.607 / 0.642 |
+| 132 | 16 789 | 0.550 / 0.775 | 0.701 / 0.629 | 0.635 / 0.680 | 0.609 / 0.713 |
+| 106 | 10 040 | 0.609 / 0.669 | 0.700 / 0.578 | 0.711 / 0.573 | 0.699 / 0.583 |
+| 42 | 5 337 | 0.493 / 0.940 | 0.589 / 0.831 | 0.561 / 0.837 | 0.566 / 0.827 |
+| 33 | 6 828 | 0.360 / 1.301 | 0.662 / 0.885 | 0.388 / 1.249 | 0.409 / 1.232 |
+| 110 | 8 576 | 0.508 / 0.693 | 0.841 / 0.404 | 0.650 / 0.602 | 0.654 / 0.605 |
+| 181 | 6 299 | 0.507 / 0.693 | 0.856 / 0.402 | 0.628 / 0.635 | 0.593 / 0.652 |
+| 9 | 8 550 | 0.529 / 0.813 | 0.769 / 0.540 | 0.647 / 0.673 | 0.627 / 0.692 |
+| 20 | 4 751 | 0.594 / 0.673 | 0.781 / 0.488 | 0.712 / 0.542 | 0.690 / 0.562 |
+| 85 | 5 031 | 0.542 / 0.998 | 0.682 / 0.725 | 0.555 / 0.959 | 0.553 / 0.960 |
+| 180 | 11 482 | 0.325 / 1.447 | 0.475 / 1.169 | 0.387 / 1.285 | 0.377 / 1.290 |
+| 98 | 18 144 | 0.431 / 1.263 | 0.578 / 1.042 | 0.487 / 1.183 | 0.468 / 1.204 |
+| 188 | 8 421 | 0.423 / 1.226 | 0.554 / 0.992 | 0.518 / 1.068 | 0.497 / 1.088 |
+| **Todas** | 128 433 | 0.472 / 0.991 | 0.670 / 0.753 | **0.564 / 0.881** | 0.552 / 0.894 |
+
+Agregado por D (acc / logloss; freq 0.472 / 0.991, techo 0.670 / 0.753):
+
+| D (s) | token | cadena |
+|---|---|---|
+| 0 | 0.538 / 0.907 | 0.524 / 0.919 |
+| 300 | 0.564 / 0.881 | 0.552 / 0.894 |
+| 1200 | 0.581 / 0.858 | 0.568 / 0.873 |
+
+- **Cuánto del techo queda:** a D = 300 s el prior causal recupera el 46 % de la ganancia de acierto y de logloss del techo sobre la base de frecuencias (D = 1200 s: 55–56 %). En la 39: 0.370 → 0.540 (techo 0.702); 132: 0.550 → 0.635 (0.701); 168: 0.545 → 0.608 (0.668); 106 y 20 casi llegan al techo (0.711 contra 0.700; 0.712 contra 0.781).
+- **Token contra cadena:** `token` gana en logloss en el agregado (0.881 contra 0.894 a D = 300) y en 10 de 14 líneas; en el subconjunto en que el propio coche aún no reveló su ramal (el que importa en el replay) quedan iguales (0.952 / 0.948). Se usa `token` como principal y se prueba `cadena` en el replay.
+- **No sirve donde el ramal no se revela:** 33 (los cuatro ramales comparten shape en el mismo trazado: nunca se reduce a uno) queda en 0.388 contra 0.662 del techo, y 85 y 180 casi no mejoran (0.555, 0.387). En la 168, 98 y 181 el ramal se revela recién tras 20–60 min (la troncal compartida es larga): con D = 300 s casi ningún previo está revelado y el prior se parece a hora × día.
+- **Revelación del propio coche** (% de salidas con ramal revelado a det + D): 106 85 % a 2 min, 99 % a 5 min; 110 46 % (el resto nunca: ramales con trazado igual); 39 11 % a 5 min, 41 % a 10 min, 55 % a 40 min; 132 27 % a 5 min; 98 9 % a 10 min, 51 % a 40 min; 33, 168 y 180 casi nunca en 40 min. Detalle por línea en `causal/evalua_out.txt`.
+- **Calibración** (deciles de P por par salida-ramal, D = 300 s): ECE techo 0,009, token 0,004, cadena 0,005. Resolución: P ≥ 0,8 en el 33 % de las salidas con acierto 0,870 (techo); 12,7 % con acierto 0,865 (token); P ≥ 0,6: 65 % con 0,779 (techo) y 42 % con 0,746 (token). El prior causal queda bien calibrado pero con menos resolución (menos P altas).
+
+### Salvedades
+- Es la misma muestra de eventos con etiqueta ex post: el acierto absoluto incluye error de etiqueta (180, 168: acuerdo revelado/ex post 80 y 93 %).
+- El detector de salidas pierde ~8 % de los despachos ex post (85: 40 %) y no hay verdad independiente (CuandoSubo) para estas líneas.
+- La revelación usa shapes de la cabecera: asume que el coche acaba de salir de ella. Los umbrales del detector (150/250 m, 30 min) no se ajustaron por línea.
+- El contexto de los previos usa la hora de revelación con los pings de la grabación (30 s de intervalo); en producción sería la misma señal con el historial de 20 min de la app.

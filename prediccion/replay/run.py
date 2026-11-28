@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from prediccion.replay import core
+from prediccion.replay import core, prior_ramal
 from prediccion.replay.pinned import path_reference as PR
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -101,9 +101,12 @@ def run_day(a):
             continue
         stops = core.prepare_stops(bundle, ln, kw["shapes_dir"], kw["stops"])
         cs_out = [] if cs_rid is not None else None
+        pctx = None
+        if any(v in prior_ramal.VARIANTS for v in variants):
+            pctx = prior_ramal.PriorCtx.load(day, ln, bundle.lines[ln], kw["prior_dir"])
         with core.memoized():
             rv, ri = core.evaluate_line(bundle, ln, vs, stops, insts, variants, day, ts_offset_s=kw["ts_offset"],
-                                        cs_rid=cs_rid, cs_out=cs_out)
+                                        cs_rid=cs_rid, cs_out=cs_out, prior_ctx=pctx)
             core.MEMO.clear()
         if cs_out:
             pd.DataFrame(cs_out).to_parquet(out / f"{day}_{ln}.cs.parquet")
@@ -128,10 +131,13 @@ def main():
                     help="copia de ROUTE_AGENCY_MAP vigente en los días de --cs-days (variante cs)")
     ap.add_argument("--cs-table", default=str(ROOT.parent / "proyectoconsola/public/config/ramal_cuandosubo.json"))
     ap.add_argument("--cs-days", default="", help="días en que --cs-map resuelve los route_id (ver FILTRO_RAMAL_CS.md); la variante cs solo corre ahí")
+    ap.add_argument("--shapes-dir", default=str(ROOT.parent / "proyectoconsola/data/line_shapes"),
+                    help="line_shapes/{linea}.json con ramales[].stops (paradas); para v4 usar data/backup_line_shapes_2026-11-26 (= shapes del export)")
+    ap.add_argument("--prior-dir", default=str(ROOT / "data/ml/replay/prior"), help="P_eventos.parquet y meta.json del prior causal (variantes prior_*)")
     ap.add_argument("--ts-offset", type=float, default=core.CABA_TS_OFFSET_S, help="corrimiento del sello de CABA descontado del ETA anunciado (s)")
     a = ap.parse_args()
     kw = dict(model=a.model, out=a.out, data_dir=a.data_dir, label_map=str(ROOT / "LABEL_LINE_MAP.json"),
-              shapes_dir=str(ROOT.parent / "proyectoconsola/data/line_shapes"), variants=tuple(a.variants.split(",")),
+              shapes_dir=a.shapes_dir, prior_dir=a.prior_dir, variants=tuple(a.variants.split(",")),
               stops=a.stops, step_min=a.step_min, ts_offset=a.ts_offset,
               cs_map=a.cs_map, cs_table=a.cs_table, cs_days=set(filter(None, a.cs_days.split(","))))
     days = a.days.split(",")

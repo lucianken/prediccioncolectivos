@@ -1,0 +1,261 @@
+{
+ "106|Liniers": {
+  "ramales": [
+   "106A",
+   "106B"
+  ],
+  "ntr": 18261,
+  "nte": 10040
+ },
+ "110|Facultad de Derecho": {
+  "ramales": [
+   "110-1",
+   "110-2"
+  ],
+  "ntr": 8491,
+  "nte": 4637
+ },
+ "110|Villa Martelli": {
+  "ramales": [
+   "110-1",
+   "110-2"
+  ],
+  "ntr": 7502,
+  "nte": 3939
+ },
+ "132|Cementerio de Flores": {
+  "ramales": [
+   "132C",
+   "132F",
+   "132ME"
+  ],
+  "ntr": 17495,
+  "nte": 9081
+ },
+ "132|Retiro": {
+  "ramales": [
+   "132C",
+   "132F"
+  ],
+  "ntr": 15210,
+  "nte": 7708
+ },
+ "168|La Boca": {
+  "ramales": [
+   "168",
+   "168C"
+  ],
+  "ntr": 6885,
+  "nte": 3760
+ },
+ "180|Caballito": {
+  "ramales": [
+   "180L",
+   "180SA",
+   "180SL",
+   "180SSA"
+  ],
+  "ntr": 8767,
+  "nte": 4472
+ },
+ "180|Kil\u00f3metro 29": {
+  "ramales": [
+   "180A",
+   "180L",
+   "180SA",
+   "180SL",
+   "180SSA",
+   "180x155n"
+  ],
+  "ntr": 11765,
+  "nte": 6151
+ },
+ "180|Puerto Madero": {
+  "ramales": [
+   "180A",
+   "180x155n"
+  ],
+  "ntr": 1652,
+  "nte": 859
+ },
+ "181|Boedo": {
+  "ramales": [
+   "181LM",
+   "181P"
+  ],
+  "ntr": 5764,
+  "nte": 3001
+ },
+ "181|Ramos Mej\u00eda": {
+  "ramales": [
+   "181LM",
+   "181P"
+  ],
+  "ntr": 6035,
+  "nte": 3298
+ },
+ "188|Cruce de Lomas": {
+  "ramales": [
+   "188-1",
+   "188-2",
+   "188-3",
+   "188E"
+  ],
+  "ntr": 10301,
+  "nte": 5257
+ },
+ "188|Plaza Italia": {
+  "ramales": [
+   "188-1",
+   "188-2",
+   "188E"
+  ],
+  "ntr": 5888,
+  "nte": 3164
+ },
+ "20|Cruce de Lomas": {
+  "ramales": [
+   "20-1",
+   "20-3"
+  ],
+  "ntr": 5619,
+  "nte": 2940
+ },
+ "20|Retiro": {
+  "ramales": [
+   "20-1",
+   "20-3"
+  ],
+  "ntr": 3622,
+  "nte": 1811
+ },
+ "33|Ciudad Universitaria": {
+  "ramales": [
+   "33CB",
+   "33CD",
+   "33MB",
+   "33MD"
+  ],
+  "ntr": 6946,
+  "nte": 3383
+ },
+ "33|San Jos\u00e9": {
+  "ramales": [
+   "33CB",
+   "33CD",
+   "33MB",
+   "33MD"
+  ],
+  "ntr": 6619,
+  "nte": 3445
+ },
+ "39|Barracas": {
+  "ramales": [
+   "39A",
+   "39B",
+   "39C"
+  ],
+  "ntr": 12904,
+  "nte": 6251
+ },
+ "39|Chacarita": {
+  "ramales": [
+   "39A",
+   "39B",
+   "39C"
+  ],
+  "ntr": 16452,
+  "nte": 8174
+ },
+ "42|Ciudad Universitaria": {
+  "ramales": [
+   "42A",
+   "42B"
+  ],
+  "ntr": 2170,
+  "nte": 1339
+ },
+ "42|Nueva Pompeya": {
+  "ramales": [
+   "42A",
+   "42B",
+   "42C"
+  ],
+  "ntr": 7647,
+  "nte": 3998
+ },
+ "85|Balneario Quilmes": {
+  "ramales": [
+   "85A",
+   "85G",
+   "85I"
+  ],
+  "ntr": 2178,
+  "nte": 1190
+ },
+ "85|Ciudadela Norte": {
+  "ramales": [
+   "85A",
+   "85G",
+   "85I"
+  ],
+  "ntr": 7594,
+  "nte": 3841
+ },
+ "98|Once": {
+  "ramales": [
+   "98-1",
+   "98-116",
+   "98-116R",
+   "98-116RN",
+   "98-2",
+   "98-3",
+   "98-5"
+  ],
+  "ntr": 17634,
+  "nte": 9430
+ },
+ "98|Quilmes": {
+  "ramales": [
+   "98-1",
+   "98-2"
+  ],
+  "ntr": 2374,
+  "nte": 1250
+ },
+ "98|Villa Espa\u00f1a": {
+  "ramales": [
+   "98-3",
+   "98-5"
+  ],
+  "ntr": 8113,
+  "nte": 4245
+ },
+ "98|Wilde": {
+  "ramales": [
+   "98-116",
+   "98-116R",
+   "98-116RN"
+  ],
+  "ntr": 6113,
+  "nte": 3219
+ },
+ "9|Retiro": {
+  "ramales": [
+   "9-1",
+   "9-2",
+   "9-E"
+  ],
+  "ntr": 8305,
+  "nte": 4320
+ },
+ "9|Villa Caraza": {
+  "ramales": [
+   "9-1",
+   "9-2",
+   "9-E"
+  ],
+  "ntr": 8209,
+  "nte": 4230
+ }
+}

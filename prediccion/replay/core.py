@@ -26,6 +26,7 @@ import numpy as np
 
 from prediccion.replay.pinned import path_reference as PR
 from prediccion.replay.pinned import geo_assign as G
+from prediccion.replay import prior_ramal as PRIOR
 
 # ── parámetros de producción (public/config/prediccion.json y app.js) ────────────────────────────────────────
 MAX_PING_AGE_S = 600       # maxPingAgeS: un coche con el último ping más viejo no se predice
@@ -521,7 +522,7 @@ def truth_at(vehicles, live, passes, passes2, stop_id, t):
 def evaluate_line(bundle, line: str, vehicles: list[Veh], stops: list[Stop], instants: list[int],
                   variants=VARIANTS, day: str = "", progress=None, ts_offset_s: float = CABA_TS_OFFSET_S,
                   cs_rid: dict | None = None, cs_out: list | None = None, truth_stats: dict | None = None,
-                  others_windows: dict | None = None, one_ping: tuple = ()):
+                  others_windows: dict | None = None, one_ping: tuple = (), prior_ctx=None):
     """
     Replay de una línea en un día. Devuelve (rows_veh, rows_inst): listas de dicts.
     rows_veh: un registro por (variante, parada, t, coche) para los coches listados o que cruzan la parada en 40 min.
@@ -537,6 +538,8 @@ def evaluate_line(bundle, line: str, vehicles: list[Veh], stops: list[Stop], ins
       {"vid","lo","j","t"} que entiende `historial_ca.install_fast_last_bus` (instalarlo antes).
     one_ping: nombres de `others_windows` que simulan la app recién abierta sin servicio (APP_CON_SERVICIO.md): cada coche trae solo
       su último ping, sin historial propio ni de los otros coches. Vacío = comportamiento de siempre.
+    prior_ctx: `prior_ramal.PriorCtx` del (día, línea) para las variantes `prior_*` / `memonly_*` / `memprior_*` (prior_ramal.VARIANTS): se
+      calculan sobre las predicciones de `base` (que debe ir antes en `variants`) y solo cambian la presentación de la lista.
     Debe llamarse dentro de `with memoized():`.
     """
     shapes = bundle.lines[line]
@@ -547,6 +550,8 @@ def evaluate_line(bundle, line: str, vehicles: list[Veh], stops: list[Stop], ins
     variants = tuple(v for v in variants if v != "cs" or use_cs)
     if others_windows:
         variants = tuple(others_windows)
+    if any(v in PRIOR.VARIANTS for v in variants):
+        assert variants[0] == "base", "las variantes prior se derivan de base: base debe ir primero"
     # verdad: pasos por cada parada (todos los coches con pings, estén o no visibles en t)
     compat_cache = compat_for(vehicles, shapes)
     passes, passes2 = _passes(vehicles, stops, shapes, compat_cache, truth_stats)
@@ -607,27 +612,33 @@ def evaluate_line(bundle, line: str, vehicles: list[Veh], stops: list[Stop], ins
             # verdad por coche
             tp_by, tp2_by, unv_by, past_by = truth_at(vehicles, live, passes, passes2, st.id, t)
             for var in variants:
-                preds = {}
-                n_fixed = 0
-                for vid, (j, lo) in live.items():
-                    v = by_id[vid]
-                    age = t - v.ts[j]
-                    if age > MAX_PING_AGE_S:
-                        continue
-                    hist = [{"ts": float(v.ts[i]), "lat": float(v.lat[i]), "lon": float(v.lon[i])} for i in range(lo, j)]
-                    if var in one_ping:
-                        hist = []
-                    veh = {"lat": float(v.lat[j]), "lon": float(v.lon[j]), "speed_mps": float(v.speed[j]), "ts": float(v.ts[j])}
-                    only, nofix = _allowed("base" if others_windows else var, v, float(v.ts[j]), dirs, all_ids, cs_only.get(vid))
-                    n_fixed += nofix
-                    if others_windows:
-                        others = [o for o in ow_lists[var] if o["vid"] != vid]
-                    else:
-                        others = [o for ovid, o in others_by_vid.items() if ovid != vid]
-                    preds[vid] = PR.predict_from_raw(bundle, line, veh, (st.lat, st.lon), float(t), history=hist,
-                                                     others=others, only_shapes=only, user_kind="parada",
-                                                     stop_recorridos=st.recorridos, snapshot_ts=snap, ts_offset_s=ts_offset_s)
-                lst = build_list(preds)
+                if var in PRIOR.VARIANTS:
+                    preds, n_fixed = base_preds, 0
+                    lst = PRIOR.list_for(var, base_lst, preds, prior_ctx, float(t))
+                else:
+                    preds = {}
+                    n_fixed = 0
+                    for vid, (j, lo) in live.items():
+                        v = by_id[vid]
+                        age = t - v.ts[j]
+                        if age > MAX_PING_AGE_S:
+                            continue
+                        hist = [{"ts": float(v.ts[i]), "lat": float(v.lat[i]), "lon": float(v.lon[i])} for i in range(lo, j)]
+                        if var in one_ping:
+                            hist = []
+                        veh = {"lat": float(v.lat[j]), "lon": float(v.lon[j]), "speed_mps": float(v.speed[j]), "ts": float(v.ts[j])}
+                        only, nofix = _allowed("base" if others_windows else var, v, float(v.ts[j]), dirs, all_ids, cs_only.get(vid))
+                        n_fixed += nofix
+                        if others_windows:
+                            others = [o for o in ow_lists[var] if o["vid"] != vid]
+                        else:
+                            others = [o for ovid, o in others_by_vid.items() if ovid != vid]
+                        preds[vid] = PR.predict_from_raw(bundle, line, veh, (st.lat, st.lon), float(t), history=hist,
+                                                         others=others, only_shapes=only, user_kind="parada",
+                                                         stop_recorridos=st.recorridos, snapshot_ts=snap, ts_offset_s=ts_offset_s)
+                    lst = build_list(preds)
+                    if var == "base":
+                        base_preds, base_lst = preds, lst
                 shown_ids = {x[0] for x in lst["shown"]}
                 grp = {x[0]: x for x in lst["seguro"] + lst["otros"]}
                 visible = set(preds)
@@ -648,6 +659,8 @@ def evaluate_line(bundle, line: str, vehicles: list[Veh], stops: list[Stop], ins
                 first_any = first_sure if lst["seguro"] else (lst["otros"][0][2] if lst["otros"] else np.nan)
                 first_sure0 = lst["eta0"][lst["seguro"][0][0]] if lst["seguro"] else np.nan
                 first_any0 = first_sure0 if lst["seguro"] else (lst["eta0"][lst["otros"][0][0]] if lst["otros"] else np.nan)
+                if "first_any" in lst:       # variantes prior (regla iii): el primer arribo anunciado lo fija la regla
+                    first_any, first_any0 = lst["first_any"]
                 real = sorted(tp_by.values())
                 real2 = sorted(tp2_by.values())
                 rows_inst.append({"variant": var, "line": line, "day": day, "stop_id": st.id, "stop_class": st.cls, "t": t,
