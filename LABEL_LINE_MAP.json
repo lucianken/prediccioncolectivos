@@ -374,6 +374,12 @@
           "agencyId": "13",
           "agencyName": "17 DE AGOSTO S.A.",
           "from": "2026-03-28",
+          "to": "2026-09-17"
+        },
+        {
+          "agencyId": "12",
+          "agencyName": "NUEVOS RUMBOS S.A.T.A.C.I.F.I.",
+          "from": "2026-09-18",
           "to": null
         }
       ],
@@ -382,6 +388,12 @@
           "suffix": "1336",
           "agencyId": "13",
           "from": "2026-03-28",
+          "to": "2026-09-17"
+        },
+        {
+          "suffix": "4820",
+          "agencyId": "12",
+          "from": "2026-09-18",
           "to": null
         }
       ]
