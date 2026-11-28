@@ -277,6 +277,22 @@ Motivo del orden: el modelo está estancado en ~54–56 s de MAE. Pasar de 48 a 
 
 Los pendientes cerrados están al final de la sección.
 
+### Lo de producción se muda a `bondi/red` (decisión del usuario, 2026-11-27)
+
+Roadmap del producto: `../bondi/docs/ROADMAP.md` (repo `lucianken/bondi`), secciones «Qué vive dónde», «Transición» y «Fase 1 — La red». Lo que corre en producción o define una regla que producción usa sale de este proyecto y pasa a `lucianken/bondi`, carpeta `red/`. **Este proyecto queda como investigación**: grabadores, datasets, entrenamiento, evaluación, replay y experimentos. No corre nada de producción y su desorden (`legacy/`, `docs_old/`, código del A3, `data/ml` versionado) no bloquea nada.
+
+Qué se muda (tareas F1.2–F1.8 del roadmap):
+- **Datos fuente** a `red/datos/`: `LABEL_LINE_MAP.json` con `pending_label_work.json` y su ciclo de resolución (fuente única: se borra el espejo de este proyecto), `prediccion/label_map/`, y los recorridos y paradas de `proyectoconsola/data/line_shapes/` con OSM, `official_ref` y paradas compartidas.
+- **Reglas y referencia** al paquete Python `red` (`red/python/red/`): `prediccion/v2/geo_assign.py`, la regla de sentido `trailing_run` y `prediccion/inference/path_reference.py`, la carga de recorridos y del map (`shapes_io.py`, lo que haga falta de `prediccion/v2/shapes.py`), el armado de entradas del modelo (`encode_time_np`, `stop_features_np`). El contrato `prediccion/INFERENCIA_PATH.md` pasa a `bondi/docs/contratos/`.
+- **Export y paquete** a `red/paquete/`: `prediccion/scripts/export_path_onnx.py`, `gen_path_parity_fixture.py` y la definición del modelo que usa el export. De un checkpoint sale un **paquete de datos** versionado con todo en un solo corte (modelo, recorridos, paradas, `LABEL_LINE_MAP`, calidad por línea). Los recorridos que dibuja la app, los del servicio de estado y los del modelo son los mismos archivos (motivo: la 42 con el Trambus, 2026-11-25/27, dibujaba el recorrido nuevo y el modelo de v4 seguía con el viejo; se arregló reexportando a mano). Cuando cambian los recorridos, un solo paso arma un paquete nuevo con los mismos pesos, sin reentrenar; cuándo además hace falta reentrenar sigue siendo de este proyecto (ítem 0b).
+- **Servicio de estado** a `red/estado/`: un contenedor junto al caché del producto que lee cada lote (con el historial de 20 min de cada coche) y devuelve por coche `candidatos: [{shape_id, p, sentido, d_m}]` y `version` (asignación y ramal juntos). La app deja de tener la asignación portada al JS. v0 = la asignación vigente tal cual, `p` = 1/n entre los compatibles con sentido conocido. El ítem 3 (asignación probabilística unificada) es una versión siguiente de este servicio. El producto no consume CuandoSubo: el parche de ramal de CuandoSubo y `csDestino` salen del producto.
+
+Cómo trabaja este proyecto después de la mudanza:
+- Importa el paquete `red` de `bondi` por versión (tag de git) y registra la versión en el `meta` de cada dataset y de cada corrida. La regla de §4.5 («la asignación se define una vez en el pipeline y la app la porta») pasa a ser: **la asignación se define una vez en `bondi/red` y la importan el pipeline y el servicio de estado**. Un cambio de regla se hace en `red/` con test; después este proyecto sube la versión que importa.
+- Su salida es un checkpoint entrenado; `red/paquete/` lo convierte en paquete y lo publica. El servidor del producto decide qué versión está activa.
+- Antes de borrar el código movido de acá, el pipeline y el replay tienen que dar los mismos resultados con el paquete importado que con el código anterior, sobre un día fijo.
+- Hasta que termine la mudanza siguen vigentes las fuentes actuales (`proyectoconsola/data/line_shapes/`, el espejo de `LABEL_LINE_MAP.json`, `data/ml/export/`). Cuando termine, actualizar §3, §4.5, §6.1 y §10.5 de este documento.
+
 ### Pendientes abiertos
 
 0. **Arreglar las líneas débiles.** Producto, prioridad máxima (decisión del usuario, 2026-11-27); los ítems 1–13 quedan por debajo y valen en la medida en que sirvan a este.

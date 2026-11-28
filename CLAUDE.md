@@ -4,6 +4,7 @@ Predicción de ETA de colectivos AMBA: grabador en la NUC → NDJSON diarios →
 
 ## Documento rector
 `ARQUITECTURA.md` manda sobre cualquier otro doc: objetivo, reglas, datos, pipeline, asignación, varas de medida, estado de producción, cómo correr y pendientes priorizados (§11).
+**Lo de producción se muda a `lucianken/bondi` (`red/`)**: `LABEL_LINE_MAP`, recorridos, asignación (`geo_assign`, `path_reference`), export ONNX, armado del paquete y servicio de estado. Este proyecto queda como investigación e importa el paquete `red` por versión. Detalle: ARQUITECTURA §11, «Lo de producción se muda a `bondi/red`»; reglas de convivencia: `../bondi/docs/ROADMAP.md`, sección «Transición». Mientras dure: los cambios de reglas se miden acá (replay) pero no se publican a producción; durante la ventana de mudanza (tarea F1.5 del roadmap) no se tocan `prediccion/v2/geo_assign.py`, `prediccion/inference/path_reference.py`, `prediccion/scripts/export_path_onnx.py`, `gen_path_parity_fixture.py` ni `prediccion/pipeline/shapes_io.py`.
 Resultados y registros de error: `RESULTADOS.md`. Historia y diseños abandonados (A3, ramal por route_id, research de junio): `docs_old/`; versión del 2026-11-10 en el tag git `pre-arquitectura-2026-11`.
 
 ## Stack
