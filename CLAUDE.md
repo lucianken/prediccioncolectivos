@@ -4,7 +4,12 @@ Predicción de ETA de colectivos AMBA: grabador en la NUC → NDJSON diarios →
 
 ## Documento rector
 `ARQUITECTURA.md` manda sobre cualquier otro doc: objetivo, reglas, datos, pipeline, asignación, varas de medida, estado de producción, cómo correr y pendientes priorizados (§11).
-**Lo de producción se muda a `lucianken/bondi` (`red/`)**: `LABEL_LINE_MAP`, recorridos, asignación (`geo_assign`, `path_reference`), export ONNX, armado del paquete y servicio de estado. Este proyecto queda como investigación e importa el paquete `red` por versión. Detalle: ARQUITECTURA §11, «Lo de producción se muda a `bondi/red`»; reglas de convivencia: `../bondi/docs/ROADMAP.md`, sección «Transición». Mientras dure: los cambios de reglas se miden acá (replay) pero no se publican a producción; durante la ventana de mudanza (tarea F1.5 del roadmap) no se tocan `prediccion/v2/geo_assign.py`, `prediccion/inference/path_reference.py`, `prediccion/scripts/export_path_onnx.py`, `gen_path_parity_fixture.py` ni `prediccion/pipeline/shapes_io.py`.
+**Lo de producción se muda a `lucianken/bondi` (`red/`)**: `LABEL_LINE_MAP`, recorridos, asignación, export ONNX, armado del paquete y servicio de identificación de recorrido. Este proyecto queda como investigación. Detalle: ARQUITECTURA §11, «Lo de producción se muda a `bondi/red`»; reglas de convivencia: `../bondi/docs/ROADMAP.md`, sección «Transición».
+
+**Reglas de producción: paquete `red`, importado por tag (desde 2026-11-28, F1.5).** La asignación de ping a recorrido y sentido (`red.geo_assign`), la referencia de inferencia (`red.path_reference`), la geometría (`red.geometria`: `ShapeIndex`, `ShapeGeo`), las paradas por tramo (`red.stops`), la carga del `LABEL_LINE_MAP` (`red.label_map`) y `encode_time_np` (`red.tiempo`) no existen en este repo: se importan de `red`. Versión fijada en `prediccion/requirements-train.txt` (hoy `red-v0.1.0`); cada dataset y cada corrida registra `red_version` en su `meta`.
+- **Cambiar una regla:** se cambia en `../bondi/red/python/` con su test, se publica un tag nuevo `red-vX.Y.Z` (la versión de `pyproject.toml`), y acá se sube el tag en `requirements-train.txt` y se reinstala (`& $PY -m pip install "red[proyeccion] @ git+https://github.com/lucianken/bondi@red-vX.Y.Z#subdirectory=red/python"`). Para medir una regla nueva antes de publicarla: `pip install -e ../bondi/red/python` en una rama de `bondi`, y el `meta` de la corrida dice qué versión usó.
+- Sin copias ni módulos de compatibilidad: si algo de `red` hace falta acá, se importa de `red`.
+- Siguen acá hasta el corte (F1.2): el espejo `LABEL_LINE_MAP.json` (lo lee el grabador de CuandoSubo de la NUC), `prediccion/v2/shapes.py` y `prediccion/label_map/`. Export y fixture de paridad (`export_path_onnx.py`, `gen_path_parity_fixture.py`) importan `red` y se mudan en F1.6.
 Resultados y registros de error: `RESULTADOS.md`. Historia y diseños abandonados (A3, ramal por route_id, research de junio): `docs_old/`; versión del 2026-11-10 en el tag git `pre-arquitectura-2026-11`.
 
 ## Stack
@@ -13,7 +18,7 @@ Resultados y registros de error: `RESULTADOS.md`. Historia y diseños abandonado
 - proyectoconsola: sirve el `.onnx` y es la fuente de shapes (`proyectoconsola/data/line_shapes/`).
 
 ## Mapa
-- `prediccion/v2/`: pipeline de dataset. `prediccion/train_path.py`, `eval.py`, `replay/`: entrenamiento, evaluación y vara de producto. `prediccion/scripts/run_v*.py`: lanzadores.
+- `prediccion/v2/`: pipeline de dataset (la asignación la importa de `red`). `prediccion/train_path.py`, `eval.py`, `replay/`: entrenamiento, evaluación y vara de producto. `prediccion/scripts/run_v*.py`: lanzadores.
 - `prediccion/INFERENCIA_PATH.md`: contrato de inferencia (modelo → app). `prediccion/SHAPES_PIPELINE.md`: shapes.
 - `prediccion/label_map/`: `scan_suffix_changes.py` y `apply_scan_results.py`, herramienta para cuando cambia la flota (el scan tiene fechas fijas de julio 2026: ajustarlas antes de reusarlo).
 - `grabador/`, `grabador_cuandosubo/`: captura de la API CABA y de CuandoSubo.

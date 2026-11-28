@@ -1,9 +1,9 @@
 # Inferencia del modelo por tramos en el navegador (contrato 2.3)
 
 Spec para implementar en JS (`onnxruntime-web`) la predicción de ETA del modelo por tramos (`models/path_eta.py`, ARQUITECTURA §6.2).
-Especificación ejecutable: `prediccion/inference/path_reference.py` (`predict_from_raw`), probada contra el pipeline de eval en `prediccion/tests/test_path_export.py`. Ante duda, manda el código de referencia.
+Especificación ejecutable: `red.path_reference` (`predict_from_raw`; paquete `red` de `bondi`, hasta 2026-11-28 en `prediccion/inference/path_reference.py`), probada contra el pipeline de eval en `prediccion/tests/test_path_export.py`. Ante duda, manda el código de referencia.
 
-**La asignación de un ping a recorrido y sentido (§4) no se define en la app ni en la referencia: es la de `prediccion/v2/geo_assign.py`, la misma que usa el pipeline de entrenamiento** (ARQUITECTURA.md §4.5). La referencia importa ese módulo; el cliente reproduce sus reglas con los valores de `manifest.assignment`. La app no tiene reglas de asignación propias.
+**La asignación de un ping a recorrido y sentido (§4) no se define en la app ni en la referencia: es la de `red.geo_assign` (paquete `red` de `bondi`), la misma que usa el pipeline de entrenamiento** (ARQUITECTURA.md §4.5). La referencia importa ese módulo; el cliente reproduce sus reglas con los valores de `manifest.assignment`. La app no tiene reglas de asignación propias.
 
 Reemplaza a `INFERENCE_GUIDE.md` (A3 viejo, ramal conocido; en `docs_old/`).
 
@@ -73,13 +73,13 @@ Por cada tramo del paso 2, con `lo = max(k·step, d_P)` y `hi = min((k+1)·step,
 - `seg_stop_n` = cantidad de paradas con `lo ≤ parada < hi` (búsqueda `lower_bound` izquierda: la parada exactamente en `hi` pertenece al tramo siguiente; la que está en `lo`, a este).
 - `seg_stop_next` = `min(p − lo, stops.next_cap_m)` con `p` = primera parada `≥ lo`; sin parada `≥ lo`: `next_cap_m` (1000 m). Va en metros: el ONNX la divide por `next_cap_m`.
 
-Un shape sin paradas (`stops_m = []`) da `seg_stop_n = 0` y `seg_stop_next = next_cap_m` en todos los tramos (así se entrenó). Referencia: `stop_features_np` (`prediccion/models/stops.py`), usada por `build_segments`. El relleno de tramos inexistentes es 0 en ambas entradas. Un cliente toma `next_cap_m` del manifest.
+Un shape sin paradas (`stops_m = []`) da `seg_stop_n = 0` y `seg_stop_next = next_cap_m` en todos los tramos (así se entrenó). Referencia: `stop_features_np` (`red.stops`), usada por `build_segments`. El relleno de tramos inexistentes es 0 en ambas entradas. Un cliente toma `next_cap_m` del manifest.
 
 ## 4. Proyección y elección de candidatos de ramal
 
 Proyección de un punto sobre un shape (`Shape.project`): distancia acumulada con ángulo pequeño (`dy = Δlat·111320`, `dx = Δlon·111320·cos(lat media del segmento)`); segmento de menor distancia perpendicular con `t` recortado a [0, 1]; devuelve `(metros desde el inicio, perp)`; con empate (perp a ≤ 1e-6 m de la mínima, típico de un recorrido que repite la misma calle) gana el primer segmento: el ruido de coma flotante no puede decidir el tramo (`PROJECT_TIE_M` de `path_reference.py`). Recorrer todos los segmentos (≤ ~720 puntos por shape) alcanza.
 
-### Asignación de ping a recorrido y sentido (`geo_assign.py`)
+### Asignación de ping a recorrido y sentido (`red.geo_assign`)
 
 Parámetros en `manifest.assignment` (el cliente las lee del manifest, sin valores propios, y rechaza un manifest sin alguno de ellos o con contract_version distinta de 2.x; la referencia verifica que coincidan con el módulo): `tol_m` (T), `margin_m` (M), `history_window_s`, `direction_rule` (cadena, `trailing_run`), `min_near_pings`, `min_forward_frac`, `min_net_forward_m`, `step_moving_m`, `step_jump_m`, `stop_max_perp_m`, `stop_fallback_perp_m`, `heading_tol_deg`.
 
